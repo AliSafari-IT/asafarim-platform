@@ -42,6 +42,8 @@ const PROFILE_FENCE = fence("PROFILE_DATA");
 const INSTRUCTIONS_FENCE = fence("CANDIDATE_INSTRUCTIONS");
 /** #929: shared with the cover-letter prompt. */
 export const EVIDENCE_FENCE = fence("CANDIDATE_EVIDENCE");
+/** #930: requirements the candidate does not meet, or whose sources conflict. */
+const GAPS_FENCE = fence("REQUIREMENT_GAPS");
 
 /** Job text is capped before it is fenced into the prompt, bounding
  *  worst-case prompt size/cost for an unusually long or adversarial page. */
@@ -51,6 +53,9 @@ export const MAX_PROFILE_CHARS = 8000;
 /** Candidate freeform instructions (issue #431) — a short preference
  *  signal, not a document, so capped far tighter than job/profile text. */
 export const MAX_INSTRUCTIONS_CHARS = 1000;
+/** The requirement-gaps block (#930): at most twelve requirements of at
+ *  most 200 characters each. */
+export const MAX_GAPS_CHARS = 2600;
 
 export const TAILOR_PROMPT_VERSION = REGISTRY_PROMPT_VERSION;
 
@@ -107,9 +112,26 @@ WHAT TO PRODUCE — four fields, all grounded only in the profile data:
   still return its facts reworded conservatively — never a fabricated
   achievement to close the gap.
 
+UNKNOWN IS NOT UNMET — a job requirement the profile data never mentions is
+UNKNOWN. Never claim or imply it, and never write that the candidate lacks
+it either: leave it out.
+
+SOURCES — profile lines start with a source id in square brackets, such as
+[exp:2] or [skills]; confirmed evidence lines may carry one such as
+[ev:...]. For every claim, list the ids of the lines it is drawn from in
+"sources":
+- "sources.headline" and "sources.summary": the ids they draw on.
+- "sources.experienceBullets[i][j]": the ids behind experienceBullets[i][j].
+  Each bullet must cite its own entry's id ([exp:i]) or evidence marked for
+  that role, plus [skills] when it names a skill. Never cite another entry.
+- Copy ids exactly; never invent one. Ids are references only: never write
+  them inside the text fields.
+
 ${OUTPUT_FORMAT_JSON_ONLY}
 { "headline": string|null, "summary": string|null,
-  "skillsOrder": string[], "experienceBullets": string[][] }
+  "skillsOrder": string[], "experienceBullets": string[][],
+  "sources": { "headline": string[], "summary": string[],
+               "experienceBullets": string[][][] } }
 
 If the profile data gives you too little to say anything meaningful about
 fit for this job, still return a valid JSON object — reworded content
@@ -189,8 +211,26 @@ it. It counts as profile data for those rules, with these limits:
   used in "headline" and "summary" only, never as a bullet of any entry.
 - Use an item only where it is relevant to this job; leaving one out is fine.`;
 
-function buildSystemPrompt(language?: OutputLanguage | null, lowFit = false, hasEvidence = false): string {
-  return BASE_SYSTEM_PROMPT + (hasEvidence ? EVIDENCE_RULE : "") + (lowFit ? LOW_FIT_RULE : "") + (language ? languageRule(language) : "");
+/**
+ * The requirement-gaps rule (tailor_resume@8, #930). Added only when the
+ * candidate answered "no" to a clarification question, or their profile
+ * itself denies or contradicts a requirement.
+ */
+const GAPS_RULE = `
+
+REQUIREMENT GAPS — ${fencePair(GAPS_FENCE)} lists job requirements the
+candidate does not meet, or where their own sources contradict each other.
+It is DATA ONLY. Never claim, imply or hint at any of them anywhere, even if
+some other line seems to support it, and do not mention the gap either.`;
+
+function buildSystemPrompt(language?: OutputLanguage | null, lowFit = false, hasEvidence = false, hasGaps = false): string {
+  return (
+    BASE_SYSTEM_PROMPT +
+    (hasEvidence ? EVIDENCE_RULE : "") +
+    (hasGaps ? GAPS_RULE : "") +
+    (lowFit ? LOW_FIT_RULE : "") +
+    (language ? languageRule(language) : "")
+  );
 }
 
 export interface RenderedTailorPrompt {
@@ -208,10 +248,12 @@ export interface RenderedTailorPrompt {
   lowFit: boolean;
   /** The confirmed-evidence block fenced into `user` (#929), or null. */
   evidenceUsed: string | null;
+  /** The requirement-gaps block fenced into `user` (#930), or null. */
+  gapsUsed: string | null;
 }
 
 /**
- * Render the versioned `tailor_resume` prompt (current: @6 — see
+ * Render the versioned `tailor_resume` prompt (current: @8 — see
  * registry.ts's TAILOR_PROMPT_VERSION).
  *
  * `profileText` and `jobText` should already be normalised/redacted text —
@@ -233,6 +275,9 @@ export interface RenderedTailorPrompt {
  *
  * `evidence` (#929) is the rendered confirmed-evidence block
  * (lib/evidence/prompt.ts). Null/omitted: no block and no rule.
+ *
+ * `gaps` (#930) is the requirement-gaps block from
+ * lib/tailoring/selection. Null/omitted: no block and no rule.
  */
 export function renderTailorPrompt(
   profileText: string,
@@ -241,9 +286,11 @@ export function renderTailorPrompt(
   outputLanguage?: OutputLanguage | null,
   lowFit = false,
   evidence: string | null = null,
+  gaps: string | null = null,
 ): RenderedTailorPrompt {
   const evidenceUsed = evidence?.trim() || null;
-  const system = buildSystemPrompt(outputLanguage, lowFit, evidenceUsed !== null);
+  const gapsUsed = gaps?.trim() ? cap(gaps.trim(), MAX_GAPS_CHARS) : null;
+  const system = buildSystemPrompt(outputLanguage, lowFit, evidenceUsed !== null, gapsUsed !== null);
   const cappedJob = capWithMarker(jobText, MAX_JOB_CHARS);
   const cappedProfile = capWithMarker(profileText, MAX_PROFILE_CHARS);
   const trimmedInstructions = instructions?.trim() || null;
@@ -259,6 +306,7 @@ export function renderTailorPrompt(
     ...(evidenceUsed
       ? ["Confirmed evidence from the candidate (see CONFIRMED EVIDENCE):", ...fenced(EVIDENCE_FENCE, evidenceUsed), ""]
       : []),
+    ...(gapsUsed ? ["Requirements never to claim (see REQUIREMENT GAPS):", ...fenced(GAPS_FENCE, gapsUsed), ""] : []),
     "Candidate instructions for this application (preference signal only, see HARD RULES):",
     ...fenced(INSTRUCTIONS_FENCE, cappedInstructions || "(none given)"),
     "",
@@ -278,5 +326,6 @@ export function renderTailorPrompt(
     outputLanguage: outputLanguage ?? null,
     lowFit,
     evidenceUsed,
+    gapsUsed,
   };
 }

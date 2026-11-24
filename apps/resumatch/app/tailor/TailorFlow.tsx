@@ -11,6 +11,7 @@ import { CoverLetterQualityChecklist } from "../../components/tailoring/CoverLet
 import { TailoringLoader } from "../../components/tailoring/TailoringLoader";
 import { JobFitPanel } from "../../components/tailoring/JobFitPanel";
 import { EvidencePanel } from "../../components/tailoring/EvidencePanel";
+import { RequirementsPanel } from "../../components/tailoring/RequirementsPanel";
 import { ReviewBulletsEditor, ReviewSkillsEditor } from "../../components/tailoring/ReviewEditors";
 import { MAX_PROPOSED_SKILLS, NO_CANDIDATE_EDITS, ownBulletsByRole } from "../../lib/tailoring/candidateEdits";
 import {
@@ -22,6 +23,7 @@ import {
   type ReviewBullet,
 } from "../../lib/tailoring/reviewEdits";
 import type { RegenerateSeed } from "../../lib/tailoring/regenerate";
+import type { ReviewBulletMeta } from "../../lib/tailoring/reviewEdits";
 import { ownSummaryOf, type SavedReviewSeed } from "../../lib/tailoring/editSaved";
 import type { JobFit } from "../../lib/tailoring/jobFit";
 import {
@@ -123,6 +125,13 @@ interface ReviewState {
   lowFit: boolean;
   /** How many confirmed evidence items the run used (#929). */
   evidenceUsed?: number;
+  /** #930: claim-check flags on the AI headline and summary (empty: none),
+   *  how many AI suggestions were flagged, and how many job requirements
+   *  the profile does not back (so the CV does not claim them). */
+  headlineFlags?: string[];
+  summaryFlags?: string[];
+  flaggedClaims?: number;
+  unbackedRequirements?: number;
   headline: string;
   summary: string;
   /** The summary the review started with before any typing (the AI's,
@@ -186,6 +195,8 @@ const FETCH_FAILURE_CODES = new Set([
 ]);
 
 type Mode = "url" | "paste" | "email" | "upload" | "manual";
+
+const NO_IDS: string[] = [];
 
 /** Mirrors lib/tailoring/ai/prompts.ts's MAX_INSTRUCTIONS_CHARS — kept as a
  *  local constant rather than imported, so this Client Component never
@@ -294,12 +305,20 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
   const [fit, setFit] = useState<{ targetJobId: string; fit: JobFit } | null>(null);
   // The candidate's explicit "yes, tailor anyway" for a low-fit job.
   const [lowFitConfirmedFor, setLowFitConfirmedFor] = useState<string | null>(null);
+  // #930: requirement ids the candidate answered "no" to, for the job on
+  // the card; and a counter that refreshes coverage and the evidence list
+  // after an answer is saved as evidence.
+  const [unmetRequirements, setUnmetRequirements] = useState<{ targetJobId: string; ids: string[] } | null>(null);
+  const [evidenceVersion, setEvidenceVersion] = useState(0);
+  const [evidenceUsedCount, setEvidenceUsedCount] = useState<number | null>(null);
+  const [evidenceRevisionsKey, setEvidenceRevisionsKey] = useState("");
   const [lastFetched, setLastFetched] = useState<FetchedJob | null>(editSeed?.job ?? seed?.job ?? null);
 
   const showFetched = useCallback((body: Record<string, any>) => {
     const job: FetchedJob = { targetJobId: body.id, title: body.title, employer: body.employer, snippet: body.snippet };
     setFit(null);
     setLowFitConfirmedFor(null);
+    setUnmetRequirements(null);
     setLastFetched(job);
     setState({ kind: "fetched", ...job });
   }, []);
@@ -482,6 +501,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
             instructions: instructions.trim() || undefined,
             outputLanguage: cvLanguage,
             proceedDespiteLowFit: lowFitConfirmedFor === targetJobId ? true : undefined,
+            unmetRequirementIds: unmetRequirements?.targetJobId === targetJobId && unmetRequirements.ids.length > 0 ? unmetRequirements.ids : undefined,
           }),
         });
         const body = await readJsonBody(res);
@@ -530,6 +550,30 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
           }[];
         };
 
+        // #930: the claim check, and a readable label per cited source id.
+        const claimCheck = body.claimCheck as
+          | { claims: { field: string; experienceIndex: number | null; bulletIndex: number | null; sourceIds: string[]; flags: string[] }[]; flagged: number }
+          | null
+          | undefined;
+        const sourceLabels = new Map<string, string>(
+          ((body.sources ?? []) as { id: string; kind: string; label: string }[]).map((source) => [
+            source.id,
+            source.kind === "evidence"
+              ? t("resumatch.claims.source.evidence", { title: source.label })
+              : source.id.startsWith("exp:")
+                ? source.label
+                : t(`resumatch.claims.source.${source.id.split(":")[0]}`),
+          ]),
+        );
+        const claimFor = (field: string, experienceIndex: number | null = null, bulletIndex: number | null = null) =>
+          claimCheck?.claims.find((c) => c.field === field && c.experienceIndex === experienceIndex && c.bulletIndex === bulletIndex);
+        const bulletMeta = (experienceIndex: number, count: number): (ReviewBulletMeta | undefined)[] =>
+          Array.from({ length: count }, (_, bulletIndex) => {
+            const claim = claimFor("bullet", experienceIndex, bulletIndex);
+            return claim ? { sources: claim.sourceIds.map((id) => sourceLabels.get(id) ?? id), flags: claim.flags } : undefined;
+          });
+        const requirementStatuses = ((body.requirements ?? []) as { status: string }[]).map((r) => r.status);
+
         // "Regenerate": the saved CV's own hand edits come back.
         const seedEdits = seed && seed.job.targetJobId === targetJobId ? seed.candidateEdits : NO_CANDIDATE_EDITS;
         const suggestedOrder = orderProfileSkills(suggestions?.skillsOrder ?? [], profile.skills);
@@ -544,6 +588,10 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
           outputLanguage: isOutputLanguage(body.outputLanguage) ? body.outputLanguage : null,
           lowFit: body.lowFit === true,
           evidenceUsed: typeof body.evidenceUsed === "number" ? body.evidenceUsed : 0,
+          headlineFlags: suggestions?.headline ? (claimFor("headline")?.flags ?? []) : [],
+          summaryFlags: suggestions?.summary && !seedEdits.ownSummary ? (claimFor("summary")?.flags ?? []) : [],
+          flaggedClaims: claimCheck?.flagged ?? 0,
+          unbackedRequirements: requirementStatuses.filter((status) => status !== "supported").length,
           headline: suggestions?.headline ?? profile.headline ?? "",
           // "Regenerate" keeps the candidate's own summary; otherwise the
           // AI's, or the profile's when the AI wrote none.
@@ -567,7 +615,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
               endedOn: entry.endedOn,
               isCurrent: entry.isCurrent,
               originalSummary: entry.summary,
-              bullets: buildReviewBullets(suggestedBullets, ownBullets, entry.summary, nextBulletKey),
+              bullets: buildReviewBullets(suggestedBullets, ownBullets, entry.summary, nextBulletKey, bulletMeta(index, suggestedBullets.length)),
             };
           }),
           // A degraded letter has no suggestion; it still gets an entry (with
@@ -603,6 +651,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
       instructions,
       cvLanguage,
       lowFitConfirmedFor,
+      unmetRequirements,
       lastFetched,
       seed,
       nextBulletKey,
@@ -985,7 +1034,21 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
                 {t("resumatch.flow.instructions.counter", { count: instructions.length, max: INSTRUCTIONS_MAX_CHARS })}
               </span>
             </label>
-            <EvidencePanel key={state.targetJobId} targetJobId={state.targetJobId} />
+            <RequirementsPanel
+              key={`requirements-${state.targetJobId}`}
+              targetJobId={state.targetJobId}
+              profileVersionId={confirmedVersionId}
+              unmet={unmetRequirements?.targetJobId === state.targetJobId ? unmetRequirements.ids : NO_IDS}
+              onUnmetChange={(ids) => setUnmetRequirements({ targetJobId: state.targetJobId, ids })}
+              refreshKey={`${evidenceVersion}:${evidenceUsedCount ?? "-"}:${evidenceRevisionsKey}`}
+              onEvidenceAdded={() => setEvidenceVersion((n) => n + 1)}
+            />
+            <EvidencePanel
+              key={`${state.targetJobId}:${evidenceVersion}`}
+              targetJobId={state.targetJobId}
+              onUsedCountChange={setEvidenceUsedCount}
+              onUsedRevisionsChange={setEvidenceRevisionsKey}
+            />
             <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", margin: "0.5rem 0" }}>
               <input
                 type="checkbox"
@@ -1087,6 +1150,18 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
                   </p>
                 ) : null}
 
+                {state.review.flaggedClaims ? (
+                  <p className="rm-claim-flag" data-testid="claims-flagged-note">
+                    {t("resumatch.claims.flaggedNote", { count: state.review.flaggedClaims })}
+                  </p>
+                ) : null}
+
+                {state.review.unbackedRequirements ? (
+                  <p className="rm-evidence__review-note" data-testid="requirements-review-note">
+                    {t("resumatch.requirements.reviewNote", { count: state.review.unbackedRequirements })}
+                  </p>
+                ) : null}
+
                 {state.review.instructions ? (
                   <p style={{ color: "var(--muted)", fontSize: "0.82rem", fontStyle: "italic" }}>
                     {t("resumatch.review.steering", { note: state.review.instructions })}
@@ -1101,7 +1176,13 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
                     value={state.review.headline}
                     onChange={(e) => updateReview("headline", e.target.value)}
                     disabled={state.kind === "confirming"}
+                    aria-describedby={state.review.headlineFlags?.length ? "rm-review-headline-flag" : undefined}
                   />
+                  {state.review.headlineFlags?.length ? (
+                    <p id="rm-review-headline-flag" className="rm-claim-flag">
+                      {t("resumatch.claims.fieldFlag")}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="rm-review__section">
@@ -1112,9 +1193,14 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
                     value={state.review.summary}
                     onChange={(e) => updateReview("summary", e.target.value)}
                     disabled={state.kind === "confirming"}
-                    aria-describedby="rm-review-summary-help"
+                    aria-describedby={state.review.summaryFlags?.length ? "rm-review-summary-help rm-review-summary-flag" : "rm-review-summary-help"}
                     maxLength={2000}
                   />
+                  {state.review.summaryFlags?.length ? (
+                    <p id="rm-review-summary-flag" className="rm-claim-flag">
+                      {t("resumatch.claims.fieldFlag")}
+                    </p>
+                  ) : null}
                   <div className="rm-review__summary-tools">
                     <small id="rm-review-summary-help">{t("resumatch.review.summaryHelp")}</small>
                     {state.review.profileSummary?.trim() &&

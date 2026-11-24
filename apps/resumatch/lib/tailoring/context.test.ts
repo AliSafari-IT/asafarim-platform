@@ -147,6 +147,7 @@ describe("parseStoredTailoringContext", () => {
       coverLetter: { outputLanguage: null, tone: "formal", length: "standard" },
       preferenceRevisionId: null,
       evidenceRevisionIds: [],
+      selection: null,
     });
   });
 });

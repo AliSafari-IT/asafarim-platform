@@ -72,7 +72,17 @@ function roleValue(roles: ExperienceRef[], role: ExperienceRef | null): string {
   return index >= 0 ? roleKey(roles[index]!) : KEPT_ROLE;
 }
 
-export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId: string; onUsedCountChange?: (count: number) => void }) {
+export function EvidencePanel({
+  targetJobId,
+  onUsedCountChange,
+  onUsedRevisionsChange,
+}: {
+  targetJobId: string;
+  onUsedCountChange?: (count: number) => void;
+  /** #930: the revisions the next run would use, as one key. It changes on
+   *  an edit too, not only when the count does. */
+  onUsedRevisionsChange?: (key: string) => void;
+}) {
   const { t } = useTranslation();
   const formId = useId();
   const [items, setItems] = useState<EvidenceView[] | null>(null);
@@ -105,6 +115,10 @@ export function EvidencePanel({ targetJobId, onUsedCountChange }: { targetJobId:
   useEffect(() => {
     onUsedCountChange?.(usedCount);
   }, [usedCount, onUsedCountChange]);
+  const usedRevisions = items === null ? null : items.filter((item) => item.excludedBecause === null).map((item) => item.revisionId).join(",");
+  useEffect(() => {
+    if (usedRevisions !== null) onUsedRevisionsChange?.(usedRevisions);
+  }, [usedRevisions, onUsedRevisionsChange]);
 
   async function send(url: string, method: string, body: unknown): Promise<{ ok: boolean; status: number; data: { error?: string; code?: string } | null }> {
     const res = await fetch(url, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });

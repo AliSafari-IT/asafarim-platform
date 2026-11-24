@@ -180,6 +180,32 @@ describe("generate-confirm request context (#928)", () => {
     expect(resumeCreate.mock.calls[0]![0].data.tailoringContext).toMatchObject({ evidenceRevisionIds: ["ev_1_r1"] });
   });
 
+  it("re-selects over-budget evidence the way the preview did: by job relevance (#930, #948 review)", async () => {
+    // Three items, only two fit the budget. Oldest first would keep 1 and 2;
+    // the preview ranked by relevance and kept 3 (it mentions PostgreSQL).
+    const filler = "Kept the office running smoothly every day. ".repeat(44);
+    const row = (n: number, detail: string) => ({
+      id: `ev_${n}`,
+      workspaceId: "ws_1",
+      scope: "BACKGROUND",
+      targetJobId: null,
+      createdAt: new Date(2026, 0, n),
+      updatedAt: new Date(2026, 0, n),
+      revisions: [{ id: `ev_${n}_r1`, revisionNumber: 1, kind: "PROJECT", title: `Item ${n}`, detail, experienceRef: null, status: "CONFIRMED" }],
+    });
+    evidenceFindMany.mockResolvedValue([row(1, filler), row(2, filler), row(3, `Tuned PostgreSQL. ${filler}`)]);
+    const ranked = {
+      ...context,
+      evidenceRevisionIds: ["ev_3_r1", "ev_1_r1"],
+      selection: { version: "evidence_selection@1", unmetRequirementIds: [], omittedSentences: 0 },
+    };
+    previewFindFirst.mockResolvedValue({ context: JSON.parse(JSON.stringify(ranked)) });
+    previewFindFirstOrThrow.mockResolvedValue(previewRow(ranked));
+    const res = await confirm();
+    expect(res.status).toBe(200);
+    expect(resumeCreate.mock.calls[0]![0].data.tailoringContext).toMatchObject({ evidenceRevisionIds: ["ev_3_r1", "ev_1_r1"] });
+  });
+
   it("still confirms a legacy preview (no snapshot) the old way", async () => {
     previewFindFirst.mockResolvedValue({ context: null });
     previewFindFirstOrThrow.mockResolvedValue(previewRow(null));

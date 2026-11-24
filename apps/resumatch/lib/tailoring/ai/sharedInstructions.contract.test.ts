@@ -126,7 +126,7 @@ describe("the application note reaches both prompts (#928)", () => {
       expect(letterCall.system).toContain("warm, personable register");
       expect(letterCall.system).toContain("150 to 200 words");
       expect(letterCall.system).toContain("OUTPUT LANGUAGE");
-      expect(cvCall.promptVersion).toBe("tailor_resume@7");
+      expect(cvCall.promptVersion).toBe("tailor_resume@8");
       expect(letterCall.promptVersion).toBe("cover_letter@6");
     });
 

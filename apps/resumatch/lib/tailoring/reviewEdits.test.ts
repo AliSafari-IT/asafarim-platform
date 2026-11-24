@@ -79,3 +79,22 @@ describe("the skill order the review sends", () => {
     expect(saved.skills).toEqual(shown);
   });
 });
+
+describe("claim-check flags on the review (#930)", () => {
+  it("starts a flagged AI bullet unticked and keeps its sources and reasons", () => {
+    let n = 0;
+    const bullets = buildReviewBullets(["Built Go services", "Ran Kubernetes clusters"], [], null, () => `k${n++}`, [
+      { sources: ["Backend Engineer · Contoso"], flags: [] },
+      { sources: ["Backend Engineer · Contoso"], flags: ["unsupported_requirement"] },
+    ]);
+    expect(bullets.map((b) => b.accepted)).toEqual([true, false]);
+    expect(bullets[1]).toMatchObject({ flags: ["unsupported_requirement"], sources: ["Backend Engineer · Contoso"] });
+    expect(approvedBullets(bullets)).toEqual(["Built Go services"]);
+  });
+
+  it("without metadata behaves exactly as before", () => {
+    let n = 0;
+    const bullets = buildReviewBullets(["A", "B"], [], null, () => `k${n++}`);
+    expect(bullets.every((b) => b.accepted && b.flags === undefined)).toBe(true);
+  });
+});

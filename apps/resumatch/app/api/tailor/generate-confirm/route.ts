@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { loadGenerationEvidence } from "../../../../lib/evidence/store";
+import { evidenceRelevanceForJob } from "../../../../lib/tailoring/selection/select";
 import { usedRevisionIds } from "../../../../lib/evidence/prompt";
 import { getVersion } from "../../../../lib/profile/versions";
 import { mergeTailoringSuggestions, parseApprovedTailorSuggestions } from "../../../../lib/tailoring/ai/schema";
@@ -156,7 +157,14 @@ async function confirmTailoring(request: Request): Promise<Response> {
       profileVersionConfirmed: version.isConfirmed,
       // #929: the evidence a run would use now must be the evidence this one used.
       evidenceRevisionIds: usedRevisionIds(
-        await loadGenerationEvidence(workspace.id, targetJobId, version.content),
+        // #930: a snapshot with a selection ranked evidence by job
+        // relevance; re-select the same way. Older snapshots: oldest first.
+        await loadGenerationEvidence(
+          workspace.id,
+          targetJobId,
+          version.content,
+          previewContext.selection ? evidenceRelevanceForJob(targetJob.rawText ?? "") : undefined,
+        ),
         previewContext.coverLetter !== null,
       ),
     });

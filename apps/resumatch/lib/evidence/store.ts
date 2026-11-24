@@ -120,9 +120,11 @@ export async function loadGenerationEvidence(
   workspaceId: string,
   targetJobId: string,
   profile: CandidateProfileContent,
+  /** #930: rank items by job relevance before the budgets apply. */
+  relevance?: (text: string) => number,
 ): Promise<GenerationEvidence> {
   const rows = await loadForJob(workspaceId, targetJobId);
-  return selectGenerationEvidence(rows.map(toStored), workspaceId, targetJobId, profile);
+  return selectGenerationEvidence(rows.map(toStored), workspaceId, targetJobId, profile, relevance);
 }
 
 export type EvidenceWriteError = "not_found" | "job_not_found" | "stale" | "too_many";

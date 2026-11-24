@@ -168,7 +168,16 @@ describe("parseTailorSuggestions", () => {
       summary: null,
       skillsOrder: [],
       experienceBullets: [],
+      sources: { headline: [], summary: [], experienceBullets: [] },
     });
+  });
+
+  it("reads malformed source references as none instead of failing (#930)", () => {
+    const parsed = parseTailorSuggestions({ headline: "Engineer", sources: { headline: [42], experienceBullets: "x" } });
+    expect(parsed.headline).toBe("Engineer");
+    expect(parsed.sources).toEqual({ headline: [], summary: [], experienceBullets: [] });
+    const cited = parseTailorSuggestions({ sources: { experienceBullets: [[["exp:0", "skills"]]] } });
+    expect(cited.sources?.experienceBullets).toEqual([[["exp:0", "skills"]]]);
   });
 });
 

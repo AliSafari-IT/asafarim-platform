@@ -34,6 +34,22 @@ const trimmed = (max: number) => z.string().trim().min(1).max(max);
  * treats this as advisory, never authoritative, over what the persisted
  * content actually contains.
  */
+const sourceIds = (max: number) => z.array(z.string().trim().min(1).max(48)).max(max);
+
+export interface TailorSources {
+  headline: string[];
+  summary: string[];
+  experienceBullets: string[][][];
+}
+
+const EMPTY_SOURCES: TailorSources = { headline: [], summary: [], experienceBullets: [] };
+
+const sourcesSchema = z.object({
+  headline: sourceIds(6).default([]),
+  summary: sourceIds(12).default([]),
+  experienceBullets: z.array(z.array(sourceIds(6)).max(8)).max(60).default([]),
+});
+
 export const tailorSuggestionsSchema = z.object({
   headline: trimmed(200).nullable().default(null),
   summary: z.string().trim().max(2000).nullable().default(null),
@@ -46,9 +62,18 @@ export const tailorSuggestionsSchema = z.object({
    *  experience array, or one the provider left out, falls back to that
    *  entry's existing `summary` during merge. */
   experienceBullets: z.array(z.array(z.string().trim().max(400)).max(8)).max(60).default([]),
+  /** #930: the source ids (lib/tailoring/selection) each claim draws on —
+   *  for the headline, the summary, and per bullet aligned like
+   *  `experienceBullets`. Advisory: the claim check (selection/claims.ts)
+   *  validates every id and never treats one as proof. A malformed value
+   *  reads as "no references" rather than failing the whole call, so an
+   *  older prompt version or a sloppy reply still yields suggestions. */
+  sources: sourcesSchema.catch(EMPTY_SOURCES).default(EMPTY_SOURCES),
 });
 
-export type TailorSuggestions = z.infer<typeof tailorSuggestionsSchema>;
+/** `sources` is optional in the type: parsing always fills it, but code
+ *  that builds suggestions by hand (the review, tests) need not. */
+export type TailorSuggestions = Omit<z.infer<typeof tailorSuggestionsSchema>, "sources"> & { sources?: TailorSources };
 
 export function parseTailorSuggestions(input: unknown): TailorSuggestions {
   return tailorSuggestionsSchema.parse(input);

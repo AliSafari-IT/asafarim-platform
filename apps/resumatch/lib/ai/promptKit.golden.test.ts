@@ -51,6 +51,7 @@ const cases: Record<
   tailorFull: renderTailorPrompt(long, long, "lead with backend", "fr"),
   tailorLowFit: renderTailorPrompt("profile", "job", null, "nl", true),
   tailorEvidence: renderTailorPrompt("profile", "job", null, null, false, "- Project: Billing rewrite. Moved billing to Node.js. [no single role]"),
+  tailorGaps: renderTailorPrompt("[exp:0] profile", "job", null, null, false, null, "- 5+ years of Kubernetes"),
   coverEvidence: renderCoverLetterPrompt("profile", "job", "formal", "standard", null, null, {
     evidence: "- Project: Billing rewrite. Moved billing to Node.js. [no single role]",
     motivation: "- Motivation: Fintech. I want to work on payments.",
@@ -113,30 +114,38 @@ const golden: Record<string, [string, string, string]> = {
     "408a42b6295a4d98e71f0d7558f79d0e506074952f2bc7855cecfacffb8f6d48",
   ],
   tailor: [
-    "c82b677732b69c44335939d19087063c5932c97f6b06ebd0688b1cc097a9f316",
+    "36cb1fec013d73980e1347a6a9781a82d852ccfd77a2fcb96d7c4f5cd35f3304",
     "8b3173be23606e5fd93af4a88284ced0690430d4fd1ffa62e0e08e190d8996c7",
-    "d839fa91f3fd12c2fb8497511e3fd50076e4cbd9083db786040983a8097e171f",
+    "4f023d39df7a23842da0ee20b1c697e2e3f312b560e5a87a7e9c9aeb68451ef6",
   ],
   tailorFull: [
-    "a71391cc04388273430d04b9dc29f46cb57db2eed65877d54c4390e3cf8ee058",
+    "cd36d7dc027c1b1d3469385463dadcbd5ecffd2cd221c2945e3d861f9597a20e",
     "e7d845365ec6104ed775a3387ebcc6adbbc6cc77477b1205729449a09714be1f",
-    "bf4f516daa8e6affed3aa3494bd146705339234835f8657364f08f5e72d40361",
+    "71a79d2d7e1268987efa8f238399608989dc0e03a391b54f9c196de8ea242c2a",
   ],
   // tailor_resume@5: the LOW-FIT rule. @6 (#928) relabels the instructions
   // block "for this application", so every tailor user prompt moved; the
   // system prompts did not.
   tailorLowFit: [
-    "53b3f7f1e6be50bef5afc7cc533df9242bfb8f19bc420dced58e989a9697b93e",
+    "5815c46e8b465ffbb5ed3a9e11ac182a2c9a7c42c660ede34fd49b5df4ae473e",
     "8b3173be23606e5fd93af4a88284ced0690430d4fd1ffa62e0e08e190d8996c7",
-    "f7b14306cc7da9ae5ca17811bce95d7d7ebc220b52e108ff7a80c88abb851014",
+    "dda64e45fed2880073015c59b7215fab8b9059480fa7166a6e88eb458a7038a8",
   ],
   // tailor_resume@7 / cover_letter@6 (#929): the prompts above are byte for
   // byte the same without evidence (only the cache keys moved with the
   // version); these two carry the evidence and motivation blocks.
   tailorEvidence: [
-    "8bf93c103d206f4807fd53ae74754d6d463c033017cdcb8ca40aa62e1e620d12",
+    "aa13828877d068939674995cba3299f98fdfe715911bcc183214b32044ecbaa6",
     "d39fbfc5111d6271785df74b75544ece57188ea2615ad91dbf71e462e4d78091",
-    "3c5f8befca30501bf38489941fef0726e7b33a81bbda2c3ccfeb3d5720d94092",
+    "79937cb6643ffbb9a7ec041c2f3aacc438713e4fef84808117e510438cc3ab69",
+  ],
+  // tailor_resume@8 (#930): the SOURCES and "unknown is not unmet" rules
+  // move every tailor system prompt; user prompts are unchanged without
+  // gaps. This one carries the requirement-gaps block and its rule.
+  tailorGaps: [
+    "5e5f2db9e16a21df0a3289a4e47ccb10d0344c6d52eab194d52b3be721824a8c",
+    "ca862b8aa802d75864ca165f4db74bd6658f4c0c05fd8f72a70abc3b65f847d5",
+    "61561bed3fdee298c16fb829af6064d7d70baa53571005c7236d218a2b077f94",
   ],
   coverEvidence: [
     "6719a049e67fd457a45b7679edf63d8fc12f446656f67187a7129ef6b9face98",

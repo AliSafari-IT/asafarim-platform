@@ -125,12 +125,16 @@ const MAX_LISTED_TERMS = 10;
  * words still need three.
  */
 function words(text: string): string[] {
-  const technical = text
+  // NFC first: a decomposed accent ("E\u0301") would otherwise split the
+  // word before fold() removes it, so "Électronique" typed two ways would
+  // give two different stems.
+  const nfc = text.normalize("NFC");
+  const technical = nfc
     .toLowerCase()
     .split(/[^\p{L}\p{N}+#./]+/u)
     .map((t) => t.replace(/^[./]+|[./]+$/g, ""))
     .filter((t) => /[+#/]/.test(t) && t.length >= 2 && /\p{L}/u.test(t) && !t.includes("//"));
-  return [...coverageWords(text), ...technical];
+  return [...coverageWords(nfc), ...technical];
 }
 
 /**
@@ -150,6 +154,24 @@ function stems(text: string): Set<string> {
 
 function isGeneric(folded: string): boolean {
   return STOPWORDS.has(folded) || JOB_AD_STOPWORDS.has(folded) || /^\d+$/.test(folded);
+}
+
+/** The stems of every word in `text`, generic ones included: what a
+ *  source can be searched for (#930 evidence selection). */
+export function textStems(text: string): Set<string> {
+  return stems(text);
+}
+
+/** The non-generic stems of `text`, in first-seen order: what a job
+ *  requirement is about (#930). */
+export function contentStems(text: string): string[] {
+  const seen = new Set<string>();
+  for (const word of words(text)) {
+    const folded = fold(word);
+    if (isGeneric(folded)) continue;
+    seen.add(stem(folded));
+  }
+  return [...seen];
 }
 
 /** The posting's key terms: folded stem → total count + first spelling seen. */

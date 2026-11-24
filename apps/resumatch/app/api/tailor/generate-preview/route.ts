@@ -4,7 +4,6 @@ import { runTailorProviderCall } from "../../../../lib/tailoring/ai/generate";
 import { MAX_INSTRUCTIONS_CHARS } from "../../../../lib/tailoring/ai/prompts";
 import { runCoverLetterProviderCall } from "../../../../lib/tailoring/ai/coverLetter/generate";
 import { COVER_LETTER_LENGTHS, COVER_LETTER_TONES, type CoverLetterLength, type CoverLetterTone } from "../../../../lib/tailoring/ai/coverLetter/prompts";
-import { buildProfileText } from "../../../../lib/tailoring/buildProfileText";
 import { assessJobFit } from "../../../../lib/tailoring/jobFit";
 import {
   resolveTailoringContext,
@@ -16,6 +15,13 @@ import { getJobmatchDb } from "../../../../lib/db/client";
 import { loadGenerationEvidence } from "../../../../lib/evidence/store";
 import { renderMotivationEvidence, renderProfessionalEvidence, usedRevisionIds } from "../../../../lib/evidence/prompt";
 import { getVersion } from "../../../../lib/profile/versions";
+import { extractRequirements } from "../../../../lib/tailoring/selection/requirements";
+import {
+  parseUnmetRequirementIds,
+  evidenceRelevanceForJob,
+  selectTailoringInputs,
+} from "../../../../lib/tailoring/selection/select";
+import { checkClaims } from "../../../../lib/tailoring/selection/claims";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -64,6 +70,7 @@ export async function POST(request: Request) {
     instructions,
     outputLanguage,
     proceedDespiteLowFit,
+    unmetRequirementIds,
   } = (body ?? {}) as {
       profileVersionId?: unknown;
       targetJobId?: unknown;
@@ -84,6 +91,10 @@ export async function POST(request: Request) {
       /** Optional. true only after the candidate saw the low-fit warning
        *  and chose to continue. */
       proceedDespiteLowFit?: unknown;
+      /** Optional — #930. Requirement ids (from job-fit) the candidate
+       *  answered "no, I don't have this" to. Validated against the job's
+       *  own requirements below; the CV never claims them. */
+      unmetRequirementIds?: unknown;
     };
   if (typeof profileVersionId !== "string" || typeof targetJobId !== "string") {
     return NextResponse.json({ error: "profileVersionId and targetJobId are required." }, { status: 400 });
@@ -129,11 +140,19 @@ export async function POST(request: Request) {
     );
   }
   const cvLanguage = isOutputLanguage(outputLanguage) ? outputLanguage : null;
+  const requirements = extractRequirements(targetJob.rawText);
+  const unmet = parseUnmetRequirementIds(unmetRequirementIds, requirements);
+  if (unmet === null) return NextResponse.json({ error: "Invalid unmetRequirementIds." }, { status: 400 });
   // #929: only confirmed evidence for this workspace, this job or
-  // background, and roles the selected profile still has.
-  const evidence = await loadGenerationEvidence(workspace.id, targetJobId, profile);
+  // background, and roles the selected profile still has. #930: the most
+  // job-relevant items first, so the budget keeps what this job asks about.
+  const relevance = evidenceRelevanceForJob(targetJob.rawText);
+  const evidence = await loadGenerationEvidence(workspace.id, targetJobId, profile, relevance);
   const evidenceText = renderProfessionalEvidence(evidence);
   const motivationText = renderMotivationEvidence(evidence);
+  // #930: relevant profile prose and job requirements instead of a prefix
+  // cut, each line tagged with a stable source id the CV's claims cite.
+  const selection = selectTailoringInputs({ profile, jobText: targetJob.rawText, evidence, unmetRequirementIds: unmet });
   // #928: one server-resolved context for the whole run. The CV and the
   // letter get the same note, job text and profile version from it, and
   // the preview keeps it as an immutable snapshot for generate-confirm.
@@ -156,6 +175,8 @@ export async function POST(request: Request) {
         : null,
     // Only what the run sends: motivation needs a letter.
     evidenceRevisionIds: usedRevisionIds(evidence, includeCoverLetter === true),
+    jobTextUsed: selection.jobTextUsed,
+    selection: { version: selection.version, unmetRequirementIds: unmet, omittedSentences: selection.omittedSentences },
   });
   const letterLanguage = context.coverLetter ? context.coverLetter.outputLanguage : null;
   // Minted up front so both provider calls' cost events can name this
@@ -182,13 +203,14 @@ export async function POST(request: Request) {
     context.cv.outputLanguage,
     context.lowFit,
     evidenceText,
+    selection,
   );
   const coverLetterResult = context.coverLetter
     ? await runCoverLetterProviderCall(
         workspace.id,
         targetJobId,
-        buildProfileText(profile).text,
-        targetJob.rawText,
+        selection.plainProfileText,
+        selection.jobTextUsed,
         context.coverLetter.tone,
         context.coverLetter.length,
         undefined,
@@ -199,6 +221,11 @@ export async function POST(request: Request) {
       )
     : null;
   const { suggestions, degraded, promptVersion, modelVersion } = tailorResult;
+  // #930: every claim checked against the sources it cites. Flags only:
+  // the review shows them and starts a flagged bullet unticked.
+  const claimCheck = suggestions
+    ? checkClaims({ suggestions, sources: selection.sources, requirements: selection.requirements, coverage: selection.coverage, outputLanguage: context.cv.outputLanguage })
+    : null;
 
   // The server's own record of what this preview actually did (issue #525)
   // — generate-confirm re-derives provenance from this row instead of
@@ -235,6 +262,11 @@ export async function POST(request: Request) {
     lowFit,
     /** #929: how many confirmed evidence items both prompts got. */
     evidenceUsed: context.evidenceRevisionIds.length,
+    /** #930: requirement coverage, the claim check, and a label for every
+     *  source id a claim may cite (the candidate's own data, not model text). */
+    requirements: selection.coverage,
+    claimCheck,
+    sources: selection.sources.map((source) => ({ id: source.id, kind: source.kind, label: source.label })),
     coverLetter: coverLetterResult
       ? {
           suggestion: coverLetterResult.suggestion,
