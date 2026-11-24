@@ -24,6 +24,11 @@ describe("buildRegenerateSeed", () => {
     expect(seed.job.snippet).toHaveLength(400);
   });
 
+  it("says whether the CV had a letter, so a first letter can use the saved preferences (#931)", () => {
+    expect(buildRegenerateSeed(base, true)).toMatchObject({ includeCoverLetter: true, hadCoverLetter: false });
+    expect(buildRegenerateSeed({ ...base, coverLetter: { outputLanguage: "nl" } }, false).hadCoverLetter).toBe(true);
+  });
+
   it("ticks the letter when the CV had one, or when asked to add one", () => {
     expect(buildRegenerateSeed({ ...base, coverLetter: { outputLanguage: "nl" } }, false).includeCoverLetter).toBe(true);
     expect(buildRegenerateSeed(base, true).includeCoverLetter).toBe(true);

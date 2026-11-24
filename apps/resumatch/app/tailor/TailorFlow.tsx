@@ -308,7 +308,9 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
   // #642: null means "same as the CV", so the letter keeps following the CV
   // language until the candidate picks a different one on purpose.
   const [coverLetterLanguage, setCoverLetterLanguage] = useState<OutputLanguage | null>(
-    seed ? seed.coverLetterLanguage : (writingPreferences?.preferences.coverLetter.outputLanguage ?? null),
+    seed && seed.hadCoverLetter !== false
+      ? seed.coverLetterLanguage
+      : (writingPreferences?.preferences.coverLetter.outputLanguage ?? null),
   );
   const hasSavedNotes = Boolean(savedPrefs?.cv.styleNote || savedPrefs?.coverLetter.styleNote);
   // A per-run opt-out, kept only for the job it was made on: another job

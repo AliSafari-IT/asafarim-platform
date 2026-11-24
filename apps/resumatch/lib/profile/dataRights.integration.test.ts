@@ -132,6 +132,8 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
       skillsLayout: "grouped",
       skillsParagraph: "Front-end work with TypeScript.",
     });
+    // A CV saved without a context exports a null one (#931 keeps notes there).
+    expect(exported!.tailoredResumes[0]!.tailoringContext).toBeNull();
 
     expect(exported!.evidence).toHaveLength(1);
     expect(exported!.evidence[0]!.revisions.map((r) => [r.revisionNumber, r.status, r.detail])).toEqual([
