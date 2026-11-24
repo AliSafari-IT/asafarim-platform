@@ -147,7 +147,7 @@ const LIST_INCLUDE = {
   sentEmails: {
     orderBy: [{ attemptedAt: "desc" }, { id: "desc" }],
     take: 1,
-    select: { id: true, status: true, attemptedAt: true, sentAt: true, contactEmail: true },
+    select: { id: true, status: true, attemptedAt: true, sentAt: true, contactEmail: true, additionalRecipients: true },
   },
   _count: { select: { sentEmails: true } },
 } satisfies Prisma.ApplicationInclude;

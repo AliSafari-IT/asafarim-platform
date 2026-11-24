@@ -14,7 +14,8 @@ export function sentListWhere(workspaceId: string, query: SentListQuery): Prisma
   return {
     workspaceId,
     ...(query.company ? { companyKey: query.company } : {}),
-    ...(query.contact ? { contactEmailNormalized: query.contact } : {}),
+    // Any recipient, whichever position it had (#944).
+    ...(query.contact ? { recipientsNormalized: { has: query.contact } } : {}),
     ...(query.application ? { applicationId: query.application } : {}),
   };
 }
@@ -33,6 +34,7 @@ const ROW_SELECT = {
   contactName: true,
   contactEmail: true,
   contactEmailNormalized: true,
+  additionalRecipients: true,
   subject: true,
   status: true,
   deliveryStatus: true,
@@ -66,9 +68,9 @@ export async function listSentEmails(workspaceId: string, query: SentListQuery, 
       : null,
     query.contact
       ? db.sentApplicationEmail.findFirst({
-          where: { workspaceId, contactEmailNormalized: query.contact },
+          where: { workspaceId, recipientsNormalized: { has: query.contact } },
           orderBy: { attemptedAt: "desc" },
-          select: { contactName: true, contactEmail: true },
+          select: { contactName: true, contactEmail: true, contactEmailNormalized: true },
         })
       : null,
     query.application
@@ -89,7 +91,14 @@ export async function listSentEmails(workspaceId: string, query: SentListQuery, 
     pageCount,
     labels: {
       company: companyLabel?.companyName ?? null,
-      contact: contactLabel ? (contactLabel.contactName ? `${contactLabel.contactName} <${contactLabel.contactEmail}>` : contactLabel.contactEmail) : null,
+      // The contact name belongs to the first recipient only.
+      contact: contactLabel
+        ? contactLabel.contactEmailNormalized === query.contact
+          ? contactLabel.contactName
+            ? `${contactLabel.contactName} <${contactLabel.contactEmail}>`
+            : contactLabel.contactEmail
+          : query.contact
+        : null,
       application: applicationLabel ? [applicationLabel.targetJob.title, applicationLabel.targetJob.employer].filter(Boolean).join(" · ") : null,
     },
   };
@@ -106,6 +115,7 @@ export async function getSentEmail(workspaceId: string, sentId: string) {
       fromAddress: true,
       replyTo: true,
       bccSelf: true,
+      rejectedRecipients: true,
       body: true,
       messageId: true,
       providerResponse: true,

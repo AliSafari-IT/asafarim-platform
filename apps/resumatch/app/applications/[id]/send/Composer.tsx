@@ -9,7 +9,10 @@ import {
   BODY_MAX_LENGTH,
   CONTACT_NAME_MAX_LENGTH,
   EMAIL_MAX_LENGTH,
+  MAX_RECIPIENTS,
   SUBJECT_MAX_LENGTH,
+  additionalRecipientProblems,
+  recipientList,
   validateForSend,
   type DraftField,
   type FieldProblem,
@@ -40,6 +43,7 @@ interface PinnedPdf {
 interface DraftView {
   version: number;
   toEmail: string;
+  additionalToEmails?: string[];
   contactName: string;
   subject: string;
   body: string;
@@ -68,7 +72,7 @@ export interface ComposerProps {
   attachments: { cv: PinnedPdf | null; letter: PinnedPdf | null };
   draft: DraftView | null;
   prefill: Prefill;
-  lastSent: { id: string; status: string; attemptedAt: string; sentAt: string | null; contactEmail: string } | null;
+  lastSent: { id: string; status: string; attemptedAt: string; sentAt: string | null; contactEmail: string; additionalRecipients?: string[] } | null;
   unresolved: { id: string; status: "SENDING" | "UNCERTAIN"; attemptedAt: string; stale: boolean } | null;
   sendCount: number;
   sender: { available: boolean; from: string | null; replyTo: string | null };
@@ -81,6 +85,8 @@ export interface ComposerProps {
 
 interface Fields {
   toEmail: string;
+  /** Recipients 2 and 3 (#944), one entry per field shown; may be blank. */
+  additionalToEmails: string[];
   contactName: string;
   subject: string;
   body: string;
@@ -92,7 +98,7 @@ interface Fields {
 type SendState =
   | { kind: "idle" }
   | { kind: "sending" }
-  | { kind: "accepted"; sentId: string; status: ApplicationStatusName; recorded: boolean; to: string }
+  | { kind: "accepted"; sentId: string; status: ApplicationStatusName; recorded: boolean; to: string; rejected: string[] }
   | { kind: "failed"; sentId: string; code: string }
   | { kind: "uncertain"; sentId: string }
   | { kind: "in_progress" }
@@ -123,6 +129,7 @@ export function Composer(props: ComposerProps) {
   const initial: Fields = props.draft
     ? {
         toEmail: props.draft.toEmail,
+        additionalToEmails: props.draft.additionalToEmails ?? [],
         contactName: props.draft.contactName,
         subject: props.draft.subject,
         body: props.draft.body,
@@ -132,6 +139,7 @@ export function Composer(props: ComposerProps) {
       }
     : {
         toEmail: props.prefill.toEmail,
+        additionalToEmails: props.prefill.additionalToEmails ?? [],
         contactName: props.prefill.contactName,
         subject: "",
         body: "",
@@ -148,6 +156,10 @@ export function Composer(props: ComposerProps) {
     props.draft ? { cv: props.draft.cvPdfId, letter: props.draft.coverLetterPdfId } : { cv: null as string | null, letter: null as string | null },
   );
   const [problems, setProblems] = useState<Partial<Record<DraftField, FieldProblem>>>({});
+  /** A problem per extra recipient field, from the last send attempt. */
+  const [extraProblems, setExtraProblems] = useState<(FieldProblem | null)[]>([]);
+  /** The extra recipient field to focus once it is on screen. */
+  const [focusExtra, setFocusExtra] = useState<number | null>(null);
   const [generating, setGenerating] = useState<null | "both" | "subject" | "body">(null);
   const [generateNote, setGenerateNote] = useState<{ tone: "info" | "error" | "warning"; text: string } | null>(null);
   const [confirmReplace, setConfirmReplace] = useState<null | {
@@ -195,6 +207,7 @@ export function Composer(props: ComposerProps) {
   const dirty =
     !saved ||
     saved.toEmail !== fields.toEmail ||
+    saved.additionalToEmails.join("\n") !== fields.additionalToEmails.join("\n") ||
     saved.contactName !== fields.contactName ||
     saved.subject !== fields.subject ||
     saved.body !== fields.body ||
@@ -204,7 +217,9 @@ export function Composer(props: ComposerProps) {
     savedContact.mode !== contact.mode ||
     // The override only counts while it is the choice: OMIT saves none.
     (contact.mode === "OVERRIDE" && JSON.stringify(savedContact.override) !== JSON.stringify(contact.override));
-  const hasText = Boolean(fields.subject.trim() || fields.body.trim() || fields.toEmail.trim());
+  const hasText = Boolean(
+    fields.subject.trim() || fields.body.trim() || fields.toEmail.trim() || fields.additionalToEmails.some((address) => address.trim()),
+  );
   const warnOnLeave = dirty && hasText && send.kind !== "accepted";
 
   useEffect(() => {
@@ -290,6 +305,7 @@ export function Composer(props: ComposerProps) {
   function draftPayload(overrideVersion?: number | null) {
     return {
       toEmail: fields.toEmail,
+      additionalToEmails: fields.additionalToEmails,
       contactName: fields.contactName,
       subject: fields.subject,
       body: fields.body,
@@ -361,8 +377,13 @@ export function Composer(props: ComposerProps) {
   }
 
   function focusFirstProblem(found: Partial<Record<DraftField, FieldProblem>>) {
-    const order: DraftField[] = ["toEmail", "contactName", "subject", "body"];
+    const order: DraftField[] = ["toEmail", "additionalToEmails", "contactName", "subject", "body"];
     const first = order.find((field) => found[field]);
+    if (first === "additionalToEmails") {
+      const index = additionalRecipientProblems(fields).findIndex((p) => p !== null);
+      document.getElementById(`${ids.to}-extra-${Math.max(0, index)}`)?.focus();
+      return;
+    }
     const target = first === "toEmail" ? ids.to : first === "contactName" ? ids.name : first === "subject" ? ids.subject : first === "body" ? ids.body : null;
     if (target) document.getElementById(target)?.focus();
   }
@@ -370,6 +391,7 @@ export function Composer(props: ComposerProps) {
   async function doSend(opts: { confirmResend?: boolean; reuseKey?: string } = {}) {
     const found = validateForSend(fields);
     setProblems(found);
+    setExtraProblems(additionalRecipientProblems(fields));
     if (Object.keys(found).length > 0) {
       focusFirstProblem(found);
       return;
@@ -402,6 +424,7 @@ export function Composer(props: ComposerProps) {
             sentId?: string;
             applicationStatus?: ApplicationStatusName;
             recorded?: boolean;
+            rejectedRecipients?: string[];
             errorCode?: string;
             reason?: string;
             fields?: Partial<Record<DraftField, FieldProblem>>;
@@ -414,7 +437,10 @@ export function Composer(props: ComposerProps) {
       }
       if (data.draft) markSaved(data.draft);
       if (data.outcome === "accepted" && data.sentId) {
-        setSend({ kind: "accepted", sentId: data.sentId, status: data.applicationStatus ?? "APPLIED", recorded: data.recorded !== false, to: fields.toEmail.trim() });
+        setSend({ kind: "accepted", sentId: data.sentId, status: data.applicationStatus ?? "APPLIED", recorded: data.recorded !== false,
+          to: recipientList(fields).join(", "),
+          rejected: Array.isArray(data.rejectedRecipients) ? data.rejectedRecipients : [],
+        });
         setSaveState({ kind: "idle" });
         router.refresh();
         return;
@@ -424,6 +450,7 @@ export function Composer(props: ComposerProps) {
       if (data.outcome === "in_progress") return setSend({ kind: "in_progress" });
       if (data.reason === "fields" && data.fields) {
         setProblems(data.fields);
+        setExtraProblems(additionalRecipientProblems(fields));
         focusFirstProblem(data.fields);
         setSend({ kind: "idle" });
         return;
@@ -486,6 +513,39 @@ export function Composer(props: ComposerProps) {
     setPins((current) => ({ ...current, [kind]: { id: next.id, filename: next.filename, byteSize: pin.byteSize, createdAt: next.createdAt, current: true, newerAvailable: null } }));
   }
 
+  // Extra recipients (#944): one field per recipient after the first.
+  function setExtra(index: number, value: string) {
+    update({ additionalToEmails: fields.additionalToEmails.map((v, i) => (i === index ? value : v)) });
+    if (extraProblems[index]) setExtraProblems((current) => current.map((p, i) => (i === index ? null : p)));
+  }
+  function addExtra() {
+    if (1 + fields.additionalToEmails.length >= MAX_RECIPIENTS) return;
+    update({ additionalToEmails: [...fields.additionalToEmails, ""] });
+    setFocusExtra(fields.additionalToEmails.length);
+  }
+  function removeExtra(index: number) {
+    update({ additionalToEmails: fields.additionalToEmails.filter((_, i) => i !== index) });
+    setExtraProblems((current) => current.filter((_, i) => i !== index));
+    setProblems((current) => ({ ...current, additionalToEmails: undefined }));
+    // Keep the keyboard where it was: on the add link, else the first field.
+    setTimeout(() => (document.querySelector<HTMLElement>("[data-testid=add-recipient]") ?? document.getElementById(ids.to))?.focus(), 0);
+  }
+  // A job-posting address fills the first empty recipient field: the To
+  // field, then an empty extra one, then a new one while there is room.
+  const usedRecipients = new Set(recipientList(fields).map((a) => a.toLowerCase()));
+  const unusedSuggestions = props.prefill.suggestions.filter((a) => !usedRecipients.has(a.toLowerCase()));
+  const emptyExtra = fields.additionalToEmails.findIndex((v) => !v.trim());
+  const suggestionSlot: "to" | number | null = !fields.toEmail.trim() ? "to" : emptyExtra >= 0 ? emptyExtra : null;
+  function pickSuggestion(address: string) {
+    if (suggestionSlot === "to") update({ toEmail: address });
+    else if (typeof suggestionSlot === "number") setExtra(suggestionSlot, address);
+  }
+  useEffect(() => {
+    if (focusExtra === null) return;
+    document.getElementById(`${ids.to}-extra-${focusExtra}`)?.focus();
+    setFocusExtra(null);
+  }, [focusExtra, ids.to]);
+
   function leave() {
     if (warnOnLeave) setConfirmLeave(true);
     else router.push("/applications");
@@ -544,6 +604,9 @@ export function Composer(props: ComposerProps) {
                 : t("resumatch.send.result.statusKept", { status: t(`resumatch.app.status.${send.status}`) })}{" "}
               {t("resumatch.send.result.notDelivery")}
             </p>
+            {send.rejected.length > 0 ? (
+              <p data-testid="send-not-delivered">{t("resumatch.send.result.notDeliveredTo", { addresses: send.rejected.join(", ") })}</p>
+            ) : null}
             {!send.recorded ? <p>{t("resumatch.send.result.notRecorded")}</p> : null}
             <p>
               <a href={`/applications/sent/${encodeURIComponent(send.sentId)}`} data-testid="view-sent">
@@ -642,22 +705,75 @@ export function Composer(props: ComposerProps) {
                   ? t("resumatch.send.field.toEmail.fromPrevious")
                   : t("resumatch.send.field.toEmail.hint")}
             </small>
-            {props.prefill.suggestions.length > 0 && !fields.toEmail ? (
-              <p className="rm-composer__suggestions">
-                {t("resumatch.send.field.toEmail.suggestions")}{" "}
-                {props.prefill.suggestions.map((address) => (
-                  <button key={address} type="button" className="ui-btn ui-btn--ghost ui-btn--sm" onClick={() => update({ toEmail: address })}>
-                    {address}
-                  </button>
-                ))}
-              </p>
-            ) : null}
             {problems.toEmail ? (
               <p id={`${ids.to}-error`} className="rm-field-error">
                 {problemText("toEmail")}
               </p>
             ) : null}
           </div>
+
+          {fields.additionalToEmails.map((value, index) => {
+            const id = `${ids.to}-extra-${index}`;
+            const problem = extraProblems[index] ?? null;
+            return (
+              <div className="jm-field rm-composer__recipient" key={index} data-testid="extra-recipient">
+                <label htmlFor={id}>
+                  <span>{t("resumatch.send.field.additionalToEmails.label", { n: String(index + 2) })}</span>
+                </label>
+                <div className="rm-composer__recipient-row">
+                  <input
+                    id={id}
+                    type="email"
+                    inputMode="email"
+                    autoComplete="off"
+                    maxLength={EMAIL_MAX_LENGTH}
+                    value={value}
+                    aria-invalid={problem ? true : undefined}
+                    aria-describedby={problem ? `${id}-error` : undefined}
+                    onChange={(e) => setExtra(index, e.target.value)}
+                  />
+                  <Button type="button" variant="ghost" size="sm" onClick={() => removeExtra(index)} data-testid="remove-recipient">
+                    <span aria-hidden="true">{t("resumatch.send.field.additionalToEmails.remove")}</span>
+                    <span className="sr-only">
+                      {t("resumatch.send.field.additionalToEmails.removeLabel", { address: value.trim() || String(index + 2) })}
+                    </span>
+                  </Button>
+                </div>
+                {problem ? (
+                  <p id={`${id}-error`} className="rm-field-error">
+                    {t(`resumatch.send.field.additionalToEmails.${problem}`)}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
+          {problems.additionalToEmails && !extraProblems.some(Boolean) ? (
+            <p className="rm-field-error">{problemText("additionalToEmails")}</p>
+          ) : null}
+
+          {1 + fields.additionalToEmails.length < MAX_RECIPIENTS || fields.additionalToEmails.length > 0 ? (
+            <div className="rm-composer__recipients-more">
+              {1 + fields.additionalToEmails.length < MAX_RECIPIENTS ? (
+                <Button type="button" variant="ghost" size="sm" onClick={addExtra} data-testid="add-recipient">
+                  {t("resumatch.send.field.additionalToEmails.add")}
+                </Button>
+              ) : null}
+              {fields.additionalToEmails.length > 0 ? (
+                <small className="rm-composer__note">{t("resumatch.send.field.additionalToEmails.hint")}</small>
+              ) : null}
+            </div>
+          ) : null}
+
+          {unusedSuggestions.length > 0 && suggestionSlot !== null ? (
+            <p className="rm-composer__suggestions">
+              {t("resumatch.send.field.toEmail.suggestions")}{" "}
+              {unusedSuggestions.map((address) => (
+                <button key={address} type="button" className="ui-btn ui-btn--ghost ui-btn--sm" onClick={() => pickSuggestion(address)}>
+                  {address}
+                </button>
+              ))}
+            </p>
+          ) : null}
 
           <div className="jm-field">
             <label htmlFor={ids.name}>

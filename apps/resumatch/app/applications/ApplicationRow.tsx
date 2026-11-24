@@ -16,6 +16,7 @@ import {
   type SaveOutcome,
 } from "../../lib/applications/fieldSaver";
 import { followUpDateToDay } from "../../lib/applications/followUp";
+import { recipientSummary } from "../../lib/applicationEmail/normalize";
 import { SendApplicationEntry } from "../../components/applicationEmail/SendApplicationEntry";
 import { ApplicationStatusStepper } from "./ApplicationStatusStepper";
 import { FollowUpDateField } from "./FollowUpDateField";
@@ -188,7 +189,7 @@ export function ApplicationRow({
         />
         {lastSent ? (
           <p className="rm-app-send__last" data-testid="last-sent">
-            {t(`resumatch.app.sent.${lastSent.status}`, { to: lastSent.contactEmail })}{" "}
+            {t(`resumatch.app.sent.${lastSent.status}`, { to: recipientSummary(lastSent.contactEmail, lastSent.additionalRecipients) })}{" "}
             <LocalTime iso={new Date(lastSent.sentAt ?? lastSent.attemptedAt).toISOString()} />
             {" · "}
             <a href={`/applications/sent/${encodeURIComponent(lastSent.id)}`} data-testid="view-last-sent">

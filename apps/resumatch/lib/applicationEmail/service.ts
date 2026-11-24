@@ -16,10 +16,12 @@ import { recordAuditEvent } from "../workspace";
 import { getApplicationEmailConfig, senderDisplayName, type ApplicationEmailConfig } from "./config";
 import { getApplicationMailer, type ApplicationMailer, type OutgoingEmail, type SendOutcome } from "./mailer";
 import {
+  cleanAdditionalRecipients,
   cleanBody,
   cleanHeaderText,
   companyKey,
   normalizeEmail,
+  recipientList,
   validateForSend,
   type DraftField,
   type DraftSaveInput,
@@ -57,6 +59,8 @@ export const SENDING_STALE_MS = 3 * 60 * 1000;
 export interface DraftView {
   version: number;
   toEmail: string;
+  /** Recipients 2 and 3 (#944); empty for a one-recipient draft. */
+  additionalToEmails: string[];
   contactName: string;
   subject: string;
   body: string;
@@ -103,7 +107,14 @@ export interface ComposerData {
   draft: DraftView | null;
   prefill: Prefill;
   candidateName: string | null;
-  lastSent: { id: string; status: SentEmailStatus; attemptedAt: string; sentAt: string | null; contactEmail: string } | null;
+  lastSent: {
+    id: string;
+    status: SentEmailStatus;
+    attemptedAt: string;
+    sentAt: string | null;
+    contactEmail: string;
+    additionalRecipients: string[];
+  } | null;
   /** An unresolved earlier send for this application. */
   unresolved: { id: string; status: "SENDING" | "UNCERTAIN"; attemptedAt: string; stale: boolean } | null;
   sendCount: number;
@@ -116,6 +127,7 @@ export interface ComposerData {
 function toDraftView(row: {
   version: number;
   toEmail: string | null;
+  additionalToEmails: string[];
   contactName: string | null;
   subject: string | null;
   body: string | null;
@@ -132,6 +144,7 @@ function toDraftView(row: {
   return {
     version: row.version,
     toEmail: row.toEmail ?? "",
+    additionalToEmails: row.additionalToEmails,
     contactName: row.contactName ?? "",
     subject: row.subject ?? "",
     body: row.body ?? "",
@@ -150,6 +163,7 @@ function toDraftView(row: {
 const DRAFT_SELECT = {
   version: true,
   toEmail: true,
+  additionalToEmails: true,
   contactName: true,
   subject: true,
   body: true,
@@ -267,12 +281,12 @@ export async function loadComposer(
     db.sentApplicationEmail.findFirst({
       where: { workspaceId, applicationId, status: "ACCEPTED" },
       orderBy: [{ attemptedAt: "desc" }, { id: "desc" }],
-      select: { contactEmail: true, contactName: true },
+      select: { contactEmail: true, contactName: true, additionalRecipients: true },
     }),
     db.sentApplicationEmail.findFirst({
       where: { workspaceId, applicationId },
       orderBy: [{ attemptedAt: "desc" }, { id: "desc" }],
-      select: { id: true, status: true, attemptedAt: true, sentAt: true, contactEmail: true },
+      select: { id: true, status: true, attemptedAt: true, sentAt: true, contactEmail: true, additionalRecipients: true },
     }),
     db.sentApplicationEmail.findFirst({
       where: { workspaceId, applicationId, status: { in: ["SENDING", "UNCERTAIN"] } },
@@ -312,6 +326,7 @@ export async function loadComposer(
           attemptedAt: lastAny.attemptedAt.toISOString(),
           sentAt: lastAny.sentAt?.toISOString() ?? null,
           contactEmail: lastAny.contactEmail,
+          additionalRecipients: lastAny.additionalRecipients,
         }
       : null,
     unresolved: unresolvedRow
@@ -357,6 +372,8 @@ export async function saveDraft(workspaceId: string, applicationId: string, inpu
   const body = cleanBody(input.body) || null;
   const data = {
     toEmail: input.toEmail.trim() || null,
+    // Left out by an older client: the stored ones stay as they are.
+    ...(input.additionalToEmails !== undefined ? { additionalToEmails: cleanAdditionalRecipients(input.additionalToEmails) } : {}),
     contactName: cleanHeaderText(input.contactName) || null,
     subject: input.subject.replace(/\s+/g, " ").trim() || null,
     body,
@@ -422,7 +439,17 @@ export interface SendDeps {
 }
 
 export type SendResult =
-  | { outcome: "accepted"; sentId: string; applicationStatus: ApplicationStatusName; recorded: boolean; replayed: boolean; draft: DraftView | null }
+  | {
+      outcome: "accepted";
+      sentId: string;
+      applicationStatus: ApplicationStatusName;
+      recorded: boolean;
+      replayed: boolean;
+      draft: DraftView | null;
+      /** Recipients the server refused while it took the message for the
+       *  others (#944). Not reported on a replay. */
+      rejectedRecipients?: string[];
+    }
   | { outcome: "failed"; sentId: string; errorCode: string; replayed: boolean; draft: DraftView | null }
   | { outcome: "uncertain"; sentId: string; replayed: boolean; draft: DraftView | null }
   | { outcome: "in_progress"; sentId: string }
@@ -524,7 +551,8 @@ export async function sendApplicationEmail(
     ?? context.accountName;
   const fromName = senderDisplayName(candidateName, config);
   const messageId = `<${randomUUID()}@${config.messageIdDomain}>`;
-  const toEmail = draft.toEmail.trim();
+  // One message, every recipient in "To" (#944); the first is the contact.
+  const [toEmail, ...additionalRecipients] = recipientList(draft) as [string, ...string[]];
   const contactName = cleanHeaderText(draft.contactName) || null;
   const subject = cleanHeaderText(draft.subject);
   const body = cleanBody(draft.body);
@@ -570,6 +598,8 @@ export async function sendApplicationEmail(
           contactName,
           contactEmail: toEmail,
           contactEmailNormalized: normalizeEmail(toEmail),
+          additionalRecipients,
+          recipientsNormalized: [toEmail, ...additionalRecipients].map(normalizeEmail),
           fromAddress: `${fromName} <${config.fromAddress}>`,
           replyTo,
           bccSelf: bcc,
@@ -610,7 +640,7 @@ export async function sendApplicationEmail(
   // 6. The provider call. Subject, body and addresses never reach a log.
   const email: OutgoingEmail = {
     from: { name: fromName, address: config.fromAddress },
-    to: { name: contactName, address: toEmail },
+    to: [{ name: contactName, address: toEmail }, ...additionalRecipients.map((address) => ({ name: null, address }))],
     replyTo,
     bcc,
     subject,
@@ -645,6 +675,7 @@ export async function sendApplicationEmail(
       recorded: result.ok,
       replayed: false,
       draft,
+      rejectedRecipients: outcome.rejectedRecipients ?? [],
     };
   }
 
@@ -715,6 +746,7 @@ export async function recordAcceptance(
               sentAt,
               providerMessageId: outcome.providerMessageId,
               providerResponse: outcome.response,
+              rejectedRecipients: outcome.rejectedRecipients ?? [],
               errorCode: null,
             },
           });

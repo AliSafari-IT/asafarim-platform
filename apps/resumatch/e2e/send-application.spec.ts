@@ -137,6 +137,55 @@ test("send the application, and find it in the sent history", async ({ page }, t
   await shot("8-card-after");
 });
 
+test("send one application to up to 3 recipients (#944)", async ({ page }, testInfo) => {
+  const shot = async (name: string) => {
+    if (shots) await page.screenshot({ path: `${shots}/${testInfo.project.name.replace(/\s+/g, "-")}-multi-${name}.png`, fullPage: true });
+  };
+  test.setTimeout(120_000);
+  await page.goto(`/applications/${APP_ID}/send`);
+  await expect(page.getByTestId("attachment-cv")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByLabel("Subject")).not.toHaveValue("", { timeout: 30_000 });
+  await expect(page.getByLabel("To (recipient email)")).toHaveValue(RECRUITER);
+
+  // Up to two more fields, then the link is gone.
+  const add = page.getByTestId("add-recipient");
+  await add.click();
+  await expect(page.getByLabel("To (recipient 2)")).toBeFocused();
+  await page.getByLabel("To (recipient 2)").fill("hr@example-audio.test");
+  await add.click();
+  await page.getByLabel("To (recipient 3)").fill("JOBS@example-audio.test");
+  await expect(add).toHaveCount(0);
+  await shot("1-three-recipients");
+
+  // The same address twice is refused, under its own field.
+  await page.getByTestId("send-submit").click();
+  await expect(page.getByText("This address is already a recipient.")).toBeVisible();
+  await expect(page.getByLabel("To (recipient 3)")).toBeFocused();
+  expect(await e2eDb().sentApplicationEmail.count({ where: { applicationId: APP_ID } })).toBe(0);
+
+  // Remove it, add a different one, and send once.
+  await page.getByTestId("remove-recipient").nth(1).click();
+  await expect(page.getByTestId("extra-recipient")).toHaveCount(1);
+  await add.click();
+  await page.getByLabel("To (recipient 3)").fill("lead@example-audio.test");
+  await page.getByTestId("send-submit").click();
+  await expect(page.getByTestId("send-success")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("send-success")).toContainText("hr@example-audio.test");
+  await shot("2-sent");
+
+  const sent = await e2eDb().sentApplicationEmail.findMany({ where: { applicationId: APP_ID } });
+  expect(sent).toHaveLength(1);
+  expect(sent[0]).toMatchObject({ contactEmail: RECRUITER, additionalRecipients: ["hr@example-audio.test", "lead@example-audio.test"] });
+
+  await page.getByTestId("view-sent").click();
+  await expect(page.getByTestId("sent-recipients").locator("li")).toHaveCount(3);
+  await page.goto("/applications/sent");
+  await expect(page.getByTestId("more-recipients").filter({ visible: true }).first()).toContainText("+2");
+  await page.goto(`/applications/sent?contact=${encodeURIComponent("lead@example-audio.test")}`);
+  await expect(page.getByTestId("sent-row")).toHaveCount(1);
+  await shot("3-history");
+});
+
 test("a refused send keeps the draft and the status", async ({ page }) => {
   test.setTimeout(120_000);
   await page.goto("/applications");

@@ -28,7 +28,9 @@ export interface OutgoingAttachment {
 
 export interface OutgoingEmail {
   from: { name: string; address: string };
-  to: { name: string | null; address: string };
+  /** Every "To" recipient, in order (at most three, #944). The contact
+   *  name, if any, belongs to the first. */
+  to: { name: string | null; address: string }[];
   replyTo: string | null;
   bcc: string | null;
   subject: string;
@@ -39,7 +41,14 @@ export interface OutgoingEmail {
 }
 
 export type SendOutcome =
-  | { kind: "accepted"; providerMessageId: string | null; response: string | null }
+  | {
+      kind: "accepted";
+      providerMessageId: string | null;
+      response: string | null;
+      /** "To" addresses the server refused while it took the message for
+       *  the others. Absent or empty: none refused. */
+      rejectedRecipients?: string[];
+    }
   | { kind: "rejected"; code: string; response: string | null }
   | { kind: "uncertain"; code: string };
 
@@ -111,7 +120,7 @@ export async function createSmtpMailer(config: ApplicationEmailConfig): Promise<
       try {
         const info = await transporter.sendMail({
           from: email.from,
-          to: email.to.name ? { name: email.to.name, address: email.to.address } : email.to.address,
+          to: email.to.map((r) => (r.name ? { name: r.name, address: r.address } : r.address)),
           bcc: email.bcc ?? undefined,
           replyTo: email.replyTo ?? undefined,
           subject: email.subject,
@@ -127,10 +136,7 @@ export async function createSmtpMailer(config: ApplicationEmailConfig): Promise<
           disableUrlAccess: true,
         });
         const rejected = ((info.rejected ?? []) as (string | { address: string })[]).map((r) => (typeof r === "string" ? r : r.address).toLowerCase());
-        if (rejected.includes(email.to.address.toLowerCase())) {
-          return { kind: "rejected", code: "RECIPIENT_REJECTED", response: safeResponse(info.response) };
-        }
-        return { kind: "accepted", providerMessageId: info.messageId ?? null, response: safeResponse(info.response) };
+        return recipientOutcome(email, rejected, info.messageId ?? null, safeResponse(info.response));
       } catch (error) {
         return classifySmtpError(error);
       }
@@ -139,12 +145,30 @@ export async function createSmtpMailer(config: ApplicationEmailConfig): Promise<
 }
 
 /**
+ * The outcome once the server answered for each recipient: refused for
+ * every "To" address is a refusal (a Bcc copy alone is not an application);
+ * refused for some is an acceptance that names the ones refused. Exported
+ * for tests.
+ */
+export function recipientOutcome(
+  email: Pick<OutgoingEmail, "to">,
+  rejectedLowerCase: readonly string[],
+  providerMessageId: string | null,
+  response: string | null,
+): SendOutcome {
+  const refused = email.to.filter((r) => rejectedLowerCase.includes(r.address.toLowerCase())).map((r) => r.address);
+  if (refused.length === email.to.length) return { kind: "rejected", code: "RECIPIENT_REJECTED", response };
+  return { kind: "accepted", providerMessageId, response, rejectedRecipients: refused };
+}
+
+/**
  * Network-free mailer for local development, tests and CI. Recipients at
  * the reserved `.test` domain choose an outcome, so every branch of the send
  * flow can be exercised end to end:
  *
- * - `reject@…test`: a definite refusal;
- * - `timeout@…test`: an uncertain result;
+ * - `reject@…test`: a definite refusal of that recipient (the message
+ *   still goes to any other recipient, as a real server would);
+ * - `timeout@…test`: an uncertain result for the whole message;
  * - anything else: accepted.
  *
  * `sent` keeps every accepted message in memory (tests read it).
@@ -155,11 +179,12 @@ export function createFixtureMailer(): ApplicationMailer & { sent: OutgoingEmail
     name: "fixture",
     sent,
     async send(email) {
-      const local = email.to.address.toLowerCase();
-      if (/^reject@[^@]+\.test$/.test(local)) return { kind: "rejected", code: "SMTP_550", response: "550 5.1.1 fixture: mailbox unavailable" };
-      if (/^timeout@[^@]+\.test$/.test(local)) return { kind: "uncertain", code: "ETIMEDOUT" };
+      const addresses = email.to.map((r) => r.address.toLowerCase());
+      if (addresses.some((a) => /^timeout@[^@]+\.test$/.test(a))) return { kind: "uncertain", code: "ETIMEDOUT" };
+      const refused = addresses.filter((a) => /^reject@[^@]+\.test$/.test(a));
+      if (refused.length === addresses.length) return { kind: "rejected", code: "SMTP_550", response: "550 5.1.1 fixture: mailbox unavailable" };
       sent.push(email);
-      return { kind: "accepted", providerMessageId: email.messageId, response: "250 2.0.0 fixture: queued" };
+      return recipientOutcome(email, refused, email.messageId, "250 2.0.0 fixture: queued");
     },
   };
 }

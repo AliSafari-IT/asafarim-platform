@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Alert, PageHeader } from "@asafarim/ui";
+import { normalizeEmail } from "../../../../lib/applicationEmail/normalize";
 import { getSentEmail } from "../../../../lib/applicationEmail/sentList";
 import { DEFAULT_SENT_QUERY, sentListHref } from "../../../../lib/applicationEmail/sentQuery";
 import { getTranslator } from "../../../../lib/i18n-server";
@@ -44,10 +45,22 @@ export default async function SentApplicationPage({ params }: { params: Promise<
     [t("resumatch.sent.detail.from"), sent.fromAddress],
     [
       t("resumatch.sent.detail.to"),
-      <a key="to" href={sentListHref({ ...DEFAULT_SENT_QUERY, contact: sent.contactEmailNormalized })}>
-        {sent.contactName ? `${sent.contactName} <${sent.contactEmail}>` : sent.contactEmail}
-      </a>,
+      <ul key="to" className="rm-sent-recipients" data-testid="sent-recipients">
+        <li>
+          <a href={sentListHref({ ...DEFAULT_SENT_QUERY, contact: sent.contactEmailNormalized })}>
+            {sent.contactName ? `${sent.contactName} <${sent.contactEmail}>` : sent.contactEmail}
+          </a>
+        </li>
+        {sent.additionalRecipients.map((address) => (
+          <li key={address}>
+            <a href={sentListHref({ ...DEFAULT_SENT_QUERY, contact: normalizeEmail(address) })}>{address}</a>
+          </li>
+        ))}
+      </ul>,
     ],
+    ...(sent.rejectedRecipients.length > 0
+      ? ([[t("resumatch.sent.detail.notDelivered"), <span key="nd" data-testid="sent-not-delivered">{sent.rejectedRecipients.join(", ")}</span>]] as [string, React.ReactNode][])
+      : []),
     [t("resumatch.sent.detail.replyTo"), sent.replyTo ?? "—"],
     [t("resumatch.sent.detail.bcc"), sent.bccSelf ?? t("resumatch.sent.detail.noCopy")],
     [t("resumatch.sent.detail.attempted"), <LocalTime key="a" iso={sent.attemptedAt.toISOString()} />],
