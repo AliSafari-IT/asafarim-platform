@@ -133,3 +133,32 @@ test("an export from account A restores its confirmed profile in account B", asy
   expect(await prisma.targetJob.count({ where: { workspaceId: destId } })).toBe(0);
   expect(await prisma.candidateDocument.count({ where: { workspaceId: destId } })).toBe(0);
 });
+
+test("a large export, renamed to .txt, still opens the import (above the 10 MB CV limit)", async ({ page }) => {
+  await seed();
+  // A synthetic 12 MB archive: the size comes from job text, which is never imported.
+  const archive = {
+    exportedAt: "2026-11-24T09:00:00.000Z",
+    format: "resumatch-candidate-export",
+    formatVersion: "1.0.0",
+    workspace: { id: "source-ws", createdAt: "2026-01-01T00:00:00.000Z" },
+    profile: {
+      confirmedVersionId: "src-1",
+      versions: [{ id: "src-1", versionNumber: 1, origin: "MANUAL", createdAt: "2026-11-01T00:00:00.000Z", content: confirmedContent }],
+    },
+    targetJobs: [{ id: "j1", rawText: "x".repeat(12 * 1024 * 1024) }],
+  };
+  const buffer = Buffer.from(JSON.stringify(archive, null, 2));
+  expect(buffer.length).toBeGreaterThan(12 * 1024 * 1024);
+
+  await page.goto("/profile");
+  await expect(page.getByRole("textbox", { name: "Headline" })).toHaveValue("B's own headline");
+  const panel = page.getByRole("region", { name: "Import a profile from a ResuMatch export" });
+  await expect(async () => {
+    await page.locator("input.jm-dropzone__input").setInputFiles({ name: "backup.txt", mimeType: "text/plain", buffer });
+    await expect(panel).toBeVisible({ timeout: 2000 });
+  }).toPass();
+  await expect(panel.getByText("Profile version 1 from the export, the one confirmed there.")).toBeVisible({ timeout: 20_000 });
+  await expect(panel.locator(".rx-import__count", { hasText: "Experience" })).toContainText("2 of 2");
+  await expect(panel.getByText("Jobs (1)")).toBeVisible();
+});
