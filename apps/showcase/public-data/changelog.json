@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-11-24",
+    "title": "Resumatch: applied, responses and cover letters in the Tailor activity chart (0.6.4)",
+    "sha": "be432de0",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/be432de0"
+  },
+  {
+    "date": "2026-11-24",
     "title": "Resumatch: send an application to up to 3 recipients (0.6.4)",
     "sha": "9c40774f",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/9c40774f"
@@ -112,11 +118,5 @@
     "title": "UI: group the app switcher and add ASafariM OS and Android apps",
     "sha": "1aaa5fee",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1aaa5fee"
-  },
-  {
-    "date": "2026-10-18",
-    "title": "EduMatch: AI kill switch, monthly budget and per-student quota (#539)",
-    "sha": "52014deb",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/52014deb"
   }
 ]
