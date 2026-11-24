@@ -69,9 +69,9 @@ export async function storedFollowUp(id: string): Promise<string | null> {
   return row.followUpDate ? row.followUpDate.toISOString() : null;
 }
 
-async function sessionCookie(picture?: string, claims: { email?: string; name?: string } = {}): Promise<string> {
+async function sessionCookie(picture?: string, claims: { email?: string; name?: string } = {}, sub = E2E_PLATFORM_USER_ID): Promise<string> {
   return encode({
-    token: { sub: E2E_PLATFORM_USER_ID, isActive: true, roles: [], ...(picture ? { picture } : {}), ...claims },
+    token: { sub, isActive: true, roles: [], ...(picture ? { picture } : {}), ...claims },
     secret: requireEnv("AUTH_SECRET"),
     salt: COOKIE_NAME,
   });
@@ -101,6 +101,12 @@ export { expect };
 export async function signInWithPicture(context: BrowserContext, baseURL: string | undefined, picture: string) {
   const url = new URL(baseURL ?? "http://localhost:3012");
   await context.addCookies([{ name: COOKIE_NAME, value: await sessionCookie(picture), domain: url.hostname, path: "/" }]);
+}
+
+/** Sign the browser in as another platform user (a second account). */
+export async function signInAs(context: BrowserContext, baseURL: string | undefined, sub: string) {
+  const url = new URL(baseURL ?? "http://localhost:3012");
+  await context.addCookies([{ name: COOKIE_NAME, value: await sessionCookie(undefined, {}, sub), domain: url.hostname, path: "/" }]);
 }
 
 /** Re-sign the browser in with an account email and name, the way Hub's
