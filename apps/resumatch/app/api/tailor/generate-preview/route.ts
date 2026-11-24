@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { runTailorProviderCall } from "../../../../lib/tailoring/ai/generate";
 import { MAX_INSTRUCTIONS_CHARS } from "../../../../lib/tailoring/ai/prompts";
 import { runCoverLetterProviderCall } from "../../../../lib/tailoring/ai/coverLetter/generate";
+import { nextMonthStart } from "../../../../lib/tailoring/ai/quota";
 import { COVER_LETTER_LENGTHS, COVER_LETTER_TONES, type CoverLetterLength, type CoverLetterTone } from "../../../../lib/tailoring/ai/coverLetter/prompts";
 import { assessJobFit } from "../../../../lib/tailoring/jobFit";
 import {
@@ -254,6 +255,10 @@ export async function POST(request: Request) {
   return NextResponse.json({
     previewId: preview.id,
     degraded,
+    /** #756: why it degraded, and when the monthly budgets reset. Not
+     *  persisted: it explains this run only, never provenance. */
+    degradedReason: tailorResult.degradedReason,
+    budgetResetsOn: nextMonthStart().toISOString().slice(0, 10),
     promptVersion,
     modelVersion,
     suggestions,
@@ -271,6 +276,7 @@ export async function POST(request: Request) {
       ? {
           suggestion: coverLetterResult.suggestion,
           degraded: coverLetterResult.degraded,
+          degradedReason: coverLetterResult.degradedReason,
           outputLanguage: letterLanguage,
           promptVersion: coverLetterResult.promptVersion,
           modelVersion: coverLetterResult.modelVersion,

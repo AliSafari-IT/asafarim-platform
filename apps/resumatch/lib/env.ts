@@ -91,6 +91,9 @@ export interface ResuMatchEnv {
   aiClassificationSignedOff: boolean;
   /** JM-047 monthly spend ceiling in USD. `0` freezes AI spend entirely. */
   aiMonthlyBudgetUsd: number;
+  /** Issue #756: service-wide monthly ceiling in USD across every
+   *  workspace. `null` (unset) means none; `0` freezes AI spend for all. */
+  aiGlobalMonthlyBudgetUsd: number | null;
   /**
    * Issue #517: whether a job fetch the deterministic GET could not read may
    * escalate to the AI-browsing provider. Only matters when a real provider
@@ -134,6 +137,14 @@ const rawSchema = z.object({
     .transform((value) => value === "true"),
   /** JM-047 monthly spend ceiling in USD; "0" freezes spend. */
   RESUMATCH_AI_MONTHLY_BUDGET_USD: z
+    .string()
+    .optional()
+    .transform((value) => (value === undefined || value === "" ? undefined : Number(value)))
+    .refine((value) => value === undefined || (Number.isFinite(value) && value >= 0), {
+      message: "must be a non-negative number",
+    }),
+  /** Issue #756: service-wide monthly ceiling in USD; unset means none, "0" freezes spend. */
+  RESUMATCH_AI_GLOBAL_MONTHLY_BUDGET_USD: z
     .string()
     .optional()
     .transform((value) => (value === undefined || value === "" ? undefined : Number(value)))
@@ -242,6 +253,7 @@ export function resolveEnv(
     aiProvider: raw.RESUMATCH_AI_PROVIDER,
     aiClassificationSignedOff: raw.RESUMATCH_AI_CLASSIFICATION_SIGNED_OFF ?? false,
     aiMonthlyBudgetUsd: raw.RESUMATCH_AI_MONTHLY_BUDGET_USD ?? DEFAULT_AI_MONTHLY_BUDGET_USD,
+    aiGlobalMonthlyBudgetUsd: raw.RESUMATCH_AI_GLOBAL_MONTHLY_BUDGET_USD ?? null,
     jobFetchAiEscalation: raw.RESUMATCH_JOB_FETCH_AI_ESCALATION !== "off",
     aiFallbackProvider,
   };

@@ -4,6 +4,8 @@ import { billedUsageOf, type ProviderCallMeta } from "../../costs/providerMeta";
 import type { Outcome } from "@asafarim/ai-cost-ledger";
 import { getEnv } from "../../env";
 import { getPlatformSetting } from "../../platform-settings";
+import { log } from "../../observability/logger";
+export type { DegradedReason } from "../degradedReason";
 
 /**
  * Per-workspace AI budget. Mirrors apps/tasks-ai/lib/ai/quota.ts almost 1:1
@@ -45,21 +47,37 @@ import { getPlatformSetting } from "../../platform-settings";
  * app/api/internal/workspace-ai-budget; the candidate never can.
  */
 
+/**
+ * Which ceiling refused a call (issue #756): the workspace's own monthly
+ * budget, or the service-wide one shared by every workspace.
+ */
+export type BudgetScope = "workspace" | "global";
+
 export class QuotaExceededError extends Error {
   /** Machine-readable reason, analogous to tasks-ai's ApiError `reason`
    *  detail -- used by callers/routes to build a consistent 429 body. */
   readonly reason: string;
   readonly budgetUsd: number;
   readonly monthUsd: number;
+  /** Issue #756: which ceiling refused. */
+  readonly scope: BudgetScope;
+  /** Stable error code, recorded as `ai_call_outcomes.errorCode` by the
+   *  shared runtime (`errorCodeOf` prefers `code`), so the outcome log says
+   *  which ceiling refused without ever holding a message. */
+  readonly code: "budget_workspace" | "budget_global";
 
-  constructor(reason: string, budgetUsd: number, monthUsd: number) {
+  constructor(reason: string, budgetUsd: number, monthUsd: number, scope: BudgetScope = "workspace") {
     super(reason);
     this.name = "QuotaExceededError";
     this.reason = reason;
     this.budgetUsd = budgetUsd;
     this.monthUsd = monthUsd;
+    this.scope = scope;
+    this.code = scope === "global" ? "budget_global" : "budget_workspace";
   }
 }
+
+export { degradedReasonOf } from "../degradedReason";
 
 export type ProviderCallKind =
   | "tailor"
@@ -74,6 +92,11 @@ export type ProviderCallKind =
 
 function monthStart(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+}
+
+/** The first day of next month (UTC): when every monthly budget resets. */
+export function nextMonthStart(now = new Date()): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
 }
 
 /**
@@ -160,10 +183,109 @@ export async function usageSummary(workspaceId: string): Promise<UsageSummary> {
   };
 }
 
+/** Sentinel the settings client returns when neither an admin override
+ *  nor the env var sets a service-wide ceiling. */
+const NO_GLOBAL_BUDGET = -1;
+
+/**
+ * The service-wide monthly ceiling (issue #756): an Admin-console override
+ * (`resumatch.aiGlobalMonthlyBudgetUsd`), else
+ * `RESUMATCH_AI_GLOBAL_MONTHLY_BUDGET_USD`, else null (no ceiling, which is
+ * how ResuMatch behaved before #756). 0 freezes AI spend for everyone.
+ */
+export async function globalMonthlyBudgetUsd(): Promise<number | null> {
+  const value = await getPlatformSetting(
+    "resumatch.aiGlobalMonthlyBudgetUsd",
+    getEnv().aiGlobalMonthlyBudgetUsd ?? NO_GLOBAL_BUDGET,
+  );
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+/** This month's known spend across every workspace, from both ledgers
+ *  (same sums as `usageSummary`, without the workspace filter). */
+export async function globalMonthUsd(now = new Date()): Promise<number> {
+  const db = getJobmatchDb();
+  const since = monthStart(now);
+  const [legacy, events] = await Promise.all([
+    db.aiUsageLedger.aggregate({
+      where: { createdAt: { gte: since } },
+      _sum: { costUsd: true },
+    }),
+    db.$queryRaw<{ micros: bigint | null }[]>`
+      SELECT SUM(COALESCE("actualCostMicros", "estimatedCostMicros", "adjustmentDeltaMicros", 0))::bigint AS micros
+      FROM "ai_cost_events"
+      WHERE "occurredAt" >= ${since}
+    `,
+  ]);
+  return (legacy._sum.costUsd ?? 0) + Number(events[0]?.micros ?? 0n) / 1_000_000;
+}
+
+export interface GlobalUsage {
+  monthUsd: number;
+  /** null: no service-wide ceiling is configured. */
+  budgetUsd: number | null;
+}
+
+/** The service-wide spend and ceiling. Skips the spend query when no
+ *  ceiling is configured. */
+export async function globalUsage(): Promise<GlobalUsage> {
+  const budgetUsd = await globalMonthlyBudgetUsd();
+  if (budgetUsd === null) return { monthUsd: 0, budgetUsd: null };
+  return { monthUsd: await globalMonthUsd(), budgetUsd };
+}
+
+/** Share of the global ceiling at which operators are warned. */
+export const GLOBAL_ALERT_RATIO = 0.8;
+/** The month (YYYY-MM) this process last warned about, so the alert is
+ *  logged once per month per process rather than on every call. */
+let globalAlertMonth: string | null = null;
+
+/** Logs `ai.budget.global_threshold` once a month when spend crosses 80%
+ *  of the service-wide ceiling. Exported for tests. */
+export function maybeAlertGlobalThreshold(usage: GlobalUsage, now = new Date()): boolean {
+  if (usage.budgetUsd === null || usage.budgetUsd <= 0) return false;
+  if (usage.monthUsd < usage.budgetUsd * GLOBAL_ALERT_RATIO) return false;
+  const month = now.toISOString().slice(0, 7);
+  if (globalAlertMonth === month) return false;
+  globalAlertMonth = month;
+  log.warn("ai.budget.global_threshold", {
+    month,
+    monthUsd: Math.round(usage.monthUsd * 100) / 100,
+    budgetUsd: usage.budgetUsd,
+    reached: usage.monthUsd >= usage.budgetUsd,
+  });
+  return true;
+}
+
+/** Tests only. */
+export function resetGlobalAlertForTests(): void {
+  globalAlertMonth = null;
+}
+
+/**
+ * What the candidate sees (issue #756): their own month against their
+ * ceiling, when it resets, and whether the service-wide ceiling is
+ * already reached. The global amounts themselves are never shown.
+ */
+export interface BudgetStatus extends UsageSummary {
+  /** ISO date (YYYY-MM-DD, UTC) of the next reset. */
+  resetsOn: string;
+  globalReached: boolean;
+}
+
+export async function budgetStatus(workspaceId: string, now = new Date()): Promise<BudgetStatus> {
+  const [summary, global] = await Promise.all([usageSummary(workspaceId), globalUsage()]);
+  return {
+    ...summary,
+    resetsOn: nextMonthStart(now).toISOString().slice(0, 10),
+    globalReached: global.budgetUsd !== null && global.monthUsd >= global.budgetUsd,
+  };
+}
+
 /**
  * Called before every tailoring provider call. Throws `QuotaExceededError`
  * (mapped to `429` by the caller/route) when the workspace's monthly budget
- * is already exhausted. `RESUMATCH_AI_MONTHLY_BUDGET_USD=0` freezes spend
+ * or the service-wide one (issue #756) is already exhausted. `RESUMATCH_AI_MONTHLY_BUDGET_USD=0` freezes spend
  * entirely, per lib/env.ts's own doc comment on that variable.
  *
  * Never silently skips the call and never lets a caller fabricate a result
@@ -181,6 +303,20 @@ export async function assertCanRunProviderCall(
       `monthly AI budget of $${budgetUsd} reached for workspace (${kind})`,
       budgetUsd,
       monthUsd,
+      "workspace",
+    );
+  }
+  // Issue #756: the service-wide ceiling, checked only after the
+  // workspace's own (so a user over their own budget is told so, not that
+  // the service is out).
+  const global = await globalUsage();
+  maybeAlertGlobalThreshold(global);
+  if (global.budgetUsd !== null && global.monthUsd >= global.budgetUsd) {
+    throw new QuotaExceededError(
+      `service-wide monthly AI budget of $${global.budgetUsd} reached (${kind})`,
+      global.budgetUsd,
+      global.monthUsd,
+      "global",
     );
   }
 }

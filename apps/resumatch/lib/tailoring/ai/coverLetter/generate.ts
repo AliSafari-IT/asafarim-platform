@@ -1,4 +1,5 @@
 import { getEnv, type ResuMatchAiProvider } from "../../../env";
+import { degradedReasonOf, type DegradedReason } from "../../degradedReason";
 import { logError } from "../../../observability/logger";
 import { buildCoverLetterContent, type CoverLetterContent, type CoverLetterSuggestion } from "./schema";
 import { renderCoverLetterPrompt, type CoverLetterEvidenceInput, type CoverLetterLength, type CoverLetterTone } from "./prompts";
@@ -17,6 +18,9 @@ export interface CoverLetterProviderCallResult {
    *  degraded call simply produces no letter for this run. */
   suggestion: CoverLetterSuggestion | null;
   degraded: boolean;
+  /** Issue #756: why there is no letter. `"grounding"`: the call worked
+   *  but no paragraph survived the grounding check. Null when not degraded. */
+  degradedReason: DegradedReason | "grounding" | null;
   promptVersion: string;
   /** The model and provider that served the call: the fallback's when the
    *  fallback served it (issue #511), else the primary's. */
@@ -69,6 +73,7 @@ export async function runCoverLetterProviderCall(
 
   let suggestion: CoverLetterSuggestion | null = null;
   let degraded = false;
+  let degradedReason: DegradedReason | "grounding" | null = null;
 
   const attribution: CostAttribution = {
     subjectType: cost.subjectType ?? "target_job",
@@ -134,6 +139,7 @@ export async function runCoverLetterProviderCall(
   } else {
     logError("coverLetter.generate.degraded", result.error, { workspaceId, targetJobId, provider: providerName });
     degraded = true;
+    degradedReason = degradedReasonOf(result.error);
     suggestion = null;
   }
 
@@ -152,10 +158,13 @@ export async function runCoverLetterProviderCall(
     suggestion = grounded.suggestion;
     removedSentences = grounded.removedClaimSentences;
     droppedParagraphs = grounded.tokenDroppedParagraphs;
-    if (!suggestion) degraded = true;
+    if (!suggestion) {
+      degraded = true;
+      degradedReason = "grounding";
+    }
   }
 
-  return { suggestion, degraded, promptVersion: prompt.version, modelVersion, providerName, removedSentences, droppedParagraphs };
+  return { suggestion, degraded, degradedReason, promptVersion: prompt.version, modelVersion, providerName, removedSentences, droppedParagraphs };
 }
 
 export { buildCoverLetterContent };
