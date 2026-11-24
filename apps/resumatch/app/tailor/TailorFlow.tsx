@@ -34,6 +34,9 @@ import {
   outputLanguageFromLocale,
   type OutputLanguage,
 } from "../../lib/tailoring/language";
+import { WritingSettingsSummary, WritingSource } from "../../components/tailoring/WritingSettings";
+import { putWritingPreferences } from "../../lib/writingPreferences/client";
+import type { WritingPreferences, WritingPreferencesView } from "../../lib/writingPreferences/contract";
 
 const MIN_PASTE_CHARS = 120;
 
@@ -74,6 +77,10 @@ export interface TailorFlowProps {
    *  (lib/tailoring/editSaved.ts): it starts on that CV's review, filled in
    *  exactly as it was saved, and saving updates that CV in place. */
   editSeed?: SavedReviewSeed | null;
+  /** #931: the saved writing preferences the options card starts from
+   *  (null: none). Choices on the card apply to this run only, unless the
+   *  candidate presses "Remember". */
+  writingPreferences?: WritingPreferencesView | null;
 }
 
 interface ReviewExperienceItem {
@@ -133,6 +140,8 @@ interface ReviewState {
   lowFit: boolean;
   /** How many confirmed evidence items the run used (#929). */
   evidenceUsed?: number;
+  /** #931: whether the saved style notes steered this run. */
+  styleNotes?: "saved" | "off" | "none";
   /** #930: claim-check flags on the AI headline and summary (empty: none),
    *  how many AI suggestions were flagged, and how many job requirements
    *  the profile does not back (so the CV does not claim them). */
@@ -281,7 +290,7 @@ function reviewFromSaved(saved: SavedReviewSeed, nextKey: () => string): ReviewS
   };
 }
 
-export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }: TailorFlowProps) {
+export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, writingPreferences = null }: TailorFlowProps) {
   const router = useRouter();
   const { t, locale: pageLocale } = useTranslation();
   const [url, setUrl] = useState("");
@@ -291,17 +300,69 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [mode, setMode] = useState<Mode>("url");
   const [instructions, setInstructions] = useState(seed?.instructions ?? "");
+  // #931: the saved writing preferences, kept current after "Remember".
+  const [savedWriting, setSavedWriting] = useState<WritingPreferencesView | null>(writingPreferences);
+  const savedPrefs = savedWriting?.preferences ?? null;
   // #641: defaults to the page language from the language bar (#640);
-  // the candidate can pick another for this run.
+  // the candidate can pick another for this run. #931: a regenerate seed
+  // first, then the saved preference, then that default.
   const [cvLanguage, setCvLanguage] = useState<OutputLanguage>(
-    () => seed?.cvLanguage ?? outputLanguageFromLocale(pageLocale),
+    () => seed?.cvLanguage ?? writingPreferences?.preferences.cv.outputLanguage ?? outputLanguageFromLocale(pageLocale),
   );
   const [includeCoverLetter, setIncludeCoverLetter] = useState(seed?.includeCoverLetter ?? false);
-  const [coverLetterTone, setCoverLetterTone] = useState<"formal" | "warm" | "confident">(seed?.coverLetterTone ?? "formal");
-  const [coverLetterLength, setCoverLetterLength] = useState<"short" | "standard" | "detailed">(seed?.coverLetterLength ?? "standard");
+  const [coverLetterTone, setCoverLetterTone] = useState<"formal" | "warm" | "confident">(
+    seed?.coverLetterTone ?? writingPreferences?.preferences.coverLetter.tone ?? "formal",
+  );
+  const [coverLetterLength, setCoverLetterLength] = useState<"short" | "standard" | "detailed">(
+    seed?.coverLetterLength ?? writingPreferences?.preferences.coverLetter.length ?? "standard",
+  );
   // #642: null means "same as the CV", so the letter keeps following the CV
   // language until the candidate picks a different one on purpose.
-  const [coverLetterLanguage, setCoverLetterLanguage] = useState<OutputLanguage | null>(seed?.coverLetterLanguage ?? null);
+  const [coverLetterLanguage, setCoverLetterLanguage] = useState<OutputLanguage | null>(
+    seed && seed.hadCoverLetter !== false
+      ? seed.coverLetterLanguage
+      : (writingPreferences?.preferences.coverLetter.outputLanguage ?? null),
+  );
+  const hasSavedNotes = Boolean(savedPrefs?.cv.styleNote || savedPrefs?.coverLetter.styleNote);
+  // A per-run opt-out, kept only for the job it was made on: another job
+  // starts with the saved notes on again.
+  const [notesOffFor, setNotesOffFor] = useState<string | null>(null);
+  const [writingNote, setWritingNote] = useState<{ tone: "info" | "error"; text: string } | null>(null);
+  const [rememberBusy, setRememberBusy] = useState(false);
+  // What "Remember" would save: the card's choices, the saved notes kept.
+  // The letter's choices only count when the card shows them.
+  const cardPreferences: WritingPreferences = {
+    cv: { outputLanguage: cvLanguage, styleNote: savedPrefs?.cv.styleNote ?? null },
+    coverLetter: includeCoverLetter
+      ? {
+          tone: coverLetterTone,
+          length: coverLetterLength,
+          outputLanguage: coverLetterLanguage,
+          styleNote: savedPrefs?.coverLetter.styleNote ?? null,
+        }
+      : (savedPrefs?.coverLetter ?? { tone: null, length: null, outputLanguage: null, styleNote: null }),
+  };
+  const cardMatchesSaved =
+    savedPrefs !== null &&
+    savedPrefs.cv.outputLanguage === cardPreferences.cv.outputLanguage &&
+    savedPrefs.coverLetter.tone === cardPreferences.coverLetter.tone &&
+    savedPrefs.coverLetter.length === cardPreferences.coverLetter.length &&
+    savedPrefs.coverLetter.outputLanguage === cardPreferences.coverLetter.outputLanguage;
+  async function rememberChoices() {
+    setRememberBusy(true);
+    setWritingNote(null);
+    const result = await putWritingPreferences(cardPreferences, savedWriting?.revisionId ?? null);
+    setRememberBusy(false);
+    if (result.kind === "saved") {
+      setSavedWriting(result.current);
+      setWritingNote({ tone: "info", text: t("resumatch.writing.flow.remembered") });
+    } else if (result.kind === "stale") {
+      setSavedWriting(result.current);
+      setWritingNote({ tone: "error", text: t("resumatch.writing.stale") });
+    } else {
+      setWritingNote({ tone: "error", text: t("resumatch.writing.error.save") });
+    }
+  }
   const bulletKeyRef = useRef(0);
   const nextBulletKey = useCallback(() => `b${++bulletKeyRef.current}`, []);
   const [state, setState] = useState<FetchState>(() =>
@@ -508,7 +569,10 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
             includeCoverLetter,
             coverLetterTone: includeCoverLetter ? coverLetterTone : undefined,
             coverLetterLength: includeCoverLetter ? coverLetterLength : undefined,
-            coverLetterOutputLanguage: includeCoverLetter ? (coverLetterLanguage ?? undefined) : undefined,
+            // #931: null is an explicit "same as the CV", which beats a
+            // saved letter language.
+            coverLetterOutputLanguage: includeCoverLetter ? coverLetterLanguage : undefined,
+            useSavedWritingStyle: hasSavedNotes ? notesOffFor !== targetJobId : undefined,
             instructions: instructions.trim() || undefined,
             outputLanguage: cvLanguage,
             proceedDespiteLowFit: lowFitConfirmedFor === targetJobId ? true : undefined,
@@ -602,6 +666,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
           outputLanguage: isOutputLanguage(body.outputLanguage) ? body.outputLanguage : null,
           lowFit: body.lowFit === true,
           evidenceUsed: typeof body.evidenceUsed === "number" ? body.evidenceUsed : 0,
+          styleNotes: body.writing?.styleNotes === "saved" || body.writing?.styleNotes === "off" ? body.writing.styleNotes : "none",
           headlineFlags: suggestions?.headline ? (claimFor("headline")?.flags ?? []) : [],
           summaryFlags: suggestions?.summary && !seedEdits.ownSummary ? (claimFor("summary")?.flags ?? []) : [],
           flaggedClaims: claimCheck?.flagged ?? 0,
@@ -673,6 +738,8 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
       lastFetched,
       seed,
       nextBulletKey,
+      hasSavedNotes,
+      notesOffFor,
       t,
     ],
   );
@@ -1037,6 +1104,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
               <small id="rm-cv-language-help">
                 {t("resumatch.flow.cvLanguageHelp")}
               </small>
+              <WritingSource saved={savedPrefs?.cv.outputLanguage} value={cvLanguage} testId="writing-source-cv-language" />
             </label>
             <label className="jm-field" style={{ display: "block", margin: "0.5rem 0" }}>
               <span className="rm-review__section-label">{t("resumatch.flow.instructions.label")}</span>
@@ -1084,6 +1152,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
                     <option value="warm">{t("resumatch.flow.tone.warm")}</option>
                     <option value="confident">{t("resumatch.flow.tone.confident")}</option>
                   </select>
+                  <WritingSource saved={savedPrefs?.coverLetter.tone} value={coverLetterTone} testId="writing-source-tone" />
                 </label>
                 <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem" }}>
                   <span>{t("resumatch.flow.length")}</span>
@@ -1092,6 +1161,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
                     <option value="standard">{t("resumatch.flow.length.standard")}</option>
                     <option value="detailed">{t("resumatch.flow.length.detailed")}</option>
                   </select>
+                  <WritingSource saved={savedPrefs?.coverLetter.length} value={coverLetterLength} testId="writing-source-length" />
                 </label>
                 <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem" }}>
                   <span>{t("resumatch.flow.language")}</span>
@@ -1109,9 +1179,20 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
                       </option>
                     ))}
                   </select>
+                  <WritingSource saved={savedPrefs?.coverLetter.outputLanguage} value={coverLetterLanguage} testId="writing-source-letter-language" />
                 </label>
               </div>
             ) : null}
+            <WritingSettingsSummary
+              saved={savedWriting}
+              canRemember={!cardMatchesSaved}
+              remembering={rememberBusy}
+              onRemember={() => void rememberChoices()}
+              useNotes={notesOffFor !== state.targetJobId}
+              onUseNotesChange={(use) => setNotesOffFor(use ? null : state.targetJobId)}
+              includeLetter={includeCoverLetter}
+              note={writingNote}
+            />
             <Button onClick={() => startReview(state.targetJobId)}>
               {seed && seed.job.targetJobId === state.targetJobId
                 ? t("resumatch.flow.regen.run")
@@ -1183,6 +1264,11 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null }:
                 {state.review.instructions ? (
                   <p style={{ color: "var(--muted)", fontSize: "0.82rem", fontStyle: "italic" }}>
                     {t("resumatch.review.steering", { note: state.review.instructions })}
+                  </p>
+                ) : null}
+                {state.review.styleNotes === "saved" || state.review.styleNotes === "off" ? (
+                  <p style={{ color: "var(--muted)", fontSize: "0.82rem" }} data-testid="writing-review-note">
+                    {t(state.review.styleNotes === "saved" ? "resumatch.writing.review.notesUsed" : "resumatch.writing.review.notesOff")}
                   </p>
                 ) : null}
 

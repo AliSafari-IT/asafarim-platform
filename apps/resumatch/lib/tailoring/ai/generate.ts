@@ -65,6 +65,8 @@ export async function runTailorProviderCall(
    *  gets its tagged profile text, tagged evidence, selected job text and
    *  requirement gaps instead of `buildProfileText` and `evidence`. */
   selection: Pick<TailoringSelection, "profileText" | "evidenceText" | "gapsText" | "jobTextUsed"> | null = null,
+  /** #931: the candidate's saved CV style note. Null: no block, no rule. */
+  styleNote: string | null = null,
 ): Promise<TailorProviderCallResult> {
   const primaryName = providerOverride ?? getEnv().aiProvider;
   const primaryModelVersion = await resolveTailorModelVersion(primaryName);
@@ -74,8 +76,8 @@ export async function runTailorProviderCall(
   let modelVersion = primaryModelVersion;
   const profileText = selection ? selection.profileText : buildProfileText(profile).text;
   const prompt = selection
-    ? renderTailorPrompt(profileText, selection.jobTextUsed, instructions, outputLanguage, lowFit, selection.evidenceText, selection.gapsText)
-    : renderTailorPrompt(profileText, jobText, instructions, outputLanguage, lowFit, evidence);
+    ? renderTailorPrompt(profileText, selection.jobTextUsed, instructions, outputLanguage, lowFit, selection.evidenceText, selection.gapsText, styleNote)
+    : renderTailorPrompt(profileText, jobText, instructions, outputLanguage, lowFit, evidence, null, styleNote);
 
   let suggestions: TailorSuggestions | null = null;
   let degraded = false;

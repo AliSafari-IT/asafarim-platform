@@ -16,6 +16,18 @@ function looksLikeExportFile(file: File): boolean {
   return file.type === "application/json" || /\.json$/i.test(file.name);
 }
 
+/** A renamed export larger than the CV limit would otherwise be refused as
+ *  an oversized CV before the server could recognise it. The export writes
+ *  its `format` marker within its first few lines. */
+async function startsLikeExport(file: File): Promise<boolean> {
+  try {
+    const head = await file.slice(0, 4096).text();
+    return head.trimStart().startsWith("{") && head.includes('"resumatch-candidate-export"');
+  } catch {
+    return false;
+  }
+}
+
 export interface DocumentRow {
   id: string;
   originalFilename: string;
@@ -86,7 +98,7 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
 
   const upload = useCallback(
     async (file: File) => {
-      if (looksLikeExportFile(file)) {
+      if (looksLikeExportFile(file) || (file.size > MAX_DOCUMENT_BYTES && (await startsLikeExport(file)))) {
         setMessage(null);
         setImportFile(file);
         if (inputRef.current) inputRef.current.value = "";
@@ -286,6 +298,9 @@ export function UploadPanel({ documents }: { documents: DocumentRow[] }) {
       {message ? <Alert tone={message.tone}>{message.text}</Alert> : null}
       {importFile ? (
         <ProfileImportPanel
+          // A new file gets a fresh panel: no preview or version list from
+          // the previous file can stay on screen next to it.
+          key={`${importFile.name}:${importFile.size}:${importFile.lastModified}`}
           file={importFile}
           onCancel={() => setImportFile(null)}
           onDone={(text) => {

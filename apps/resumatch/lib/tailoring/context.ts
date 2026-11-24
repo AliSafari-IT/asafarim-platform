@@ -3,6 +3,7 @@ import { capWithMarker, cap } from "../ai/promptKit";
 import { COVER_LETTER_LENGTHS, COVER_LETTER_TONES, type CoverLetterLength, type CoverLetterTone } from "./ai/coverLetter/prompts";
 import { MAX_INSTRUCTIONS_CHARS, MAX_JOB_CHARS } from "./ai/prompts";
 import { isOutputLanguage, type OutputLanguage } from "./language";
+import type { ResolvedWriting, SettingSource } from "../writingPreferences/resolve";
 
 /**
  * The request context of one tailoring run (#928): everything that decides
@@ -20,9 +21,11 @@ import { isOutputLanguage, type OutputLanguage } from "./language";
  *   an older snapshot fall back to the defaults they always had.
  *
  * `evidenceRevisionIds` (#929) names the confirmed evidence revisions both
- * prompts got, in prompt order. `preferenceRevisionId` (#931) stays null
- * until that issue lands; it is part of the contract so the fingerprint
- * already covers it.
+ * prompts got, in prompt order. `preferenceRevisionId` (#931) names the
+ * saved writing-preferences revision the run read (null: none saved), and
+ * `writing` records where each style setting came from and the saved
+ * style notes the prompts got, so the snapshot explains itself even after
+ * the preferences are edited or deleted.
  */
 
 export const TAILORING_CONTEXT_VERSION = "tailoring_context@1";
@@ -60,6 +63,25 @@ export interface TailoringContext {
    *  requirements the candidate answered "no" to. Null on a snapshot from
    *  before #930 (prefix-capped inputs, no answers). */
   selection: TailoringSelectionContext | null;
+  /** #931: provenance of the style settings and the saved style notes
+   *  used. Null on a snapshot from before #931 (no saved preferences). */
+  writing: TailoringWritingContext | null;
+}
+
+export interface TailoringWritingContext {
+  /** Where each setting came from: this request, the saved preferences,
+   *  or the application default. Letter fields are null with no letter. */
+  sources: {
+    cvLanguage: SettingSource;
+    letterTone: SettingSource | null;
+    letterLength: SettingSource | null;
+    letterLanguage: SettingSource | null;
+  };
+  /** The saved style notes this run's prompts got (null: none). */
+  cvStyleNote: string | null;
+  letterStyleNote: string | null;
+  /** "off": the candidate left saved notes out of this run only. */
+  styleNotes: "saved" | "off" | "none";
 }
 
 export interface TailoringSelectionContext {
@@ -91,6 +113,9 @@ export interface ResolveTailoringContextInput {
   /** #930: the job text the selection chose; omitted, the prefix cap. */
   jobTextUsed?: string;
   selection?: TailoringSelectionContext | null;
+  /** #931: the saved revision read (null: none) and the resolution. */
+  preferenceRevisionId?: string | null;
+  writing?: ResolvedWriting | null;
 }
 
 export function fingerprintJobText(rawText: string): string {
@@ -121,11 +146,26 @@ export function resolveTailoringContext(input: ResolveTailoringContextInput): Ta
           length: input.coverLetter.length ?? "standard",
         }
       : null,
-    preferenceRevisionId: null,
+    preferenceRevisionId: input.preferenceRevisionId ?? null,
     evidenceRevisionIds: [...(input.evidenceRevisionIds ?? [])],
     selection: input.selection
       ? { ...input.selection, unmetRequirementIds: [...input.selection.unmetRequirementIds].sort() }
       : null,
+    writing: input.writing ? writingContext(input.writing, input.coverLetter !== null) : null,
+  };
+}
+
+function writingContext(writing: ResolvedWriting, hasLetter: boolean): TailoringWritingContext {
+  return {
+    sources: {
+      cvLanguage: writing.cvLanguage.source,
+      letterTone: hasLetter ? writing.letterTone.source : null,
+      letterLength: hasLetter ? writing.letterLength.source : null,
+      letterLanguage: hasLetter ? writing.letterLanguage.source : null,
+    },
+    cvStyleNote: writing.cvStyleNote,
+    letterStyleNote: hasLetter ? writing.letterStyleNote : null,
+    styleNotes: writing.styleNotes,
   };
 }
 
@@ -155,6 +195,9 @@ export function tailoringContextFingerprint(context: TailoringContext): string {
     ...(context.selection
       ? [context.selection.version, [...context.selection.unmetRequirementIds].sort().join(",")]
       : []),
+    // #931, same rule: the saved style notes the prompts got. Sources are
+    // provenance only (the values they explain are already above).
+    ...(context.writing ? ["writing", context.writing.cvStyleNote ?? "", context.writing.letterStyleNote ?? ""] : []),
   ];
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 }
@@ -209,6 +252,30 @@ export function parseStoredTailoringContext(value: unknown): TailoringContext | 
       ? raw.evidenceRevisionIds.filter((id): id is string => typeof id === "string")
       : [],
     selection: parseSelection(raw.selection),
+    writing: parseWriting(raw.writing),
+  };
+}
+
+const SOURCES: SettingSource[] = ["request", "saved", "default"];
+function source(value: unknown): SettingSource | null {
+  return SOURCES.includes(value as SettingSource) ? (value as SettingSource) : null;
+}
+
+function parseWriting(value: unknown): TailoringWritingContext | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const sources = (raw.sources && typeof raw.sources === "object" ? raw.sources : {}) as Record<string, unknown>;
+  const notes = raw.styleNotes;
+  return {
+    sources: {
+      cvLanguage: source(sources.cvLanguage) ?? "request",
+      letterTone: source(sources.letterTone),
+      letterLength: source(sources.letterLength),
+      letterLanguage: source(sources.letterLanguage),
+    },
+    cvStyleNote: stringOrNull(raw.cvStyleNote),
+    letterStyleNote: stringOrNull(raw.letterStyleNote),
+    styleNotes: notes === "saved" || notes === "off" ? notes : "none",
   };
 }
 

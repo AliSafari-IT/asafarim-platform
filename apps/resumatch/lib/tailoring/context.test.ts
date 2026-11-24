@@ -10,6 +10,7 @@ import {
   type ResolveTailoringContextInput,
 } from "./context";
 import { MAX_INSTRUCTIONS_CHARS, MAX_JOB_CHARS } from "./ai/prompts";
+import { resolveWriting } from "../writingPreferences/resolve";
 
 const base: ResolveTailoringContextInput = {
   workspaceId: "ws_1",
@@ -148,6 +149,7 @@ describe("parseStoredTailoringContext", () => {
       preferenceRevisionId: null,
       evidenceRevisionIds: [],
       selection: null,
+      writing: null,
     });
   });
 });
@@ -195,5 +197,40 @@ describe("staleContextReason", () => {
   it("refuses a different note", () => {
     expect(staleContextReason(context, { ...current, instructions: "Lead with frontend." })).toBe("instructions");
     expect(staleContextReason(context, { ...current, instructions: "" })).toBe("instructions");
+  });
+});
+
+describe("writing preferences in the context (#931)", () => {
+  const saved = {
+    cv: { outputLanguage: "nl" as const, styleNote: "Short sentences." },
+    coverLetter: { tone: "warm" as const, length: null, outputLanguage: null, styleNote: "No clichés." },
+  };
+  const writing = resolveWriting({ cvLanguage: "en", letterTone: "warm" }, saved);
+
+  it("records the revision, each setting's source and the notes the prompts got", () => {
+    const context = resolveTailoringContext({ ...base, preferenceRevisionId: "pref_3", writing });
+    expect(context.preferenceRevisionId).toBe("pref_3");
+    expect(context.writing).toEqual({
+      sources: { cvLanguage: "request", letterTone: "saved", letterLength: "default", letterLanguage: "default" },
+      cvStyleNote: "Short sentences.",
+      letterStyleNote: "No clichés.",
+      styleNotes: "saved",
+    });
+    expect(parseStoredTailoringContext(JSON.parse(JSON.stringify(context)))).toEqual(context);
+  });
+
+  it("leaves letter fields out of a CV-only run", () => {
+    const context = resolveTailoringContext({ ...base, coverLetter: null, writing });
+    expect(context.writing?.sources.letterTone).toBeNull();
+    expect(context.writing?.letterStyleNote).toBeNull();
+  });
+
+  it("changes the fingerprint with the notes, and keeps a pre-#931 fingerprint as it was", () => {
+    const plain = tailoringContextFingerprint(resolveTailoringContext(base));
+    const withNotes = tailoringContextFingerprint(resolveTailoringContext({ ...base, writing }));
+    const notesOff = tailoringContextFingerprint(resolveTailoringContext({ ...base, writing: resolveWriting({ useSavedStyle: false }, saved) }));
+    expect(withNotes).not.toBe(plain);
+    expect(notesOff).not.toBe(withNotes);
+    expect(resolveTailoringContext(base).writing).toBeNull();
   });
 });
