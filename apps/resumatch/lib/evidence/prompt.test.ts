@@ -83,3 +83,22 @@ describe("selectGenerationEvidence", () => {
     expect(renderMotivationEvidence(none)).toBeNull();
   });
 });
+
+describe("relevance order (#930)", () => {
+  it("puts the items that mention the job's requirements first, so the budget keeps them", () => {
+    const old = item({}, { title: "Office party", detail: "Organised the yearly party." });
+    const relevant = item({}, { title: "Cluster move", detail: "Moved services onto Kubernetes." });
+    const relevance = (text: string) => (/kubernetes/i.test(text) ? 5 : 0);
+    const selected = selectGenerationEvidence([old, relevant], "ws_1", "job_1", profile, relevance);
+    expect(selected.professional.map((e) => e.revisionId)).toEqual([relevant.latest!.id, old.latest!.id]);
+    expect(selectGenerationEvidence([old, relevant], "ws_1", "job_1", profile).professional[0]!.revisionId).toBe(old.latest!.id);
+  });
+
+  it("records the role index and tags lines only for the CV", () => {
+    const linked = item({}, { experienceRef: { title: "Backend developer", employer: "Acme", startedOn: null } });
+    const selected = selectGenerationEvidence([linked], "ws_1", "job_1", profile);
+    expect(selected.professional[0]!.roleIndex).toBe(0);
+    expect(renderProfessionalEvidence(selected, true)).toContain(`[ev:${linked.latest!.id}] Achievement:`);
+    expect(renderProfessionalEvidence(selected)).not.toContain("[ev:");
+  });
+});

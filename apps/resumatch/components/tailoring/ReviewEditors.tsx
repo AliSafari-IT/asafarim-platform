@@ -284,6 +284,14 @@ export function ReviewBulletsEditor({
                       ) : null}
                     </div>
                   ) : null}
+                  {!own && !edited && bullet.flags && bullet.flags.length > 0 ? (
+                    <p className="rm-claim-flag" data-testid="claim-flag">
+                      {t("resumatch.claims.bulletFlag")}
+                    </p>
+                  ) : null}
+                  {!own && bullet.sources && bullet.sources.length > 0 ? (
+                    <p className="rm-claim-sources">{t("resumatch.claims.basedOn", { sources: bullet.sources.join("; ") })}</p>
+                  ) : null}
                 </div>
               </li>
             );

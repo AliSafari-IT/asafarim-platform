@@ -56,6 +56,19 @@ export interface TailoringContext {
   /** The confirmed evidence revisions both prompts got (#929). Revisions
    *  are immutable, so these ids explain a saved CV for good. */
   evidenceRevisionIds: string[];
+  /** #930: how the profile and job were selected for the prompts, and the
+   *  requirements the candidate answered "no" to. Null on a snapshot from
+   *  before #930 (prefix-capped inputs, no answers). */
+  selection: TailoringSelectionContext | null;
+}
+
+export interface TailoringSelectionContext {
+  /** lib/tailoring/selection/select.ts's SELECTION_VERSION. */
+  version: string;
+  /** Requirement ids the candidate said they do not meet, sorted. */
+  unmetRequirementIds: string[];
+  /** Prose sentences left out of the profile to fit the budget. */
+  omittedSentences: number;
 }
 
 export interface ResolveTailoringContextInput {
@@ -75,6 +88,9 @@ export interface ResolveTailoringContextInput {
   } | null;
   /** #929: from lib/evidence/store.ts's loadGenerationEvidence. */
   evidenceRevisionIds?: string[];
+  /** #930: the job text the selection chose; omitted, the prefix cap. */
+  jobTextUsed?: string;
+  selection?: TailoringSelectionContext | null;
 }
 
 export function fingerprintJobText(rawText: string): string {
@@ -93,7 +109,7 @@ export function resolveTailoringContext(input: ResolveTailoringContextInput): Ta
     profileVersionId: input.profileVersionId,
     targetJobId: input.targetJobId,
     jobTextFingerprint: fingerprintJobText(input.jobRawText),
-    jobTextUsed: capWithMarker(input.jobRawText, MAX_JOB_CHARS),
+    jobTextUsed: input.jobTextUsed ?? capWithMarker(input.jobRawText, MAX_JOB_CHARS),
     instructions: normalizeInstructions(input.instructions),
     lowFit: input.lowFit,
     cv: { outputLanguage: input.cvLanguage },
@@ -107,6 +123,9 @@ export function resolveTailoringContext(input: ResolveTailoringContextInput): Ta
       : null,
     preferenceRevisionId: null,
     evidenceRevisionIds: [...(input.evidenceRevisionIds ?? [])],
+    selection: input.selection
+      ? { ...input.selection, unmetRequirementIds: [...input.selection.unmetRequirementIds].sort() }
+      : null,
   };
 }
 
@@ -131,6 +150,11 @@ export function tailoringContextFingerprint(context: TailoringContext): string {
       : "no-letter",
     context.preferenceRevisionId ?? "-",
     [...context.evidenceRevisionIds].sort().join(","),
+    // #930. Appended only when present, so a pre-#930 snapshot keeps the
+    // fingerprint it was stored with.
+    ...(context.selection
+      ? [context.selection.version, [...context.selection.unmetRequirementIds].sort().join(",")]
+      : []),
   ];
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 }
@@ -184,6 +208,21 @@ export function parseStoredTailoringContext(value: unknown): TailoringContext | 
     evidenceRevisionIds: Array.isArray(raw.evidenceRevisionIds)
       ? raw.evidenceRevisionIds.filter((id): id is string => typeof id === "string")
       : [],
+    selection: parseSelection(raw.selection),
+  };
+}
+
+function parseSelection(value: unknown): TailoringSelectionContext | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  const version = stringOrNull(raw.version);
+  if (!version) return null;
+  return {
+    version,
+    unmetRequirementIds: Array.isArray(raw.unmetRequirementIds)
+      ? raw.unmetRequirementIds.filter((id): id is string => typeof id === "string")
+      : [],
+    omittedSentences: typeof raw.omittedSentences === "number" ? raw.omittedSentences : 0,
   };
 }
 

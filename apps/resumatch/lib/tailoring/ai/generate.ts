@@ -14,6 +14,7 @@ import { getTailorProvider, resolveTailorModelVersion } from "./registry";
 import { mergeTailoringSuggestions, type TailoredResumeContent, type TailorSuggestions } from "./schema";
 import { TailorProviderError } from "./provider";
 import type { OutputLanguage } from "../language";
+import type { TailoringSelection } from "../selection/select";
 
 export interface TailorProviderCallResult {
   /** null when the call degraded — nothing to review, the profile carries
@@ -56,6 +57,10 @@ export async function runTailorProviderCall(
   /** #929: the rendered confirmed-evidence block (lib/evidence/prompt.ts),
    *  shared with the cover letter. Null: none, and the @6 prompt text. */
   evidence: string | null = null,
+  /** #930: the run's requirement-to-evidence selection. Given, the prompt
+   *  gets its tagged profile text, tagged evidence, selected job text and
+   *  requirement gaps instead of `buildProfileText` and `evidence`. */
+  selection: Pick<TailoringSelection, "profileText" | "evidenceText" | "gapsText" | "jobTextUsed"> | null = null,
 ): Promise<TailorProviderCallResult> {
   const primaryName = providerOverride ?? getEnv().aiProvider;
   const primaryModelVersion = await resolveTailorModelVersion(primaryName);
@@ -63,8 +68,10 @@ export async function runTailorProviderCall(
   const fallbackName = resolveFallbackProvider(primaryName);
   let providerName: ResuMatchAiProvider = primaryName;
   let modelVersion = primaryModelVersion;
-  const { text: profileText } = buildProfileText(profile);
-  const prompt = renderTailorPrompt(profileText, jobText, instructions, outputLanguage, lowFit, evidence);
+  const profileText = selection ? selection.profileText : buildProfileText(profile).text;
+  const prompt = selection
+    ? renderTailorPrompt(profileText, selection.jobTextUsed, instructions, outputLanguage, lowFit, selection.evidenceText, selection.gapsText)
+    : renderTailorPrompt(profileText, jobText, instructions, outputLanguage, lowFit, evidence);
 
   let suggestions: TailorSuggestions | null = null;
   let degraded = false;

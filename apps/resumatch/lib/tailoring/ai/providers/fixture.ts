@@ -41,11 +41,18 @@ export class TailorFixtureProvider implements TailorProvider {
 
     const headline = jobTokens.size > 0 ? call.profileSkillNames.slice(0, 3).join(" · ") || null : null;
 
+    // #930: every bullet comes from its own role's summary, the headline
+    // from the skills list — cited the way a real provider must.
     const suggestions: TailorSuggestions = tailorSuggestionsSchema.parse({
       headline,
       summary: null,
       skillsOrder,
       experienceBullets,
+      sources: {
+        headline: headline ? ["skills"] : [],
+        summary: [],
+        experienceBullets: experienceBullets.map((bullets, index) => bullets.map(() => [`exp:${index}`])),
+      },
     });
 
     const seedText = `${call.promptVersion}::${call.profileText}::${call.jobText}`;

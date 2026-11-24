@@ -152,6 +152,24 @@ function isGeneric(folded: string): boolean {
   return STOPWORDS.has(folded) || JOB_AD_STOPWORDS.has(folded) || /^\d+$/.test(folded);
 }
 
+/** The stems of every word in `text`, generic ones included: what a
+ *  source can be searched for (#930 evidence selection). */
+export function textStems(text: string): Set<string> {
+  return stems(text);
+}
+
+/** The non-generic stems of `text`, in first-seen order: what a job
+ *  requirement is about (#930). */
+export function contentStems(text: string): string[] {
+  const seen = new Set<string>();
+  for (const word of words(text)) {
+    const folded = fold(word);
+    if (isGeneric(folded)) continue;
+    seen.add(stem(folded));
+  }
+  return [...seen];
+}
+
 /** The posting's key terms: folded stem → total count + first spelling seen. */
 function keyTerms(jobText: string): { stem: string; display: string; count: number }[] {
   const byStem = new Map<string, { stem: string; display: string; count: number }>();

@@ -132,7 +132,7 @@ test("Regenerate brings back the letter's tone and length, and the new CV keeps 
     include: { coverLetter: true },
   });
   expect(saved.instructions).toBe(NOTE);
-  expect(saved.promptVersion).toBe("tailor_resume@7");
+  expect(saved.promptVersion).toBe("tailor_resume@8");
   expect(saved.tailoringContext).toMatchObject({
     version: "tailoring_context@1",
     instructions: NOTE,

@@ -8,6 +8,7 @@ import { navDictionaries } from "./i18n/nav";
 import { photoDictionaries } from "./i18n/photo";
 import { previewDictionaries } from "./i18n/preview";
 import { profileDictionaries } from "./i18n/profile";
+import { requirementsDictionaries } from "./i18n/requirements";
 import { sendDictionaries } from "./i18n/send";
 import { shellDictionaries } from "./i18n/shell";
 import { tailorDictionaries } from "./i18n/tailor";
@@ -30,6 +31,7 @@ export const resumatchDictionaryAreas: Record<string, Dictionaries> = {
   history: historyDictionaries,
   tailor: tailorDictionaries,
   evidence: evidenceDictionaries,
+  requirements: requirementsDictionaries,
   contactPreferences: contactPreferencesDictionaries,
   preview: previewDictionaries,
   profile: profileDictionaries,

@@ -42,39 +42,53 @@ function canonicalize(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
-export function buildProfileText(profile: CandidateProfileContent): ProfileTextInput {
-  const lines: string[] = [];
-  const includedFields: string[] = [];
+/**
+ * One allow-listed piece of the profile, with a stable source id (#930).
+ * Ids are positional within one immutable profile version: `exp:2` is
+ * always `profile.experience[2]`, the same index the tailoring merge
+ * aligns `experienceBullets` by, so evidence from one role can be traced
+ * to that role and never to another.
+ *
+ * `body` is the free prose part (a summary) that evidence selection may
+ * shorten sentence by sentence; `prefix` is structure (title, employer,
+ * dates) that is always kept whole.
+ */
+export interface ProfileUnit {
+  id: string;
+  field: string;
+  prefix: string;
+  body: string | null;
+  /** The experience index for `exp:` units, else null. */
+  roleIndex: number | null;
+}
 
-  if (profile.headline) {
-    lines.push(profile.headline);
-    includedFields.push("headline");
-  }
-  if (profile.summary) {
-    lines.push(profile.summary);
-    includedFields.push("summary");
-  }
-  if (profile.workAuthorization) {
-    lines.push(`Work authorisation: ${profile.workAuthorization}.`);
-    includedFields.push("workAuthorization");
-  }
+/** A unit as one line of prompt text. */
+export function unitText(unit: Pick<ProfileUnit, "prefix" | "body">, body: string | null = unit.body): string {
+  if (!body) return unit.prefix;
+  return unit.prefix ? `${unit.prefix}: ${body}` : body;
+}
+
+export function buildProfileUnits(profile: CandidateProfileContent): ProfileUnit[] {
+  const units: ProfileUnit[] = [];
+  const add = (id: string, field: string, prefix: string, body: string | null = null, roleIndex: number | null = null) =>
+    units.push({ id, field, prefix, body, roleIndex });
+
+  if (profile.headline) add("headline", "headline", profile.headline);
+  if (profile.summary) add("summary", "summary", "", profile.summary);
+  if (profile.workAuthorization) add("work_auth", "workAuthorization", `Work authorisation: ${profile.workAuthorization}.`);
 
   if (profile.languages.length > 0) {
-    const parts = profile.languages.map((language, index) => {
-      includedFields.push(`languages[${index}]`);
-      return language.proficiency ? `${language.label} (${language.proficiency})` : language.label;
-    });
-    lines.push(`Languages: ${parts.join(", ")}.`);
+    const parts = profile.languages.map((language) =>
+      language.proficiency ? `${language.label} (${language.proficiency})` : language.label,
+    );
+    add("languages", "languages", `Languages: ${parts.join(", ")}.`);
   }
 
   if (profile.skills.length > 0) {
-    const parts = profile.skills.map((skill, index) => {
-      includedFields.push(`skills[${index}]`);
-      return skill.yearsExperience !== null
-        ? `${skill.name} (${skill.yearsExperience} years)`
-        : skill.name;
-    });
-    lines.push(`Skills: ${parts.join(", ")}.`);
+    const parts = profile.skills.map((skill) =>
+      skill.yearsExperience !== null ? `${skill.name} (${skill.yearsExperience} years)` : skill.name,
+    );
+    add("skills", "skills", `Skills: ${parts.join(", ")}.`);
   }
 
   for (const [index, entry] of profile.experience.entries()) {
@@ -84,27 +98,27 @@ export function buildProfileText(profile: CandidateProfileContent): ProfileTextI
     const header = [entry.title, entry.employer ? `at ${entry.employer}` : null, span ? `(${span})` : null]
       .filter(Boolean)
       .join(" ");
-    lines.push(entry.summary ? `${header}: ${entry.summary}` : header);
-    includedFields.push(`experience[${index}]`);
+    add(`exp:${index}`, `experience[${index}]`, header, entry.summary || null, index);
   }
 
   for (const [index, entry] of profile.education.entries()) {
     const header = [entry.qualification, entry.institution ? `from ${entry.institution}` : null]
       .filter(Boolean)
       .join(" ");
-    lines.push(header);
-    includedFields.push(`education[${index}]`);
+    add(`edu:${index}`, `education[${index}]`, header);
   }
 
   if (profile.certifications.length > 0) {
-    const parts = profile.certifications.map((cert, index) => {
-      includedFields.push(`certifications[${index}]`);
-      return cert.issuer ? `${cert.name} (${cert.issuer})` : cert.name;
-    });
-    lines.push(`Certifications: ${parts.join(", ")}.`);
+    const parts = profile.certifications.map((cert) => (cert.issuer ? `${cert.name} (${cert.issuer})` : cert.name));
+    add("certs", "certifications", `Certifications: ${parts.join(", ")}.`);
   }
+  return units;
+}
 
-  const text = lines.join("\n");
+/** The runtime safety net: throws when an excluded contact field would
+ *  reach a prompt through `text`. Every prompt built from profile units
+ *  runs it, whatever selection did. */
+export function assertNoContactDetails(profile: CandidateProfileContent, text: string): void {
   const canonicalText = canonicalize(text);
   for (const field of EXCLUDED_FIELDS) {
     const value = profile[field];
@@ -114,6 +128,22 @@ export function buildProfileText(profile: CandidateProfileContent): ProfileTextI
       );
     }
   }
+}
 
-  return { text, includedFields };
+function includedFieldsOf(profile: CandidateProfileContent, units: ProfileUnit[]): string[] {
+  const fields: string[] = [];
+  for (const unit of units) {
+    if (unit.field === "languages") profile.languages.forEach((_, i) => fields.push(`languages[${i}]`));
+    else if (unit.field === "skills") profile.skills.forEach((_, i) => fields.push(`skills[${i}]`));
+    else if (unit.field === "certifications") profile.certifications.forEach((_, i) => fields.push(`certifications[${i}]`));
+    else fields.push(unit.field);
+  }
+  return fields;
+}
+
+export function buildProfileText(profile: CandidateProfileContent): ProfileTextInput {
+  const units = buildProfileUnits(profile);
+  const text = units.map((unit) => unitText(unit)).join("\n");
+  assertNoContactDetails(profile, text);
+  return { text, includedFields: includedFieldsOf(profile, units) };
 }

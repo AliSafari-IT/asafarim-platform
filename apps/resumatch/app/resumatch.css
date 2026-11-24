@@ -1221,6 +1221,60 @@
   margin: 0 0 0.75rem;
 }
 
+/* #930: what the job asks for (components/tailoring/RequirementsPanel),
+   and claim-check notes on the review. */
+.rm-reqs__list,
+.rm-reqs__question-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.rm-reqs__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  min-width: 0;
+}
+.rm-reqs__text {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.rm-reqs__note {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.rm-reqs__ask {
+  margin: 0 0 0.25rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.rm-reqs__quote {
+  margin: 0.35rem 0;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--line);
+}
+.rm-claim-flag {
+  margin: 0.3rem 0 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.35rem;
+  background: var(--rx-warm-soft);
+  color: var(--rx-warm-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.rm-claim-sources {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
 .rm-fit__review-note {
   color: var(--muted);
   font-size: 0.85rem;

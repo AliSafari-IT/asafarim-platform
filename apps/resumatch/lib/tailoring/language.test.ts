@@ -88,8 +88,8 @@ describe("appliedOutputLanguage", () => {
 });
 
 describe("renderTailorPrompt output language", () => {
-  it("is tailor_resume@7", () => {
-    expect(TAILOR_PROMPT_VERSION).toBe("tailor_resume@7");
+  it("is tailor_resume@8", () => {
+    expect(TAILOR_PROMPT_VERSION).toBe("tailor_resume@8");
   });
 
   it("adds no language rule when none is requested", () => {

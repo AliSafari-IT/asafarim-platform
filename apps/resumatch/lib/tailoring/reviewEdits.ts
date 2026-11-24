@@ -17,6 +17,18 @@ export interface ReviewBullet {
   /** The profile's own role summary, shown because the AI wrote no
    *  bullets for this role. */
   fromProfile?: boolean;
+  /** #930: labels of the sources an AI bullet cites (the candidate's own
+   *  role and evidence names, never model text). */
+  sources?: string[];
+  /** #930: why the claim check flagged an AI bullet; empty or missing when
+   *  it passed. A flagged bullet starts unticked. */
+  flags?: string[];
+}
+
+/** #930: what the claim check said about one AI bullet. */
+export interface ReviewBulletMeta {
+  sources: string[];
+  flags: string[];
 }
 
 /**
@@ -67,6 +79,9 @@ export function buildReviewBullets(
   ownBullets: string[],
   profileSummary: string | null,
   nextKey: () => string,
+  /** #930: aligned with `aiBullets`. A flagged bullet starts unticked:
+   *  the candidate keeps it only by choosing to. */
+  aiMeta: (ReviewBulletMeta | undefined)[] = [],
 ): ReviewBullet[] {
   const bullets: ReviewBullet[] = [];
   const summary = profileSummary?.trim();
@@ -77,9 +92,17 @@ export function buildReviewBullets(
   for (const text of ownBullets) {
     bullets.push({ key: nextKey(), text, accepted: acceptedBulletCount(bullets) < MAX_BULLETS_PER_ROLE, aiText: null });
   }
-  for (const text of aiBullets) {
-    bullets.push({ key: nextKey(), text, accepted: acceptedBulletCount(bullets) < MAX_BULLETS_PER_ROLE, aiText: text });
-  }
+  aiBullets.forEach((text, index) => {
+    const meta = aiMeta[index];
+    const flagged = (meta?.flags.length ?? 0) > 0;
+    bullets.push({
+      key: nextKey(),
+      text,
+      accepted: !flagged && acceptedBulletCount(bullets) < MAX_BULLETS_PER_ROLE,
+      aiText: text,
+      ...(meta ? { sources: meta.sources, flags: meta.flags } : {}),
+    });
+  });
   return bullets;
 }
 
