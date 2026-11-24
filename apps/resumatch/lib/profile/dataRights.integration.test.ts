@@ -66,7 +66,7 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
       select: { id: true },
     });
 
-    await db.tailoredResume.create({
+    const savedCv = await db.tailoredResume.create({
       data: {
         workspaceId,
         profileVersionId: version.id,
@@ -79,7 +79,18 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
         // A saved paragraph that is not the active layout is still exported.
         skillsLayout: "grouped",
         skillsParagraph: "Front-end work with TypeScript.",
+        // Review feedback (#932), written in the same statement as the CV.
+        feedback: {
+          create: {
+            workspaceId,
+            previewId: `prev-${Date.now()}`,
+            feedbackVersion: "tailoring_feedback@1",
+            original: { cv: { headline: "TypeScript lead", summary: null, skillsOrder: [], experienceBullets: [] }, coverLetter: null },
+            decisions: [{ key: "headline", decision: "edited", final: "TypeScript engineer", scope: "application" }],
+          },
+        },
       },
+      select: { id: true },
     });
 
     // An unconfirmed preview with a request context (#928): its note and job
@@ -121,6 +132,9 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
 
     const exported = await exportWorkspaceData(workspaceId);
     expect(exported).not.toBeNull();
+    expect(exported!.tailoringFeedback).toHaveLength(1);
+    expect(exported!.tailoringFeedback[0]).toMatchObject({ tailoredResumeId: savedCv.id, feedbackVersion: "tailoring_feedback@1" });
+    expect(JSON.stringify(exported!.tailoringFeedback[0]!.decisions)).toContain("TypeScript engineer");
     expect(exported!.writingPreferences.map((r) => r.revisionNumber)).toEqual([1, 2]);
     expect(JSON.stringify(exported!.writingPreferences[0]!.content)).toContain("Short sentences.");
     expect(exported!.targetJobs).toHaveLength(1);
@@ -153,6 +167,7 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
     expect(await db.candidateEvidence.count({ where: { workspaceId } })).toBe(0);
     expect(await db.candidateEvidenceRevision.count({ where: { workspaceId } })).toBe(0);
     expect(await db.writingPreferenceRevision.count({ where: { workspaceId } })).toBe(0);
+    expect(await db.tailoringFeedback.count({ where: { workspaceId } })).toBe(0);
     expect(await db.workspace.count({ where: { id: workspaceId } })).toBe(1);
   });
 });

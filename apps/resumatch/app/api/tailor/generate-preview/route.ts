@@ -276,6 +276,11 @@ export async function POST(request: Request) {
       contextVersion: TAILORING_CONTEXT_VERSION,
       context: context as never,
       contextFingerprint: tailoringContextFingerprint(context),
+      // #932: the suggestions as generated, so generate-confirm can record
+      // what the candidate accepted, edited or rejected against the
+      // server's copy rather than the client's.
+      suggestions: suggestions ? (suggestions as never) : undefined,
+      coverLetterSuggestion: coverLetterResult?.suggestion ? (coverLetterResult.suggestion as never) : undefined,
     },
     select: { id: true },
   });

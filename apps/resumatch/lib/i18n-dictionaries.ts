@@ -1,6 +1,7 @@
 import type { Dictionaries } from "@asafarim/shared-i18n";
 import { commonDictionaries } from "./i18n/common";
 import { evidenceDictionaries } from "./i18n/evidence";
+import { feedbackDictionaries } from "./i18n/feedback";
 import { contactPreferencesDictionaries } from "./i18n/contactPreferences";
 import { writingPreferencesDictionaries } from "./i18n/writingPreferences";
 import { historyDictionaries } from "./i18n/history";
@@ -33,6 +34,7 @@ export const resumatchDictionaryAreas: Record<string, Dictionaries> = {
   history: historyDictionaries,
   tailor: tailorDictionaries,
   evidence: evidenceDictionaries,
+  feedback: feedbackDictionaries,
   requirements: requirementsDictionaries,
   contactPreferences: contactPreferencesDictionaries,
   writingPreferences: writingPreferencesDictionaries,

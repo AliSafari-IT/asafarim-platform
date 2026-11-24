@@ -141,6 +141,16 @@ export interface DataExport {
   contactPreferences: { content: unknown; updatedAt: string } | null;
   /** Saved writing preferences (#931), every revision, oldest first. */
   writingPreferences: { revisionNumber: number; content: unknown; createdAt: string }[];
+  /** Review feedback per saved CV (#932): the AI's original suggestions,
+   *  what you did with each, and anything you chose to remember. */
+  tailoringFeedback: {
+    tailoredResumeId: string;
+    feedbackVersion: string;
+    original: unknown;
+    decisions: unknown;
+    promotions: unknown;
+    createdAt: string;
+  }[];
   /** Each draft's own contact choice (#940): the mode, values just for that
    *  email, and the paragraph its body holds. */
   emailDraftContacts: { applicationId: string; contactMode: string; contactOverride: unknown; contactParagraph: string | null; updatedAt: string }[];
@@ -158,7 +168,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
   });
   if (!workspace) return null;
 
-  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence, contactPreferences, emailDraftContacts, writingPreferences] = await Promise.all([
+  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence, contactPreferences, emailDraftContacts, writingPreferences, tailoringFeedback] = await Promise.all([
     db.candidateDocument.findMany({
       where: { workspaceId, deletedAt: null },
       orderBy: { uploadedAt: "asc" },
@@ -204,6 +214,11 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       where: { workspaceId },
       orderBy: { revisionNumber: "asc" },
       select: { revisionNumber: true, content: true, createdAt: true },
+    }),
+    db.tailoringFeedback.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "asc" },
+      select: { tailoredResumeId: true, feedbackVersion: true, original: true, decisions: true, promotions: true, createdAt: true },
     }),
   ]);
 
@@ -332,6 +347,14 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       content: r.content,
       createdAt: r.createdAt.toISOString(),
     })),
+    tailoringFeedback: tailoringFeedback.map((f) => ({
+      tailoredResumeId: f.tailoredResumeId,
+      feedbackVersion: f.feedbackVersion,
+      original: f.original,
+      decisions: f.decisions,
+      promotions: f.promotions,
+      createdAt: f.createdAt.toISOString(),
+    })),
     auditEvents: auditEvents.map((event) => ({
       action: event.action,
       createdAt: event.createdAt.toISOString(),
@@ -453,6 +476,9 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     await tx.sentApplicationEmail.deleteMany({ where: { workspaceId } });
     await tx.applicationEmailDraft.deleteMany({ where: { workspaceId } });
     if (removedPdfIds.length > 0) await tx.documentPdf.deleteMany({ where: { workspaceId, id: { in: removedPdfIds } } });
+    // Review feedback (#932) holds copies of suggestions and edits. It
+    // cascades with its CV; deleted explicitly so nothing depends on that.
+    await tx.tailoringFeedback.deleteMany({ where: { workspaceId } });
     const tailoredResumes = await tx.tailoredResume.deleteMany({ where: { workspaceId } });
     // Previews hold the request context (#928): the candidate's note and a
     // copy of the job text, even when nothing was saved. The workspace row

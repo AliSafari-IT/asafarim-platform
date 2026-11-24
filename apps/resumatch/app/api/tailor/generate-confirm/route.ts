@@ -18,6 +18,26 @@ import {
   parseCandidateEdits,
   TooManySkillsError,
 } from "../../../../lib/tailoring/candidateEdits";
+import {
+  countFeedback,
+  deriveFeedback,
+  FEEDBACK_VERSION,
+  readOriginalSuggestions,
+  type FeedbackItem,
+  type OriginalSuggestions,
+} from "../../../../lib/tailoring/feedback";
+import {
+  parsePromotionRequest,
+  promotionFailed,
+  resolvePromotions,
+  type PromotionError,
+  type PromotionOutcome,
+  type ResolvedPromotions,
+} from "../../../../lib/tailoring/feedbackScope";
+import { experienceRefOf, EVIDENCE_INPUT_MESSAGES, MAX_EVIDENCE_ITEMS } from "../../../../lib/evidence/contract";
+import { createEvidence } from "../../../../lib/evidence/store";
+import { getWritingPreferences, saveWritingPreferences } from "../../../../lib/writingPreferences/store";
+import { EMPTY_WRITING_PREFERENCES } from "../../../../lib/writingPreferences/contract";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TEMPLATE_KEY = "classic";
@@ -46,6 +66,46 @@ const DEFAULT_TEMPLATE_KEY = "classic";
  * provenance from that row and consumes it, so it cannot back a second
  * confirm.
  */
+/** Origins as the client sent them, per role; anything unreadable is "own". */
+function readOrigins(value: unknown): (number | null)[][] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 60).map((row) =>
+    Array.isArray(row) ? row.slice(0, 8).map((v) => (typeof v === "number" && Number.isInteger(v) ? v : null)) : [],
+  );
+}
+
+/** The same cleaning deriveFeedback applies: each origin once, in range. */
+function cleanBulletOrigins(origins: (number | null)[][], approved: string[][], original: string[][]): (number | null)[][] {
+  return approved.map((bullets, role) => {
+    const used = new Set<number>();
+    return bullets.map((_, i) => {
+      const v = origins[role]?.[i] ?? null;
+      if (v === null || v < 0 || v >= (original[role]?.length ?? 0) || used.has(v)) return null;
+      used.add(v);
+      return v;
+    });
+  });
+}
+
+function promotionErrorMessage(error: PromotionError): string {
+  switch (error.code) {
+    case "too_many_background":
+      return "You can add up to 3 bullets to your background in one save.";
+    case "background_target":
+      return "Only a bullet you wrote or rewrote, and kept on this CV, can be added to your background. Check your choices and save again.";
+    case "background_input":
+      return EVIDENCE_INPUT_MESSAGES[error.field];
+    case "preference_input":
+      return error.field === "style_note_factual"
+        ? "Your new style note reads like a fact about you. A style note only steers wording: add facts to your background instead."
+        : error.field === "style_note_too_long"
+          ? "Keep each style note to 300 characters."
+          : "Your new writing preference could not be read. Check it and save again.";
+    default:
+      return "Your choices to remember could not be read. Check them and save again.";
+  }
+}
+
 function withoutNonAiBullets<T extends { experienceBullets: string[][] }>(suggestions: T | null, texts: string[]): T | null {
   if (!suggestions) return suggestions;
   const nonAi = new Set(texts.map((text) => text.trim()).filter(Boolean));
@@ -100,6 +160,9 @@ async function confirmTailoring(request: Request): Promise<Response> {
     instructions,
     coverLetter,
     candidateEdits: rawCandidateEdits,
+    bulletOrigins: rawBulletOrigins,
+    feedbackReasons,
+    promotions: rawPromotions,
   } = (body ?? {}) as {
     profileVersionId?: unknown;
     targetJobId?: unknown;
@@ -113,7 +176,18 @@ async function confirmTailoring(request: Request): Promise<Response> {
      *  or the candidate declined it; the CV still saves either way. */
     coverLetter?: {
       approved: unknown;
+      /** #932: aligned with approved.paragraphs, the original paragraph
+       *  each one started from. */
+      paragraphOrigins?: unknown;
     } | null;
+    /** #932: aligned with approved.experienceBullets, the original AI
+     *  bullet each approved one started from (null: the candidate's own).
+     *  Only labels feedback; never changes what is saved. */
+    bulletOrigins?: unknown;
+    /** #932: optional reason codes by feedback key. */
+    feedbackReasons?: unknown;
+    /** #932: what the candidate explicitly chose to remember. */
+    promotions?: unknown;
     /** Optional (0.4.0): skills the candidate added or removed for this
      *  CV and the bullets they wrote — their own claims, see
      *  lib/tailoring/candidateEdits.ts. Never written to the profile. */
@@ -144,7 +218,7 @@ async function confirmTailoring(request: Request): Promise<Response> {
   // missing. Legacy previews (no context) confirm exactly as before.
   const storedPreview = await db.tailorPreview.findFirst({
     where: { id: previewId, workspaceId: workspace.id },
-    select: { context: true },
+    select: { context: true, suggestions: true, coverLetterSuggestion: true, promptVersion: true, modelVersion: true, coverLetterPromptVersion: true, coverLetterModelVersion: true },
   });
   const previewContext = parseStoredTailoringContext(storedPreview?.context ?? null);
   if (previewContext) {
@@ -248,6 +322,87 @@ async function confirmTailoring(request: Request): Promise<Response> {
     }
   }
 
+  // #932: feedback against the server's copy of the suggestions, and the
+  // explicit "remember" choices, all checked before the claim so a choice
+  // that cannot be saved leaves the preview usable.
+  const original: OriginalSuggestions = readOriginalSuggestions({
+    cv: storedPreview?.suggestions ?? null,
+    coverLetter: storedPreview?.coverLetterSuggestion ?? null,
+  });
+  const promotionRequest = parsePromotionRequest(rawPromotions);
+  if (!promotionRequest.ok) {
+    return NextResponse.json({ error: promotionErrorMessage(promotionRequest.error), code: "PROMOTION_INVALID" }, { status: 422 });
+  }
+  const approvedBullets = suggestions?.experienceBullets ?? [];
+  const originalBullets = original.cv?.experienceBullets ?? [];
+  const bulletOrigins = cleanBulletOrigins(readOrigins(rawBulletOrigins), approvedBullets, originalBullets);
+  const wantsPromotion = promotionRequest.value.preference !== null || promotionRequest.value.background.length > 0;
+  let promotions: ResolvedPromotions = { preference: null, background: [] };
+  let savedPreferenceRevision: string | null = null;
+  if (wantsPromotion) {
+    const savedWriting = promotionRequest.value.preference ? await getWritingPreferences(workspace.id) : null;
+    savedPreferenceRevision = savedWriting?.revisionId ?? null;
+    const resolved = resolvePromotions({
+      request: promotionRequest.value,
+      roles: version.content.experience.map(experienceRefOf),
+      approvedBullets,
+      bulletOrigins,
+      originalBullets,
+      savedPreferences: savedWriting?.preferences ?? EMPTY_WRITING_PREFERENCES,
+    });
+    if (!resolved.ok) {
+      return NextResponse.json({ error: promotionErrorMessage(resolved.error), code: "PROMOTION_INVALID" }, { status: 422 });
+    }
+    if (resolved.value.preference && resolved.value.preference.baseRevisionId !== savedPreferenceRevision) {
+      return NextResponse.json(
+        {
+          error: "Your writing preferences changed in another tab or window. Check the new style note and save again.",
+          code: "PREFERENCES_STALE",
+          current: savedWriting ?? null,
+        },
+        { status: 422 },
+      );
+    }
+    if (resolved.value.background.length > 0) {
+      const count = await db.candidateEvidence.count({ where: { workspaceId: workspace.id } });
+      if (count + resolved.value.background.length > MAX_EVIDENCE_ITEMS) {
+        return NextResponse.json(
+          { error: `You can keep up to ${MAX_EVIDENCE_ITEMS} evidence items. Delete one you no longer need, or add fewer bullets to your background.`, code: "EVIDENCE_LIMIT" },
+          { status: 422 },
+        );
+      }
+    }
+    promotions = resolved.value;
+  }
+  const feedbackInput = {
+    original,
+    profile: {
+      headline: version.content.headline,
+      summary: version.content.summary,
+      skills: version.content.skills.map((skill) => skill.name),
+      roles: version.content.experience.length,
+    },
+    approved: suggestions
+      ? {
+          headline: suggestions.headline,
+          summary: suggestions.summary,
+          skillsOrder: suggestions.skillsOrder,
+          experienceBullets: suggestions.experienceBullets,
+        }
+      : null,
+    bulletOrigins,
+    letter: {
+      included: letterSuggestion !== null,
+      approved: letterSuggestion,
+      paragraphOrigins: Array.isArray(coverLetter?.paragraphOrigins)
+        ? (coverLetter!.paragraphOrigins as unknown[]).map((v) => (typeof v === "number" && Number.isInteger(v) ? v : null))
+        : undefined,
+    },
+    reasons: feedbackReasons && typeof feedbackReasons === "object" && !Array.isArray(feedbackReasons) ? (feedbackReasons as Record<string, unknown>) : {},
+  };
+  const decisions: FeedbackItem[] = deriveFeedback(feedbackInput);
+  const recordFeedback = Boolean(original.cv || original.coverLetter || wantsPromotion);
+
   // The atomic claim: only a request whose update actually matches a row
   // (count === 1) gets to treat this preview's provenance as real, exactly
   // the same single-winner shape lib/documents/service.ts's rescanDocument
@@ -304,6 +459,25 @@ async function confirmTailoring(request: Request): Promise<Response> {
             : null,
         tailoringContext: previewContext ? (contextForSavedCv(previewContext) as never) : undefined,
         candidateEdits: hasCandidateEdits(candidateEdits) ? candidateEdits : undefined,
+        // #932: written in the same statement as the CV, so a CV never
+        // exists without its feedback and a failed write leaves neither.
+        feedback: recordFeedback
+          ? {
+              create: {
+                workspaceId: workspace.id,
+                previewId,
+                feedbackVersion: FEEDBACK_VERSION,
+                original: {
+                  ...original,
+                  promptVersion: storedPreview?.promptVersion ?? promptVersion,
+                  modelVersion: storedPreview?.modelVersion ?? modelVersion,
+                  coverLetterPromptVersion: storedPreview?.coverLetterPromptVersion ?? null,
+                  coverLetterModelVersion: storedPreview?.coverLetterModelVersion ?? null,
+                } as never,
+                decisions: decisions as never,
+              },
+            }
+          : undefined,
         // #641: from the server's preview record, never the client — and only
         // if some AI-written prose was kept (see appliedOutputLanguage).
         // Bullets and a summary the candidate wrote, and a role summary kept
@@ -383,5 +557,65 @@ async function confirmTailoring(request: Request): Promise<Response> {
     }
   }
 
-  return NextResponse.json({ id: row.id, coverLetterId, coverLetterError });
+  // #932: the explicit "remember" choices, once, now that the CV is saved.
+  // A failure here never undoes the save: the candidate is told and can
+  // add the item from the evidence panel or the profile instead.
+  let failedPromotion = false;
+  if (recordFeedback) {
+    const outcome: PromotionOutcome = { preference: null, background: [] };
+    if (promotions.preference) {
+      try {
+        const saved = await saveWritingPreferences(workspace.id, promotions.preference.prefs, promotions.preference.baseRevisionId);
+        outcome.preference = saved.ok
+          ? { status: saved.changed ? "saved" : "unchanged", revisionNumber: saved.current?.revisionNumber ?? null }
+          : { status: "stale", revisionNumber: saved.current?.revisionNumber ?? null };
+      } catch (error) {
+        logError("tailoring.confirm.preference_failed", error, { tailoringId: row.id });
+        outcome.preference = { status: "failed", revisionNumber: null };
+      }
+    }
+    for (const item of promotions.background) {
+      const base = { experienceIndex: item.experienceIndex, bulletIndex: item.bulletIndex, feedbackKey: item.feedbackKey };
+      try {
+        const created = await createEvidence(workspace.id, item.input, { scope: "BACKGROUND", targetJobId: null, confirm: true });
+        outcome.background.push(
+          created.ok
+            ? { ...base, status: "saved", evidenceId: created.id, revisionId: created.revisionId }
+            : { ...base, status: created.error === "too_many" ? "too_many" : "failed", evidenceId: null, revisionId: null },
+        );
+      } catch (error) {
+        logError("tailoring.confirm.background_failed", error, { tailoringId: row.id });
+        outcome.background.push({ ...base, status: "failed", evidenceId: null, revisionId: null });
+      }
+    }
+    failedPromotion = promotionFailed(outcome);
+    const promotedKeys = new Set(
+      outcome.background.filter((b) => b.status === "saved" && b.feedbackKey).map((b) => b.feedbackKey as string),
+    );
+    try {
+      if (wantsPromotion) {
+        await db.tailoringFeedback.update({
+          where: { tailoredResumeId: row.id },
+          data: {
+            promotions: outcome as never,
+            decisions: (promotedKeys.size > 0 ? deriveFeedback({ ...feedbackInput, backgroundKeys: promotedKeys }) : decisions) as never,
+          },
+        });
+      }
+      // Counts only: never the text of a suggestion, edit or reason.
+      const counts = countFeedback(decisions);
+      await recordAuditEvent(workspace.id, "tailoring.feedback.recorded", {
+        tailoringId: row.id,
+        accepted: counts.accepted,
+        edited: counts.edited,
+        rejected: counts.rejected,
+        preference: outcome.preference?.status ?? "none",
+        background: outcome.background.filter((b) => b.status === "saved").length,
+      });
+    } catch (error) {
+      logError("tailoring.confirm.feedback_update_failed", error, { tailoringId: row.id });
+    }
+  }
+
+  return NextResponse.json({ id: row.id, coverLetterId, coverLetterError, feedbackRecorded: recordFeedback, promotionFailed: failedPromotion });
 }

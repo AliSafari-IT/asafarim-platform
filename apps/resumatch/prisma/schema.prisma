@@ -67,6 +67,7 @@ model Workspace {
   evidence        CandidateEvidence[]
   contactPreferences ContactPreferences?
   writingPreferenceRevisions WritingPreferenceRevision[]
+  tailoringFeedback TailoringFeedback[]
 
   @@map("workspaces")
 }
@@ -459,6 +460,10 @@ model TailoredResume {
   /// comment for why this pairing needed its own column instead of being
   /// inferred from targetJobId.
   coverLetter CoverLetter?
+  /// What the candidate did with each AI suggestion on the review (#932).
+  /// Null for CVs saved before 0.6.10, from a legacy preview, or edited in
+  /// place (an in-place edit has no preview to compare against).
+  feedback    TailoringFeedback?
 
   @@index([workspaceId, createdAt])
   @@index([targetJobId])
@@ -606,6 +611,16 @@ model TailorPreview {
   /// sha256 over every output-affecting field of `context`, workspace
   /// included (tailoringContextFingerprint).
   contextFingerprint String?
+
+  /// The CV suggestions exactly as the provider returned them (#932,
+  /// tailorSuggestionsSchema), before the candidate touched anything. The
+  /// server's own copy: generate-confirm derives the review feedback from
+  /// it, never from what the client echoes. Null on a degraded run and on
+  /// previews made before 0.6.10.
+  suggestions           Json?
+  /// The letter suggestion as generated (#932), after the grounding check.
+  /// Null when no letter was requested or the call degraded.
+  coverLetterSuggestion Json?
 
   createdAt  DateTime  @default(now())
   /// Set by generate-confirm on first (and only) use. A second confirm
@@ -1183,4 +1198,41 @@ model WritingPreferenceRevision {
 
   @@unique([workspaceId, revisionNumber])
   @@map("writing_preference_revisions")
+}
+
+/// Review feedback for one saved CV (#932): the original AI suggestions,
+/// what the candidate did with each (accepted, edited, rejected, with an
+/// optional reason code) and anything they explicitly chose to remember.
+/// Written once, with the CV, by generate-confirm; one row per preview and
+/// per CV, so a retried or repeated confirm can never add a second record
+/// or promote anything twice. Deleted with its CV. Never sent to an AI
+/// provider and never used to train anything.
+model TailoringFeedback {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  tailoredResumeId String         @unique
+  tailoredResume   TailoredResume @relation(fields: [tailoredResumeId], references: [id], onDelete: Cascade)
+
+  /// The preview the suggestions came from. Unique: one record per preview.
+  previewId String @unique
+
+  feedbackVersion String
+  /// { cv, coverLetter }: the suggestions as generated, copied from the
+  /// preview (lib/tailoring/feedback.ts's OriginalSuggestions), with the
+  /// prompt and model versions that wrote them.
+  original  Json
+  /// FeedbackItem[]: one per suggested field.
+  decisions Json
+  /// What the candidate explicitly chose to remember on this save and how
+  /// it went: { preference, background[] } (lib/tailoring/feedbackScope.ts).
+  /// Null when they kept everything to this application.
+  promotions Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@map("tailoring_feedback")
 }

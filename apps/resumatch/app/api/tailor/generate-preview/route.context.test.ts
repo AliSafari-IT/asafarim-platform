@@ -62,6 +62,25 @@ describe("generate-preview request context (#928)", () => {
     });
   });
 
+  it("keeps the suggestions as generated on the preview for the review feedback (#932)", async () => {
+    const suggestions = { headline: "Backend engineer", summary: null, skillsOrder: [], experienceBullets: [["Built APIs."]], sources: { headline: [], summary: [], experienceBullets: [] } };
+    const letter = { greeting: "Dear team,", paragraphs: ["One."], signOff: "Regards," };
+    runTailorProviderCall.mockResolvedValue({ suggestions, degraded: false, promptVersion: "tailor_resume@9", modelVersion: "m", providerName: "fixture" });
+    runCoverLetterProviderCall.mockResolvedValue({ suggestion: letter, degraded: false, promptVersion: "cover_letter@7", modelVersion: "m", providerName: "fixture", removedSentences: 0, droppedParagraphs: 0 });
+    const res = await POST(post({ profileVersionId: "pv_1", targetJobId: "job_1", includeCoverLetter: true }));
+    expect(res.status).toBe(200);
+    const data = previewCreate.mock.calls[0]![0].data;
+    expect(data.suggestions).toEqual(suggestions);
+    expect(data.coverLetterSuggestion).toEqual(letter);
+  });
+
+  it("stores no suggestions for a degraded run", async () => {
+    await POST(post({ profileVersionId: "pv_1", targetJobId: "job_1", includeCoverLetter: true }));
+    const data = previewCreate.mock.calls[0]![0].data;
+    expect(data.suggestions).toBeUndefined();
+    expect(data.coverLetterSuggestion).toBeUndefined();
+  });
+
   it("sends the same trimmed note to the CV and the letter and stores the snapshot", async () => {
     const res = await POST(
       post({
