@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-11-24",
+    "title": "Resumatch: editable writing preferences with request-level overrides (0.6.8)",
+    "sha": "2503c77b",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/2503c77b"
+  },
+  {
+    "date": "2026-11-24",
     "title": "Resumatch: select job-relevant evidence and ask bounded clarification questions (0.6.6)",
     "sha": "ab7b4929",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/ab7b4929"
@@ -112,11 +118,5 @@
     "title": "Resumatch: edit follow-up dates and show overdue/today/upcoming (#896)",
     "sha": "5d271bf1",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/5d271bf1"
-  },
-  {
-    "date": "2026-10-31",
-    "title": "Igs: send health check alerts to Telegram as well as Discord",
-    "sha": "6862ab5f",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/6862ab5f"
   }
 ]
