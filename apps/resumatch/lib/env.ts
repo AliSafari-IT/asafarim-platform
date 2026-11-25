@@ -101,6 +101,12 @@ export interface ResuMatchEnv {
    */
   jobFetchAiEscalation: boolean;
   /**
+   * Issue #518: the headless-Chromium render tier for job pages whose text
+   * only appears after JavaScript runs. Off by default: a real browser is a
+   * heavier dependency and a wider SSRF surface than the plain GET.
+   */
+  jobFetchRender: boolean;
+  /**
    * Issue #511: the provider tried once when the primary's retries are
    * exhausted on a retryable error. `null` (the default, and always when
    * the primary is `fixture`) means no fallback.
@@ -153,6 +159,8 @@ const rawSchema = z.object({
     }),
   /** Issue #517: "off" keeps job-fetch deterministic-only even with a real provider. Default "on". */
   RESUMATCH_JOB_FETCH_AI_ESCALATION: z.enum(["on", "off"]).default("on"),
+  /** Issue #518: "on" enables the headless render tier. Default "off". */
+  RESUMATCH_JOB_FETCH_RENDER: z.enum(["on", "off"]).default("off"),
   /** Issue #511: "none" (default) or the other real provider. Never the primary. */
   RESUMATCH_AI_FALLBACK_PROVIDER: z.enum(["none", "openai", "anthropic"]).default("none"),
   /** Shared platform key (see .env.example). Unused unless a provider selects it. Never logged. */
@@ -255,6 +263,7 @@ export function resolveEnv(
     aiMonthlyBudgetUsd: raw.RESUMATCH_AI_MONTHLY_BUDGET_USD ?? DEFAULT_AI_MONTHLY_BUDGET_USD,
     aiGlobalMonthlyBudgetUsd: raw.RESUMATCH_AI_GLOBAL_MONTHLY_BUDGET_USD ?? null,
     jobFetchAiEscalation: raw.RESUMATCH_JOB_FETCH_AI_ESCALATION !== "off",
+    jobFetchRender: raw.RESUMATCH_JOB_FETCH_RENDER === "on",
     aiFallbackProvider,
   };
 }
