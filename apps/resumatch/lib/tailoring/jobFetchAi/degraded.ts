@@ -1,11 +1,13 @@
-import { logError } from "../../observability/logger";
+import { log, logError } from "../../observability/logger";
 import { getEnv, type ResuMatchAiProvider, type ResuMatchRealAiProvider } from "../../env";
 import { recordBilledFailure, settleProviderCall, QuotaExceededError } from "../ai/quota";
 import { runProviderCallWithBudget } from "../../ai/runProviderCall";
 import { resolveFallbackProvider } from "../../ai/fallbackProvider";
 import type { CostAttribution } from "../../costs/ledger";
 import { assessFetchQuality } from "../fetchQuality";
-import { fetchJobPosting, isPublicHttpsUrl, type JobFetchRefusal, type JobFetchResult } from "../fetchJob";
+import { fetchJobPosting, isPublicHttpsUrl, type JobFetchRefusal, type JobFetchResult, type PageEvidence } from "../fetchJob";
+import { renderJobPosting } from "../render/renderJob";
+import { groundJobFetchOutput, type JobFetchGrounding } from "./grounding";
 import { renderJobFetchPrompt } from "./prompts";
 import { JobFetchProviderError } from "./provider";
 import { FETCH_JOB_MODEL_VERSIONS, getJobFetchProvider } from "./registry";
@@ -31,12 +33,47 @@ import { getDedupedResult, storeDedupedResult, type DedupKeyParts } from "../../
  * the exact raw-fetch behavior with zero budget/ledger interaction, and
  * `RESUMATCH_JOB_FETCH_AI_ESCALATION=off` keeps a real-provider deployment
  * deterministic-only for cost control.
+ *
+ * Issue #518 adds a render tier inside tier 1: when the plain GET got the
+ * page but no readable text (`NO_READABLE_TEXT`, the JavaScript-shell
+ * case) and `RESUMATCH_JOB_FETCH_RENDER=on`, headless Chromium renders the
+ * page before anything is sent to a paid model. It costs no money, only
+ * server time, so it goes first; it runs for no other refusal (a bot wall
+ * or an HTTP error is not something a browser should be used to get past).
+ * With the flag off (the default) nothing here changes.
+ *
+ * Issue #521 grounds the AI tier: what the plain GET saw of the page is
+ * passed to the model and checked against its answer afterwards (see
+ * grounding.ts for the lenient-flag decision).
  */
 
-export type JobFetchOutcome = JobFetchResult & { degraded?: boolean };
+export type JobFetchOutcome = (Extract<JobFetchResult, { ok: true }> | { ok: false; reasonCode: JobFetchRefusal }) & {
+  degraded?: boolean;
+  /** Set on an AI-tier result only (#521). */
+  grounding?: JobFetchGrounding;
+};
 
-function degradeToRawFetch(url: string): Promise<JobFetchOutcome> {
-  return fetchJobPosting(url).then((result) => ({ ...result, degraded: true }));
+/** Evidence is internal (prompt and grounding input), never returned. */
+function withoutEvidence(result: JobFetchResult): JobFetchOutcome {
+  if (result.ok) return result;
+  return { ok: false, reasonCode: result.reasonCode };
+}
+
+/**
+ * Tier 1: the plain GET, then (when enabled) the render tier for a page
+ * that came back as a JavaScript shell. Returns the GET's own refusal when
+ * the render does not help, with the richer evidence of the two.
+ */
+export async function deterministicFetch(url: string, render: boolean = getEnv().jobFetchRender): Promise<JobFetchResult> {
+  const plain = await fetchJobPosting(url);
+  if (plain.ok || plain.reasonCode !== "NO_READABLE_TEXT" || !render) return plain;
+  const rendered = await renderJobPosting(url);
+  if (rendered.ok) return rendered;
+  return { ...plain, evidence: rendered.evidence ?? plain.evidence };
+}
+
+function degradeToRawFetch(url: string, render?: boolean): Promise<JobFetchOutcome> {
+  return deterministicFetch(url, render).then((result) => ({ ...withoutEvidence(result), degraded: true }));
 }
 
 /**
@@ -62,6 +99,8 @@ export async function fetchJobWithFallback(
     escalate?: boolean;
     /** Issue #511: overrides `RESUMATCH_AI_FALLBACK_PROVIDER`; null = none. */
     fallbackProvider?: ResuMatchRealAiProvider | null;
+    /** Overrides `RESUMATCH_JOB_FETCH_RENDER` (tests). */
+    render?: boolean;
   } = {},
 ): Promise<JobFetchOutcome> {
   const attribution: CostAttribution = {
@@ -72,21 +111,22 @@ export async function fetchJobWithFallback(
   if (!isPublicHttpsUrl(url)) return { ok: false, reasonCode: "URL_NOT_ALLOWED" };
 
   const aiProvider = opts.provider ?? getEnv().aiProvider;
-  if (aiProvider === "fixture") return degradeToRawFetch(url);
+  if (aiProvider === "fixture") return degradeToRawFetch(url, opts.render);
 
-  // Tier 1: the deterministic GET, at zero AI cost.
-  const deterministic = await fetchJobPosting(url);
+  // Tier 1: the deterministic GET (and the render tier), at zero AI cost.
+  const deterministic = await deterministicFetch(url, opts.render);
   if (deterministic.ok) return { ...deterministic, degraded: false };
 
   const escalate = opts.escalate ?? getEnv().jobFetchAiEscalation;
   if (!escalate || !shouldEscalate(deterministic.reasonCode)) {
-    return { ...deterministic, degraded: true };
+    return { ...withoutEvidence(deterministic), degraded: true };
   }
   // Tier 2 failed below → hand back the tier-1 answer without fetching again.
-  const degradeToDeterministic = (): JobFetchOutcome => ({ ...deterministic, degraded: true });
+  const degradeToDeterministic = (): JobFetchOutcome => ({ ...withoutEvidence(deterministic), degraded: true });
+  const evidence: PageEvidence | null = deterministic.evidence ?? null;
 
   const modelVersion = FETCH_JOB_MODEL_VERSIONS[aiProvider];
-  const prompt = renderJobFetchPrompt(url);
+  const prompt = renderJobFetchPrompt(url, evidence);
   // Issue #513: the same URL fetched again within a few minutes (a retry
   // after a transient error) reuses the last successful result: no quota
   // check, no provider call, no second ledger row.
@@ -143,15 +183,24 @@ export async function fetchJobWithFallback(
         () => parseJobFetchOutput({ title: output.title, employer: output.employer, rawText: output.rawText }),
       );
 
+      // The same heuristics as tier 1 (#520): a model reading a cookie
+      // wall can hand back boilerplate too. Plus #521: a title or employer
+      // the fetched page does not contain is flagged, not rejected.
+      const quality = assessFetchQuality(parsed);
+      const grounding = groundJobFetchOutput(parsed, evidence);
+      if (grounding.status === "mismatch") {
+        quality.reasons.push("NOT_ON_FETCHED_PAGE");
+        quality.looksIncomplete = true;
+        log.info("tailoring.job_fetch_ai.grounding_mismatch", { workspaceId, fields: grounding.mismatched });
+      }
       const outcome: JobFetchOutcome = {
         ok: true,
         title: parsed.title,
         employer: parsed.employer,
         rawText: parsed.rawText,
-        // The same heuristics as tier 1 (#520): a model reading a cookie
-        // wall can hand back boilerplate too.
-        quality: assessFetchQuality(parsed),
+        quality,
         degraded: false,
+        grounding,
       };
       // Stored under the primary's key, the one the next lookup uses.
       storeDedupedResult(dedupKey, outcome);

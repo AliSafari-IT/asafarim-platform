@@ -71,6 +71,10 @@ jobs:
         working-directory: apps/resumatch
         run: echo "RESUMATCH_PDF_CHROMIUM_PATH=$(node -e 'console.log(require("playwright-core").chromium.executablePath())')" >> "$GITHUB_ENV"
 
+      - name: Run the job-fetch render tier's browser tests (#518)
+        working-directory: apps/resumatch
+        run: pnpm exec vitest run lib/tailoring/render
+
       - name: Run ResuMatch E2E suite
         working-directory: apps/resumatch
         run: pnpm exec playwright test

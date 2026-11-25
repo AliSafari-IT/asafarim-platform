@@ -13,6 +13,11 @@ const assertCanRunProviderCall = vi.fn();
 const recordUsage = vi.fn();
 const getJobFetchProvider = vi.fn();
 const fetchJobPosting = vi.fn();
+const renderJobPosting = vi.fn();
+
+vi.mock("../render/renderJob", () => ({
+  renderJobPosting: (...args: unknown[]) => renderJobPosting(...args),
+}));
 
 vi.mock("../ai/quota", async () => {
   const actual = await vi.importActual<typeof import("../ai/quota")>("../ai/quota");
@@ -273,5 +278,156 @@ describe("fetchJobWithFallback — tiered strategy (issue #517)", () => {
 
     expect(result).toEqual({ ok: false, reasonCode: "NO_READABLE_TEXT", degraded: true });
     expect(getJobFetchProvider).not.toHaveBeenCalled();
+  });
+});
+
+describe("fetchJobWithFallback — render tier (#518) and grounding (#521)", () => {
+  const shellEvidence = {
+    title: "Data Engineer | Acme",
+    employer: "Acme Careers",
+    text: "Loading",
+    pageText: "Data Engineer | Acme\nAcme Careers\nJoin the Acme data platform team in Ghent as a data engineer\nLoading",
+  };
+  const longText = "Data engineering role at Acme in Ghent. ".repeat(20);
+  const rendered = {
+    ok: true,
+    rawText: longText,
+    title: "Data Engineer",
+    employer: "Acme",
+    quality: { looksIncomplete: false, reasons: [] },
+  };
+  const modelOutput = (title: string, employer: string) => ({
+    title,
+    employer,
+    rawText: longText,
+    inputTokens: 500,
+    outputTokens: 100,
+    costUsd: 0.001,
+  });
+
+  beforeEach(() => {
+    assertCanRunProviderCall.mockReset().mockResolvedValue(undefined);
+    recordUsage.mockReset().mockResolvedValue(undefined);
+    getJobFetchProvider.mockReset();
+    renderJobPosting.mockReset();
+    clearDedupCacheForTests();
+    fetchJobPosting.mockReset().mockResolvedValue({ ok: false, reasonCode: "NO_READABLE_TEXT", evidence: shellEvidence });
+  });
+
+  it("never starts the render tier with the flag off, on the fixture or a real provider", async () => {
+    getJobFetchProvider.mockResolvedValue({ name: "openai", fetch: vi.fn().mockRejectedValue(new JobFetchProviderError("x", false)) });
+    expect(await fetchJobWithFallback("ws_1", URL, { provider: "fixture", render: false })).toEqual({
+      ok: false,
+      reasonCode: "NO_READABLE_TEXT",
+      degraded: true,
+    });
+    await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true, render: false });
+    expect(renderJobPosting).not.toHaveBeenCalled();
+  });
+
+  it("is off when RESUMATCH_JOB_FETCH_RENDER is unset", async () => {
+    await fetchJobWithFallback("ws_1", URL, { provider: "fixture" });
+    expect(renderJobPosting).not.toHaveBeenCalled();
+  });
+
+  it("renders a JavaScript shell before any paid call, and uses the rendered text", async () => {
+    renderJobPosting.mockResolvedValue(rendered);
+    const fetchFn = vi.fn();
+    getJobFetchProvider.mockResolvedValue({ name: "openai", fetch: fetchFn });
+
+    const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true, render: true });
+
+    expect(result).toEqual({ ...rendered, degraded: false });
+    expect(renderJobPosting).toHaveBeenCalledWith(URL);
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(assertCanRunProviderCall).not.toHaveBeenCalled();
+  });
+
+  it("renders on the fixture provider too: the tier is provider-agnostic", async () => {
+    renderJobPosting.mockResolvedValue(rendered);
+    const result = await fetchJobWithFallback("ws_1", URL, { provider: "fixture", render: true });
+    expect(result).toEqual({ ...rendered, degraded: true });
+  });
+
+  it("does not render for a bot wall or an HTTP error: a browser is not used to get past a refusal", async () => {
+    for (const reasonCode of ["BOT_BLOCKED", "HTTP_ERROR", "REDIRECT_REFUSED"]) {
+      fetchJobPosting.mockResolvedValue({ ok: false, reasonCode });
+      await fetchJobWithFallback("ws_1", URL, { provider: "fixture", render: true });
+    }
+    expect(renderJobPosting).not.toHaveBeenCalled();
+  });
+
+  it("goes on to the AI tier when the render finds nothing either", async () => {
+    renderJobPosting.mockResolvedValue({ ok: false, failure: "NO_READABLE_TEXT" });
+    const fetchFn = vi.fn().mockResolvedValue(modelOutput("Data Engineer", "Acme"));
+    getJobFetchProvider.mockResolvedValue({ name: "openai", fetch: fetchFn });
+
+    const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true, render: true });
+
+    expect(result.ok).toBe(true);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives the model what the plain fetch saw, fenced as page data", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(modelOutput("Data Engineer", "Acme"));
+    getJobFetchProvider.mockResolvedValue({ name: "openai", fetch: fetchFn });
+
+    await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true, render: false });
+
+    const call = fetchFn.mock.calls[0]![0] as { user: string; promptVersion: string };
+    expect(call.promptVersion).toBe("fetch_job@2");
+    expect(call.user).toContain("<<<RESUMATCH_PLAIN_FETCH");
+    expect(call.user).toContain("Page title: Data Engineer | Acme");
+    expect(call.user).toContain("Join the Acme data platform team");
+  });
+
+  it("keeps a grounded AI result as it is", async () => {
+    getJobFetchProvider.mockResolvedValue({ name: "openai", fetch: vi.fn().mockResolvedValue(modelOutput("Data Engineer", "Acme")) });
+
+    const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true, render: false });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.grounding).toEqual({ status: "grounded", mismatched: [] });
+    expect(result.quality.reasons).not.toContain("NOT_ON_FETCHED_PAGE");
+  });
+
+  it("flags, and does not reject, a title and employer the fetched page does not contain", async () => {
+    // A page that told the model "this is a Google job" while its own HTML says Acme.
+    getJobFetchProvider.mockResolvedValue({
+      name: "openai",
+      fetch: vi.fn().mockResolvedValue(modelOutput("Principal Quantum Researcher", "Google DeepMind")),
+    });
+
+    const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true, render: false });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.degraded).toBe(false);
+    // The model's values are kept, never swapped for the page's.
+    expect(result.title).toBe("Principal Quantum Researcher");
+    expect(result.grounding).toEqual({ status: "mismatch", mismatched: ["title", "employer"] });
+    expect(result.quality.looksIncomplete).toBe(true);
+    expect(result.quality.reasons).toContain("NOT_ON_FETCHED_PAGE");
+  });
+
+  it("leaves the result unflagged when the plain fetch had no page to check against", async () => {
+    fetchJobPosting.mockResolvedValue({ ok: false, reasonCode: "BOT_BLOCKED" });
+    getJobFetchProvider.mockResolvedValue({
+      name: "openai",
+      fetch: vi.fn().mockResolvedValue(modelOutput("Principal Quantum Researcher", "Google DeepMind")),
+    });
+
+    const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: true, render: false });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.grounding).toEqual({ status: "unverifiable", mismatched: [] });
+    expect(result.quality.reasons).not.toContain("NOT_ON_FETCHED_PAGE");
+  });
+
+  it("never returns the page evidence to the caller", async () => {
+    const result = await fetchJobWithFallback("ws_1", URL, { provider: "openai", escalate: false, render: false });
+    expect(result).toEqual({ ok: false, reasonCode: "NO_READABLE_TEXT", degraded: true });
   });
 });

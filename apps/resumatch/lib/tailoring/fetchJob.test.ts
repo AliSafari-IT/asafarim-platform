@@ -148,7 +148,21 @@ describe("fetchJobPosting", () => {
   it("treats a page with no readable text as a failure", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(htmlResponse("<html><body></body></html>"));
     const result = await fetchJobPosting("https://jobs.example.test/posting/1", fetchImpl);
-    expect(result).toEqual({ ok: false, reasonCode: "NO_READABLE_TEXT" });
+    expect(result).toMatchObject({ ok: false, reasonCode: "NO_READABLE_TEXT" });
+  });
+
+  it("keeps what an unreadable page said about itself as evidence for later tiers (#521)", async () => {
+    const html = `<html><head><title>Data Engineer | Acme</title>
+      <meta property="og:site_name" content="Acme Careers">
+      <meta name="description" content="Join Acme in Ghent"></head>
+      <body><div id="app">Loading</div><script>window.secretState = "not page text";</script></body></html>`;
+    const result = await fetchJobPosting("https://jobs.example.test/posting/1", vi.fn().mockResolvedValue(htmlResponse(html)));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.evidence).toMatchObject({ title: "Data Engineer | Acme", employer: "Acme Careers", text: "Loading" });
+    expect(result.evidence?.pageText).toContain("Join Acme in Ghent");
+    // Script code is not something the page states.
+    expect(result.evidence?.pageText).not.toContain("secretState");
   });
 
   it("reports a network error without leaking the thrown error", async () => {
@@ -315,6 +329,8 @@ describe("fetchJobPosting with JobPosting JSON-LD (#516)", () => {
 
   it("still refuses a page where neither the JSON-LD nor the page has enough text", async () => {
     const html = `<script type="application/ld+json">{"@type":"JobPosting","title":"Role","description":"Short."}</script>`;
-    expect(await fetchHtml(html)).toEqual({ ok: false, reasonCode: "NO_READABLE_TEXT" });
+    const result = await fetchHtml(html);
+    expect(result).toMatchObject({ ok: false, reasonCode: "NO_READABLE_TEXT" });
+    if (!result.ok) expect(result.evidence?.pageText).toContain("Role");
   });
 });

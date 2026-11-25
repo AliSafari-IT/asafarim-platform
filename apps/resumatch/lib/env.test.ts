@@ -209,6 +209,12 @@ describe("ResuMatch environment contract", () => {
       );
     });
 
+    it("RESUMATCH_JOB_FETCH_RENDER defaults off, accepts on, and refuses anything else by name (issue #518)", () => {
+      expect(resolveEnv({ NODE_ENV: "development" }).jobFetchRender).toBe(false);
+      expect(resolveEnv({ NODE_ENV: "development", RESUMATCH_JOB_FETCH_RENDER: "on" }).jobFetchRender).toBe(true);
+      expect(() => resolveEnv({ NODE_ENV: "development", RESUMATCH_JOB_FETCH_RENDER: "true" })).toThrow(/RESUMATCH_JOB_FETCH_RENDER/);
+    });
+
     describe("RESUMATCH_AI_FALLBACK_PROVIDER (issue #511)", () => {
       const prodOpenAi = {
         ...prodBase,

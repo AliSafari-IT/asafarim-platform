@@ -23,7 +23,10 @@ export type FetchQualityReason =
   /** Neither a title nor an employer could be identified. */
   | "NO_TITLE_OR_EMPLOYER"
   /** Most of the text is cookie / JavaScript / newsletter / sign-in boilerplate. */
-  | "MOSTLY_BOILERPLATE";
+  | "MOSTLY_BOILERPLATE"
+  /** An AI-browsed title or employer is not on the page a plain fetch got
+   *  (#521, see jobFetchAi/grounding.ts). Added by the AI tier only. */
+  | "NOT_ON_FETCHED_PAGE";
 
 export interface FetchQuality {
   looksIncomplete: boolean;

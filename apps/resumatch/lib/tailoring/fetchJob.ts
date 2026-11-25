@@ -69,7 +69,29 @@ export type JobFetchResult =
        *  warning for the candidate, never a refusal. */
       quality: FetchQuality;
     }
-  | { ok: false; reasonCode: JobFetchRefusal };
+  | {
+      ok: false;
+      reasonCode: JobFetchRefusal;
+      /** Only on `NO_READABLE_TEXT`: what the page did contain (#521). Used
+       *  to ground a later AI or render tier, never shown or stored. */
+      evidence?: PageEvidence;
+    };
+
+/**
+ * What a page that was fetched but could not be read still says about
+ * itself (#521): its own title/employer metadata, the little body text it
+ * had, and the whole page (meta tags, JSON-LD, body) as plain text for
+ * checking an AI tier's claims against.
+ */
+export interface PageEvidence {
+  title: string | null;
+  employer: string | null;
+  text: string;
+  pageText: string;
+}
+
+/** Cap on `PageEvidence.pageText`: enough for any real page's metadata. */
+export const MAX_EVIDENCE_CHARACTERS = 50_000;
 
 export type JobFetchRefusal =
   | "URL_NOT_ALLOWED"
@@ -129,6 +151,14 @@ export async function fetchJobPosting(
     clearTimeout(timer);
   }
 
+  return readJobPage(html);
+}
+
+/**
+ * Turns one page's HTML into a fetch result. Shared by the plain GET and
+ * the headless render tier (#518), so both read a page the same way.
+ */
+export function readJobPage(html: string): JobFetchResult {
   // Structured JobPosting data (#516), when the page has it, is a better
   // signal than the og:/<title> tags and the whole-page strip. Each field
   // falls back on its own, so a posting with a title but no usable
@@ -140,12 +170,16 @@ export async function fetchJobPosting(
 
   const fromStructuredData = structuredText.length >= MIN_USEFUL_CHARACTERS;
   const rawText = fromStructuredData ? structuredText : extractReadableText(html);
-  if (rawText.length < MIN_USEFUL_CHARACTERS) {
-    return { ok: false, reasonCode: "NO_READABLE_TEXT" };
-  }
-
   const title = structured?.title ?? extractTitle(html);
   const employer = structured?.employer ?? extractEmployer(html);
+  if (rawText.length < MIN_USEFUL_CHARACTERS) {
+    return {
+      ok: false,
+      reasonCode: "NO_READABLE_TEXT",
+      evidence: { title, employer, text: rawText, pageText: pageGroundingText(html) },
+    };
+  }
+
   return {
     ok: true,
     rawText,
@@ -153,6 +187,23 @@ export async function fetchJobPosting(
     employer,
     quality: assessFetchQuality({ rawText, title, employer, fromStructuredData }),
   };
+}
+
+/**
+ * Everything a page states about itself as plain text: `<meta content>`
+ * values, the `<title>`, JSON-LD blocks and the body. Script code and
+ * styles are left out, so a word only counts as "on the page" when the page
+ * shows or declares it.
+ */
+export function pageGroundingText(html: string): string {
+  const meta = [...html.matchAll(/<meta[^>]+content=["']([^"']*)["']/gi)].map((m) => m[1]);
+  const jsonLd = [
+    ...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi),
+  ].map((m) => m[1]);
+  const titleTag = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "";
+  return decodeHtmlEntities(
+    [titleTag, ...meta, ...jsonLd, extractReadableText(html)].join("\n"),
+  ).slice(0, MAX_EVIDENCE_CHARACTERS);
 }
 
 /**
