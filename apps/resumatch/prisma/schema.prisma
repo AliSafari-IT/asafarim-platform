@@ -629,6 +629,8 @@ model TailorPreview {
   consumedAt DateTime?
 
   @@index([workspaceId, createdAt])
+  /// #933: the retention sweep reads by age across workspaces.
+  @@index([createdAt])
   @@map("tailor_previews")
 }
 
@@ -1234,5 +1236,7 @@ model TailoringFeedback {
   createdAt DateTime @default(now())
 
   @@index([workspaceId, createdAt])
+  /// #933: the retention sweep reads by age across workspaces.
+  @@index([createdAt])
   @@map("tailoring_feedback")
 }

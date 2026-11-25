@@ -29,6 +29,7 @@ const reactJob = `Frontend developer (React / TypeScript). You build React appli
 use Node.js tooling and write Playwright tests. You develop features for our web applications,
 review code and improve test coverage. Requirements: React, TypeScript, Node.js, Playwright, REST APIs.`;
 
+vi.mock("../../../../lib/privacy/retention", () => ({ maybeSweepPersonalization: () => null }));
 vi.mock("../../../../lib/workspace", () => ({
   getCurrentWorkspace: async () => ({ id: "ws_1" }),
 }));

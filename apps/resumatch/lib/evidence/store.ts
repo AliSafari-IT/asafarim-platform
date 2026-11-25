@@ -275,10 +275,83 @@ export async function confirmEvidence(workspaceId: string, id: string, revisionI
   return outcome.result;
 }
 
-/** Deletes the item and every revision. Saved CVs keep their own text and
- *  the revision ids they used; the evidence text itself is gone. */
-export async function deleteEvidence(workspaceId: string, id: string): Promise<boolean> {
-  const { count } = await getJobmatchDb().candidateEvidence.deleteMany({ where: { id, workspaceId } });
-  if (count > 0) await recordAuditEvent(workspaceId, "evidence.deleted", {});
-  return count > 0;
+/**
+ * What deleting an item touches (#933), so the candidate is told before
+ * they confirm. `savedCvs`: saved CVs whose request context names one of
+ * its revisions; they keep their own wording, and the review feedback
+ * recorded for them (which holds the AI suggestions made from it) goes.
+ * `previews`: previews made with it; they are discarded, since they can no
+ * longer be confirmed and would otherwise be a hidden copy of what it led
+ * the AI to write. Null when the item is not this workspace's.
+ */
+export interface EvidenceDeletionImpact {
+  savedCvs: number;
+  previews: number;
+}
+
+type Reader = Pick<Tx, "$queryRaw" | "candidateEvidenceRevision">;
+
+async function revisionIdsOf(db: Reader, workspaceId: string, id: string): Promise<string[]> {
+  const rows = await db.candidateEvidenceRevision.findMany({ where: { evidenceId: id, workspaceId }, select: { id: true } });
+  return rows.map((r) => r.id);
+}
+
+/** Saved CVs and previews of this workspace whose context names any of `revisionIds`. */
+async function linkedHistory(db: Reader, workspaceId: string, revisionIds: string[]): Promise<{ cvIds: string[]; previewIds: string[] }> {
+  if (revisionIds.length === 0) return { cvIds: [], previewIds: [] };
+  const cvs = await db.$queryRaw<{ id: string }[]>`
+    SELECT id FROM tailored_resumes
+    WHERE "workspaceId" = ${workspaceId}
+      AND "tailoringContext" IS NOT NULL
+      AND jsonb_typeof("tailoringContext"->'evidenceRevisionIds') = 'array'
+      AND jsonb_exists_any("tailoringContext"->'evidenceRevisionIds', ${revisionIds}::text[])`;
+  const previews = await db.$queryRaw<{ id: string }[]>`
+    SELECT id FROM tailor_previews
+    WHERE "workspaceId" = ${workspaceId}
+      AND context IS NOT NULL
+      AND jsonb_typeof(context->'evidenceRevisionIds') = 'array'
+      AND jsonb_exists_any(context->'evidenceRevisionIds', ${revisionIds}::text[])`;
+  return { cvIds: cvs.map((r) => r.id), previewIds: previews.map((r) => r.id) };
+}
+
+export async function evidenceDeletionImpact(workspaceId: string, id: string): Promise<EvidenceDeletionImpact | null> {
+  const db = getJobmatchDb();
+  const item = await db.candidateEvidence.findFirst({ where: { id, workspaceId }, select: { id: true } });
+  if (!item) return null;
+  const { cvIds, previewIds } = await linkedHistory(db, workspaceId, await revisionIdsOf(db, workspaceId, id));
+  return { savedCvs: cvIds.length, previews: previewIds.length };
+}
+
+export interface EvidenceDeletionResult {
+  savedCvs: number;
+  previewsDeleted: number;
+  feedbackDeleted: number;
+}
+
+/**
+ * Deletes the item and every revision (#929), and with them every hidden
+ * copy of what it led the AI to write (#933): previews made with it, and
+ * the review feedback of saved CVs that used it. The saved CVs keep their
+ * own text, which the candidate sees and can delete, and the revision ids
+ * in their context, which hold no content. All in one transaction, after
+ * locking the item, so a concurrent edit or a second delete cannot leave a
+ * copy behind. Null when the item is not this workspace's (or already gone).
+ */
+export async function deleteEvidence(workspaceId: string, id: string): Promise<EvidenceDeletionResult | null> {
+  const result = await getJobmatchDb().$transaction(async (tx): Promise<EvidenceDeletionResult | null> => {
+    const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM candidate_evidence WHERE id = ${id} AND "workspaceId" = ${workspaceId} FOR UPDATE`;
+    if (locked.length === 0) return null;
+    const { cvIds, previewIds } = await linkedHistory(tx, workspaceId, await revisionIdsOf(tx, workspaceId, id));
+    const previews = previewIds.length > 0 ? await tx.tailorPreview.deleteMany({ where: { workspaceId, id: { in: previewIds } } }) : { count: 0 };
+    const feedback = cvIds.length > 0 ? await tx.tailoringFeedback.deleteMany({ where: { workspaceId, tailoredResumeId: { in: cvIds } } }) : { count: 0 };
+    await tx.candidateEvidence.deleteMany({ where: { id, workspaceId } });
+    return { savedCvs: cvIds.length, previewsDeleted: previews.count, feedbackDeleted: feedback.count };
+  });
+  if (result) {
+    await recordAuditEvent(workspaceId, "evidence.deleted", {
+      count: result.savedCvs,
+      outcome: `previews:${result.previewsDeleted},feedback:${result.feedbackDeleted}`,
+    });
+  }
+  return result;
 }

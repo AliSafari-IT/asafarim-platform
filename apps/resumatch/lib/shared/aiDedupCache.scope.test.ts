@@ -14,6 +14,8 @@ const FRESH_EVERY_TIME = ["tailoring/ai", "profile/ai"];
 const ALLOWED_CONSUMERS = [
   "extraction/ai/degraded.ts",
   "tailoring/jobFetchAi/degraded.ts",
+  // Erasure only forgets a workspace's entries (#933); it never reads one.
+  "profile/dataRights.ts",
 ];
 
 function sourceFiles(dir: string): string[] {

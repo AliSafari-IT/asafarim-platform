@@ -24,6 +24,7 @@ import {
 } from "../../../../lib/tailoring/selection/select";
 import { checkClaims } from "../../../../lib/tailoring/selection/claims";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
+import { maybeSweepPersonalization } from "../../../../lib/privacy/retention";
 import { getWritingPreferences } from "../../../../lib/writingPreferences/store";
 import { resolveWriting } from "../../../../lib/writingPreferences/resolve";
 
@@ -55,6 +56,9 @@ export const maxDuration = 60;
 export async function POST(request: Request) {
   const workspace = await getCurrentWorkspace();
   if (!workspace) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+  // #933: enforce preview/feedback retention from ordinary use (at most
+  // hourly per process, never awaited, never fails this request).
+  void maybeSweepPersonalization();
 
   let body: unknown;
   try {

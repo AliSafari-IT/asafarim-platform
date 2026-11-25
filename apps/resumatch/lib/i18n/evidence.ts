@@ -60,6 +60,8 @@ export const evidenceDictionaries: Dictionaries = {
     "resumatch.evidence.dialog.message": "It is removed with every earlier version and will not be used again. CVs and letters you already saved keep their text.",
     "resumatch.evidence.dialog.confirm": "Delete",
     "resumatch.evidence.dialog.cancel": "Keep it",
+    "resumatch.evidence.dialog.savedCvs": "{count} saved CV(s) used it. They keep their wording, but the review notes recorded for them are removed.",
+    "resumatch.evidence.dialog.previews": "Unsaved suggestions made with it are discarded.",
     "resumatch.evidence.review.used": "Generated with {count} confirmed evidence item(s).",
   },
   nl: {
@@ -120,6 +122,8 @@ export const evidenceDictionaries: Dictionaries = {
     "resumatch.evidence.dialog.message": "Het wordt met alle eerdere versies verwijderd en niet meer gebruikt. Opgeslagen cv's en brieven houden hun tekst.",
     "resumatch.evidence.dialog.confirm": "Verwijderen",
     "resumatch.evidence.dialog.cancel": "Behouden",
+    "resumatch.evidence.dialog.savedCvs": "{count} opgeslagen cv('s) gebruikten het. Ze houden hun tekst, maar de reviewnotities die erbij zijn bewaard worden verwijderd.",
+    "resumatch.evidence.dialog.previews": "Niet-opgeslagen voorstellen die ermee zijn gemaakt, worden weggegooid.",
     "resumatch.evidence.review.used": "Gegenereerd met {count} bevestigd(e) bewijsitem(s).",
   },
   fr: {
@@ -180,6 +184,8 @@ export const evidenceDictionaries: Dictionaries = {
     "resumatch.evidence.dialog.message": "Il est supprimé avec toutes ses versions précédentes et ne sera plus utilisé. Les CV et lettres déjà enregistrés gardent leur texte.",
     "resumatch.evidence.dialog.confirm": "Supprimer",
     "resumatch.evidence.dialog.cancel": "Le garder",
+    "resumatch.evidence.dialog.savedCvs": "{count} CV enregistré(s) l'ont utilisé. Ils gardent leur texte, mais les notes de relecture enregistrées pour eux sont supprimées.",
+    "resumatch.evidence.dialog.previews": "Les suggestions non enregistrées faites avec lui sont supprimées.",
     "resumatch.evidence.review.used": "Généré avec {count} élément(s) confirmé(s).",
   },
   de: {
@@ -240,6 +246,8 @@ export const evidenceDictionaries: Dictionaries = {
     "resumatch.evidence.dialog.message": "Er wird mit allen früheren Versionen entfernt und nicht mehr verwendet. Bereits gespeicherte Lebensläufe und Anschreiben behalten ihren Text.",
     "resumatch.evidence.dialog.confirm": "Löschen",
     "resumatch.evidence.dialog.cancel": "Behalten",
+    "resumatch.evidence.dialog.savedCvs": "{count} gespeicherte(r) Lebenslauf/Lebensläufe haben ihn verwendet. Sie behalten ihren Text, aber die dafür gespeicherten Review-Notizen werden entfernt.",
+    "resumatch.evidence.dialog.previews": "Nicht gespeicherte Vorschläge, die damit erstellt wurden, werden verworfen.",
     "resumatch.evidence.review.used": "Mit {count} bestätigten Nachweis(en) erstellt.",
   },
 };
