@@ -151,7 +151,9 @@ async function saveEdit(request: Request, id: string): Promise<Response> {
         content,
         // No hand edits left on this CV: a database NULL, as on a first save.
         candidateEdits: hasCandidateEdits(candidateEdits) ? candidateEdits : Prisma.DbNull,
-        ...(skillsChanged ? { skillsParagraph: null } : {}),
+        // A hand-edited paragraph goes too: it may name a skill that was
+        // just taken off. The picker offers to write a new one.
+        ...(skillsChanged ? { skillsParagraph: null, skillsParagraphEditedAt: null } : {}),
       },
     });
     if (letterContent && row.coverLetter) {

@@ -84,6 +84,8 @@ export interface DataExport {
     skillsLayout: string | null;
     /** The written skills paragraph, kept even when another layout is active. */
     skillsParagraph: string | null;
+    /** When the candidate last edited the paragraph by hand; null for the AI's text. */
+    skillsParagraphEditedAt: string | null;
     createdAt: string;
     content: unknown;
     /** The request context the CV was made with; null before 0.6.0. */
@@ -344,6 +346,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       showPhoto: resume.showPhoto,
       skillsLayout: resume.skillsLayout,
       skillsParagraph: resume.skillsParagraph,
+      skillsParagraphEditedAt: resume.skillsParagraphEditedAt?.toISOString() ?? null,
       createdAt: resume.createdAt.toISOString(),
       // Re-parsed for the same reason profile version content is: the
       // export is a statement about what is held, not a shape a stale

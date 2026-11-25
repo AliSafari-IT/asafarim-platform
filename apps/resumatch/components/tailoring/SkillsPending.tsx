@@ -1,7 +1,18 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type MutableRefObject,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { SkillsParagraphEditor } from "./SkillsParagraphEditor";
 
 /**
  * While the CV preview changes its Skills section (the AI writing a
@@ -12,19 +23,52 @@ import { useTranslation } from "@asafarim/shared-i18n";
  *   while the screen is about to show the new one.
  *
  * "writing" is the AI paragraph; "saving" is a plain layout switch, which
- * is quick and only pauses the downloads. Outside the provider (the cover
- * letter preview) nothing is ever pending.
+ * is quick and only pauses the downloads; "editing" is the candidate
+ * editing the paragraph by hand, in place in the CV (SkillsParagraphEditor),
+ * so a download never holds text they are still changing. Outside the
+ * provider (the cover letter preview) nothing is ever pending.
  */
-export type SkillsPending = "writing" | "saving" | null;
+export type SkillsPending = "writing" | "saving" | "editing" | null;
 
-const SkillsPendingContext = createContext<{
+/** A hand edit of the skills paragraph in progress. The picker owns the
+ *  request; the editor in the CV's Skills section shows and changes this. */
+export interface SkillsEdit {
+  draft: string;
+  saving: boolean;
+  /** Why the last save failed: "empty" | "too_long" | "save". */
+  error: string | null;
+}
+
+export interface SkillsEditActions {
+  save: () => void;
+  cancel: () => void;
+}
+
+interface SkillsPendingValue {
   pending: SkillsPending;
   setPending: (pending: SkillsPending) => void;
-}>({ pending: null, setPending: () => {} });
+  edit: SkillsEdit | null;
+  setEdit: Dispatch<SetStateAction<SkillsEdit | null>>;
+  /** Set by the picker; the editor's Save and Cancel call through it. */
+  editActions: MutableRefObject<SkillsEditActions | null>;
+}
+
+const SkillsPendingContext = createContext<SkillsPendingValue>({
+  pending: null,
+  setPending: () => {},
+  edit: null,
+  setEdit: () => {},
+  editActions: { current: null },
+});
 
 export function SkillsPendingProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<SkillsPending>(null);
-  const value = useMemo(() => ({ pending, setPending }), [pending]);
+  const [edit, setEdit] = useState<SkillsEdit | null>(null);
+  const editActions = useRef<SkillsEditActions | null>(null);
+  const value = useMemo(
+    () => ({ pending: pending ?? (edit ? "editing" : null), setPending, edit, setEdit, editActions }),
+    [pending, edit],
+  );
   return <SkillsPendingContext.Provider value={value}>{children}</SkillsPendingContext.Provider>;
 }
 
@@ -61,16 +105,19 @@ function WritingOverlay() {
   );
 }
 
-/** The CV's Skills <section>, marked busy while it is being rewritten. */
-export function SkillsSection({ children }: { children: ReactNode }) {
-  const { pending } = useSkillsPending();
+/** The CV's Skills <section>, marked busy while it is being rewritten.
+ *  While the candidate edits the paragraph by hand, the editor takes the
+ *  paragraph's place, under the same heading. */
+export function SkillsSection({ heading, children }: { heading: ReactNode; children: ReactNode }) {
+  const { pending, edit } = useSkillsPending();
   return (
     <section
       className="rm-resume__section rm-resume__section--skills"
       aria-busy={pending === "writing" ? true : undefined}
       data-testid="cv-skills-section"
     >
-      {children}
+      {heading}
+      {edit ? <SkillsParagraphEditor /> : children}
       <SkillsPendingOverlay />
     </section>
   );

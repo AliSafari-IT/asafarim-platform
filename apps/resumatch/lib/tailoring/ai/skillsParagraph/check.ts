@@ -107,25 +107,34 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export function checkSkillsParagraph(
-  text: string,
-  {
-    skills,
-    categoryLabels,
-    profileText,
-    language,
-  }: {
-    skills: string[];
-    /** Headings of the groups the prompt contained — never the whole taxonomy. */
-    categoryLabels: string[];
-    profileText: string;
-    language: OutputLanguage;
-  },
-): SkillsParagraphCheckResult {
-  const cleaned = text
+export interface SkillsParagraphCheckInput {
+  skills: string[];
+  /** Headings of the groups the prompt contained — never the whole taxonomy. */
+  categoryLabels: string[];
+  profileText: string;
+  language: OutputLanguage;
+}
+
+/** One sentence the check would not keep, and why. */
+export interface FlaggedSentence {
+  sentence: string;
+  reasons: string[];
+}
+
+function normalizeParagraph(text: string): string {
+  return text
     .replace(/^\s*["“”']+|["“”']+\s*$/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Runs the sentence rules over `text`: each sentence with the reasons it
+ *  fails (none when it passes). Shared by the AI check below and the
+ *  advisory review of a paragraph the candidate edited by hand. */
+function judgeSentences(
+  text: string,
+  { skills, categoryLabels, profileText, language }: SkillsParagraphCheckInput,
+): FlaggedSentence[] {
   const evidence = evidenceWords([...skills, ...categoryLabels]);
   const claims = claimEvidence(profileText);
   // Longest first, so "Expert Systems design" is taken out before "Expert Systems".
@@ -133,10 +142,7 @@ export function checkSkillsParagraph(
     .sort((a, b) => b.length - a.length)
     .map((name) => new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(name)}(?![\\p{L}\\p{N}])`, "giu"));
 
-  const kept: string[] = [];
-  const reasons: string[] = [];
-  let removedSentences = 0;
-  for (const sentence of splitSentences(cleaned)) {
+  return splitSentences(text).map((sentence) => {
     const why: string[] = [];
     // Listed names are checked as whole spans: what's left is what the
     // model added around them.
@@ -144,6 +150,15 @@ export function checkSkillsParagraph(
     if (hasUnlistedName(withoutSkills, evidence, language)) why.push("unlisted_name");
     if (RATING.test(withoutSkills)) why.push("rating");
     why.push(...unbackedClaims(sentence, claims));
+    return { sentence, reasons: [...new Set(why)] };
+  });
+}
+
+export function checkSkillsParagraph(text: string, input: SkillsParagraphCheckInput): SkillsParagraphCheckResult {
+  const kept: string[] = [];
+  const reasons: string[] = [];
+  let removedSentences = 0;
+  for (const { sentence, reasons: why } of judgeSentences(normalizeParagraph(text), input)) {
     if (why.length > 0) {
       removedSentences += 1;
       reasons.push(...why);
@@ -164,4 +179,16 @@ export function checkSkillsParagraph(
     paragraph = fitted.join(" ");
   }
   return { paragraph: paragraph || null, removedSentences, reasons: [...new Set(reasons)] };
+}
+
+/**
+ * The same rules as advice, for a paragraph the candidate edited by hand:
+ * their words are their own claims (as with hand-written review bullets,
+ * #927), so nothing is removed. The sentences the AI check would not have
+ * kept are returned so the preview can point at them: a tool the CV does
+ * not list (often one taken off the skill list after the edit), a rating,
+ * or a claim the profile does not back.
+ */
+export function reviewSkillsParagraph(text: string, input: SkillsParagraphCheckInput): FlaggedSentence[] {
+  return judgeSentences(normalizeParagraph(text), input).filter((item) => item.reasons.length > 0);
 }

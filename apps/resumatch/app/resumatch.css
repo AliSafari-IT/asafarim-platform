@@ -859,6 +859,133 @@
   font-size: 0.85rem;
   text-align: right;
 }
+/* Hand edit of the skills paragraph, in place in the CV
+   (SkillsParagraphEditor.tsx). Screen-only, in the app's own UI type so it
+   reads as a control, not as CV text. The CV is light paper in both
+   themes, so the editor uses the paper's colours, not the app theme's. */
+.rm-skills-editor {
+  display: grid;
+  gap: 0.5rem;
+  color: var(--rm-ink);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.85rem;
+}
+.rm-skills-editor__label {
+  font-weight: 600;
+}
+.rm-skills-editor__note {
+  margin: 0;
+  color: var(--rm-muted);
+}
+.rm-skills-editor__input {
+  width: 100%;
+  min-height: 10rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #9aa1ad;
+  border-radius: 0.5rem;
+  background: var(--ui-surface, #fff);
+  color: var(--rm-ink);
+  /* The CV's own type, so the edit looks like the printed paragraph. */
+  font-family: "Georgia", "Iowan Old Style", "Palatino Linotype", serif;
+  font-size: 0.96rem;
+  line-height: 1.55;
+  resize: vertical;
+}
+.rm-skills-editor__input:focus-visible {
+  outline: 2px solid var(--rm-accent);
+  outline-offset: 2px;
+}
+.rm-skills-editor__input[aria-invalid="true"] {
+  border-color: #b00020;
+}
+.rm-skills-editor__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+.rm-skills-editor__count,
+.rm-skills-editor__keys {
+  color: var(--rm-muted);
+}
+.rm-skills-editor__count.is-over {
+  color: #b00020;
+  font-weight: 600;
+}
+.rm-skills-editor__actions {
+  display: inline-flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+.rm-skills-editor__actions .ui-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.rm-resume .rm-skills-editor__actions .ui-btn--ghost {
+  border: 1px solid #9aa1ad;
+  background: #fff;
+  color: var(--rm-ink);
+}
+.rm-resume .rm-skills-editor__actions .ui-btn--primary {
+  border: 1px solid var(--rm-accent);
+  background: var(--rm-accent);
+  color: #fff;
+}
+.rm-resume .rm-skills-editor__actions .ui-btn--ghost:hover:not(:disabled) {
+  background: #f1f2f6;
+  color: var(--rm-ink);
+}
+.rm-resume .rm-skills-editor__actions .ui-btn--primary:hover:not(:disabled) {
+  background: #3730a3;
+  color: #fff;
+}
+.rm-skills-editor__error {
+  margin: 0;
+  color: #b00020;
+}
+@media (max-width: 40rem) {
+  .rm-skills-editor__keys {
+    display: none;
+  }
+  .rm-skills-editor__actions {
+    flex: 1 1 100%;
+  }
+  .rm-skills-editor__actions .ui-btn {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+}
+
+/* "Worth a second look": sentences of a hand-edited paragraph the AI
+   check would not have kept. Advice, not an error. */
+.rm-skills-advice {
+  flex: 1 1 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--color-warning-border, #c9a227);
+  border-radius: 0.5rem;
+  background: var(--color-warning-bg, rgba(201, 162, 39, 0.08));
+  text-align: left;
+}
+.rm-skills-advice__title {
+  margin: 0;
+  font-weight: 600;
+}
+.rm-skills-advice__intro {
+  margin: 0.2rem 0 0.4rem;
+  color: var(--muted);
+}
+.rm-skills-advice__list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.rm-skills-advice__why {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
 .rm-resume__section--skills {
   position: relative;
 }
