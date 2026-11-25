@@ -38,9 +38,20 @@ export function fence(name: string): Fence {
   return { open: `<<<RESUMATCH_${name}`, close: `RESUMATCH_${name}>>>` };
 }
 
+/**
+ * Breaks any sentinel inside untrusted text (#934), so a job posting or a
+ * CV cannot close its own block and open a forged one: "<<<RESUMATCH_X"
+ * becomes "<<< RESUMATCH_X" and "RESUMATCH_X>>>" becomes "RESUMATCH_X >>>".
+ * Text without a sentinel, which is all real input, is returned unchanged,
+ * so no prompt or cache key changes for it.
+ */
+export function neutralizeSentinels(body: string): string {
+  return body.replace(/<<<(\s*)RESUMATCH_/g, "<<< RESUMATCH_").replace(/(RESUMATCH_[A-Z0-9_]*)(\s*)>>>/g, "$1 >>>");
+}
+
 /** Wrap `body` in the fence, as the lines of a user prompt. */
 export function fenced(f: Fence, body: string): string[] {
-  return [f.open, body, f.close];
+  return [f.open, neutralizeSentinels(body), f.close];
 }
 
 /** "A / B" for one fence, as the HARD RULES headers name it. */
