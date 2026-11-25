@@ -126,10 +126,10 @@
       "kind": "package",
       "folder": "packages/db",
       "description": "Shared PostgreSQL/Prisma database package for the ASafariM Platform",
-      "sha": "52014deb",
-      "date": "2026-10-18",
+      "sha": "151811ed",
+      "date": "2026-11-25",
       "since": "2026-07-04",
-      "commits": 61,
+      "commits": 62,
       "dependents": 10
     },
     {
@@ -170,10 +170,10 @@
       "kind": "app",
       "folder": "apps/resumatch",
       "description": "ResuMatch - AI-powered CV tailoring: paste a job URL, tailor your resume to it (resumatch.asafarim.com)",
-      "sha": "2e937b84",
+      "sha": "151811ed",
       "date": "2026-11-25",
       "since": "2026-09-18",
-      "commits": 163,
+      "commits": 164,
       "dependents": 0
     },
     {
