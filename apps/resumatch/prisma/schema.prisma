@@ -343,6 +343,12 @@ model TargetJob {
   /// — see lib/tailoring/manualJob.ts for the shape.
   structuredFields Json?
 
+  /// The files an uploaded job was read from, in upload order (0.6.18,
+  /// lib/tailoring/jobFiles.ts's sourceFileSchema): name, sniffed type,
+  /// size and characters read. Names only — the bytes are never stored.
+  /// Null for every other intake path and for uploads from before 0.6.18.
+  sourceFiles Json?
+
   /// Fetch-quality signal for a fetched URL (issue #520, see
   /// lib/tailoring/fetchQuality.ts): true when the page cleared the bare
   /// minimum but looks like a cookie wall, loading shell or other thin page.

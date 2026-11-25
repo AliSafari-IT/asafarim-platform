@@ -145,7 +145,7 @@ describe.skipIf(!TEST_DB)("data rights — TargetJob/TailoredResume coverage", (
     expect(exported!.writingPreferences.map((r) => r.revisionNumber)).toEqual([1, 2]);
     expect(JSON.stringify(exported!.writingPreferences[0]!.content)).toContain("Short sentences.");
     expect(exported!.targetJobs).toHaveLength(1);
-    expect(exported!.targetJobs[0]).toMatchObject({ sourceUrl: "https://example.test/jobs/1", title: "Backend Engineer" });
+    expect(exported!.targetJobs[0]).toMatchObject({ sourceUrl: "https://example.test/jobs/1", title: "Backend Engineer", sourceFiles: null });
     expect(exported!.tailoredResumes).toHaveLength(1);
     expect(exported!.tailoredResumes[0]).toMatchObject({
       targetJobId: targetJob.id,

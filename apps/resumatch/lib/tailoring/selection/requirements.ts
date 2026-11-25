@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { contentStems, textStems } from "../jobFit";
+import { FILE_HEADER_LINE } from "../jobFiles";
 
 /**
  * Job requirements (#930): the lines of a posting that say what a candidate
@@ -172,6 +173,13 @@ export function extractRequirements(jobText: string): JobRequirement[] {
   };
 
   for (const line of lines) {
+    // A new uploaded file (lib/tailoring/jobFiles.ts) starts fresh: the
+    // last file's "Requirements:" or "We offer:" does not carry over, and
+    // the header itself is never a requirement.
+    if (FILE_HEADER_LINE.test(line)) {
+      section = null;
+      continue;
+    }
     if (isHeading(line)) {
       const key = headingKey(line);
       if (REQUIREMENT_HEADING.test(key)) section = PREFERRED_CUE.test(key) || /^(?:preferred|bonus)/.test(key) ? "preferred" : "requirements";

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
 import { Alert, Button, Card, ConfirmDialog, Input } from "@asafarim/ui";
 import { ManualJobForm, type ManualJobFormValues } from "./ManualJobForm";
+import { JobFilesPicker, type JobFileErrors } from "../../components/tailoring/JobFilesPicker";
+import { fileKey } from "../../lib/tailoring/jobFiles";
 import { computeCoverLetterQuality } from "../../lib/tailoring/coverLetterQuality";
 import { CoverLetterQualityChecklist } from "../../components/tailoring/CoverLetterQualityChecklist";
 import { TailoringLoader } from "../../components/tailoring/TailoringLoader";
@@ -205,6 +207,9 @@ interface FetchedJob {
   title: string | null;
   employer: string | null;
   snippet: string;
+  /** Names of the uploaded files the job was read from (several files
+   *  since 0.6.18); absent for the other intake paths. */
+  sourceFiles?: string[] | null;
 }
 
 type FetchState =
@@ -375,7 +380,7 @@ function reviewFromSaved(saved: SavedReviewSeed, nextKey: () => string): ReviewS
 }
 
 function jobOfDraft(draft: TailorDraftView): FetchedJob {
-  return { targetJobId: draft.targetJobId, title: draft.title, employer: draft.employer, snippet: draft.snippet };
+  return { targetJobId: draft.targetJobId, title: draft.title, employer: draft.employer, snippet: draft.snippet, sourceFiles: draft.sourceFiles };
 }
 
 /** A saved review draft, if it still has the shape this page renders. */
@@ -413,7 +418,8 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
   const [pastedText, setPastedText] = useState("");
   const [emailText, setEmailText] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [uploadErrors, setUploadErrors] = useState<JobFileErrors>({});
   const [mode, setMode] = useState<Mode>("url");
   const [instructions, setInstructions] = useState(draftOptions?.instructions ?? seed?.instructions ?? "");
   // #931: the saved writing preferences, kept current after "Remember".
@@ -575,7 +581,10 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
   }, []);
 
   const showFetched = useCallback((body: Record<string, any>) => {
-    const job: FetchedJob = { targetJobId: body.id, title: body.title, employer: body.employer, snippet: body.snippet };
+    const sourceFiles = Array.isArray(body.sourceFiles)
+      ? body.sourceFiles.map((file: { name?: unknown }) => (typeof file?.name === "string" ? file.name : "")).filter(Boolean)
+      : null;
+    const job: FetchedJob = { targetJobId: body.id, title: body.title, employer: body.employer, snippet: body.snippet, sourceFiles };
     setFit(null);
     setLowFitConfirmedFor(null);
     setUnmetRequirements(null);
@@ -701,25 +710,37 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
   }, [emailText, emailSubject, t, showFetched]);
 
   const uploadJob = useCallback(async () => {
-    if (!uploadFile) return;
+    if (uploadFiles.length === 0) return;
     setState({ kind: "fetching" });
+    setUploadErrors({});
     try {
       const form = new FormData();
-      form.append("file", uploadFile);
+      for (const file of uploadFiles) form.append("file", file);
       const res = await fetch("/api/tailor/upload-job", { method: "POST", body: form });
       const body = await readJsonBody(res);
       if (!res.ok || !body) {
+        // The route answers per file, in the order sent: mark each failed one.
+        if (Array.isArray(body?.files) && body.files.length === uploadFiles.length) {
+          const marks: JobFileErrors = {};
+          body.files.forEach((result: { ok?: boolean; code?: string; error?: string }, index: number) => {
+            if (result?.ok === false) {
+              marks[fileKey(uploadFiles[index])] = { code: result.code ?? "", error: result.error ?? "" };
+            }
+          });
+          setUploadErrors(marks);
+        }
         setState({
           kind: "error",
           message: body?.error ?? `${t("resumatch.flow.error.upload")} ${t("resumatch.flow.error.server", { status: res.status })}`,
         });
         return;
       }
+      setUploadFiles([]);
       showFetched(body);
     } catch {
       setState({ kind: "error", message: t("resumatch.flow.error.network") });
     }
-  }, [uploadFile, t, showFetched]);
+  }, [uploadFiles, t, showFetched]);
 
   const submitManualJob = useCallback(async (values: ManualJobFormValues) => {
     setState({ kind: "fetching" });
@@ -1361,19 +1382,21 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
           <p className="rm-intake-panel__hint" id="rm-upload-job-hint">
             {t("resumatch.flow.upload.hint")}
           </p>
-          <input
-            type="file"
-            aria-label={t("resumatch.flow.upload.aria")}
-            aria-describedby="rm-upload-job-hint"
-            accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-            onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-            disabled={busy}
+          <JobFilesPicker
+            files={uploadFiles}
+            onChange={(files) => {
+              setUploadFiles(files);
+              // A changed list is a new attempt: drop marks for removed files.
+              setUploadErrors((marks) => {
+                const keep = new Set(files.map(fileKey));
+                return Object.fromEntries(Object.entries(marks).filter(([key]) => keep.has(key)));
+              });
+            }}
+            errors={uploadErrors}
+            busy={busy}
+            reading={state.kind === "fetching"}
+            onSubmit={uploadJob}
           />
-          <div style={{ marginTop: "0.5rem" }}>
-            <Button onClick={uploadJob} disabled={!uploadFile || busy}>
-              {state.kind === "fetching" ? t("resumatch.flow.reading") : t("resumatch.flow.upload.submit")}
-            </Button>
-          </div>
         </div>
       ) : (
         <div className="rm-intake-panel">
@@ -1465,6 +1488,11 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
         <div style={{ marginTop: "1rem" }}>
           <Card title={state.title ?? t("resumatch.flow.jobFound")}>
             {state.employer ? <p style={{ color: "var(--muted)" }}>{state.employer}</p> : null}
+            {state.sourceFiles && state.sourceFiles.length > 1 ? (
+              <p className="rm-job-files__source" data-testid="job-source-files">
+                {t("resumatch.flow.upload.readFrom", { count: String(state.sourceFiles.length), names: state.sourceFiles.join(", ") })}
+              </p>
+            ) : null}
             <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{state.snippet}…</p>
             {fit && fit.targetJobId === state.targetJobId ? (
               <JobFitPanel

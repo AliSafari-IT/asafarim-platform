@@ -10,6 +10,7 @@ import {
   type TailorDraftSummary,
   type TailorDraftView,
 } from "./contract";
+import { parseSourceFiles } from "../jobFiles";
 
 /**
  * Database side of Tailor drafts (see ./contract.ts). Every query is scoped
@@ -154,7 +155,7 @@ export async function loadDraft(workspaceId: string, targetJobId?: string | null
       previewId: true,
       review: true,
       updatedAt: true,
-      targetJob: { select: { sourceUrl: true, title: true, employer: true, rawText: true, fetchedAt: true } },
+      targetJob: { select: { sourceUrl: true, sourceFiles: true, title: true, employer: true, rawText: true, fetchedAt: true } },
     },
   });
   if (!row || !row.targetJob.rawText) return null;
@@ -182,6 +183,7 @@ export async function loadDraft(workspaceId: string, targetJobId?: string | null
     title: row.targetJob.title,
     employer: row.targetJob.employer,
     snippet: row.targetJob.rawText.slice(0, SNIPPET_CHARS),
+    sourceFiles: parseSourceFiles(row.targetJob.sourceFiles)?.map((file) => file.name) ?? null,
     fetchedAt: row.targetJob.fetchedAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     step,
