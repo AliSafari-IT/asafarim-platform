@@ -46,6 +46,10 @@ jobs:
       # "Send application" (e2e/send-application.spec.ts): the fixture mailer
       # sends nothing; PDFs are rendered with the Chromium installed below.
       RESUMATCH_EMAIL_TRANSPORT: fixture
+      # Tailor "Upload files" (e2e/job-files.spec.ts) reads files through the
+      # malware-scan gate; there is no ClamAV here, so the dev-only scanner
+      # lets them through. It refuses to run when NODE_ENV is production.
+      RESUMATCH_SCANNER: insecure-accept-all
     steps:
       - uses: actions/checkout@v5
 

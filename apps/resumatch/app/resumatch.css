@@ -1471,6 +1471,85 @@
   line-height: 1.5;
 }
 
+/* Tailor "Upload files": up to five files for one job */
+.rm-job-files {
+  border: 1px dashed var(--line, rgba(148, 163, 184, 0.3));
+  border-radius: 0.75rem;
+  padding: 0.85rem;
+}
+
+.rm-job-files[data-dragging="true"] {
+  border-color: var(--accent, #6366f1);
+  background: color-mix(in srgb, var(--accent, #6366f1) 8%, transparent);
+}
+
+.rm-job-files__add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.rm-job-files__drop,
+.rm-job-files__summary,
+.rm-job-files__source {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.rm-job-files__summary {
+  margin: 0.4rem 0 0;
+}
+
+.rm-job-files__list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.rm-job-files__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--line, rgba(148, 163, 184, 0.3));
+  border-radius: 0.6rem;
+}
+
+.rm-job-files__item[data-invalid="true"] {
+  border-color: #b91c1c;
+}
+
+[data-theme="dark"] .rm-job-files__item[data-invalid="true"] {
+  border-color: #f87171;
+}
+
+.rm-job-files__name {
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+}
+
+.rm-job-files__size {
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.rm-job-files__error {
+  grid-column: 1 / -1;
+  /* Same AA-safe reds as the .ui-alert--error override below. */
+  color: #b91c1c;
+  font-size: 0.85rem;
+  margin: 0.25rem 0 0;
+}
+
+[data-theme="dark"] .rm-job-files__error {
+  color: #f87171;
+}
+
 /* Review card */
 .rm-review {
   margin-top: 1.25rem;

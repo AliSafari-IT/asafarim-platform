@@ -104,6 +104,9 @@ export interface TailorDraftView {
   title: string | null;
   employer: string | null;
   snippet: string;
+  /** The names of the uploaded files the job was read from, in upload
+   *  order; null for the other intake paths. */
+  sourceFiles: string[] | null;
   fetchedAt: string;
   updatedAt: string;
   step: DraftStep;
