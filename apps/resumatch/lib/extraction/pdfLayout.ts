@@ -387,6 +387,9 @@ export function detectMarginLabels(
   const marginWidth = pageWidth * 0.12;
   const textHeight = median(items.map((item) => item.height).filter((height) => height > 0)) || 8;
 
+  const tolerance = textHeight * LINE_TOLERANCE_RATIO;
+  const hasTextToTheRight = baselineNeighbourIndex(items);
+
   const labels = items.filter((item) => {
     if (!LABEL_PATTERN.test(item.text.trim())) return false;
     // Aligned to the left margin. This is what rules out the ordinary word
@@ -396,12 +399,7 @@ export function detectMarginLabels(
     // And sharing its baseline with text further right. A heading on a line
     // of its own is an ordinary heading and needs no special handling; one
     // with body text beside it is a margin label.
-    return items.some(
-      (other) =>
-        other !== item &&
-        Math.abs(other.y - item.y) <= textHeight * LINE_TOLERANCE_RATIO &&
-        other.x > item.x + item.width,
-    );
+    return hasTextToTheRight(item, tolerance);
   });
 
   if (labels.length < 2) return none;
@@ -417,4 +415,89 @@ export function detectMarginLabels(
 
   const labelSet = new Set(labels);
   return { labels, rest: items.filter((item) => !labelSet.has(item)) };
+}
+
+/**
+ * Answers "is there another run within `tolerance` of this baseline that
+ * starts right of this run's end?" in O(log n) per question.
+ *
+ * The plain version (`items.some(...)` per label candidate) is quadratic,
+ * and since #528 moved parsing into a worker this layout pass is the part
+ * that still runs on the server's own thread: a dense page full of
+ * label-like runs could stall it. Runs are sorted by baseline once; each
+ * question becomes a range-maximum of x over the contiguous baseline window,
+ * read from a segment tree. Same answers as the plain version.
+ */
+function baselineNeighbourIndex(
+  items: PositionedItem[],
+): (item: PositionedItem, tolerance: number) => boolean {
+  const order = items.map((_, index) => index).sort((a, b) => items[a].y - items[b].y);
+  const ys = order.map((index) => items[index].y);
+  const n = order.length;
+  // tree[n + i] holds the x of the i-th run by baseline; tree[k] the max of
+  // its two children. argmax keeps which run that maximum belongs to.
+  const tree = new Float64Array(2 * n).fill(Number.NEGATIVE_INFINITY);
+  const argmax = new Int32Array(2 * n).fill(-1);
+  for (let i = 0; i < n; i += 1) {
+    tree[n + i] = items[order[i]].x;
+    argmax[n + i] = order[i];
+  }
+  for (let k = n - 1; k >= 1; k -= 1) {
+    const pick = tree[2 * k] >= tree[2 * k + 1] ? 2 * k : 2 * k + 1;
+    tree[k] = tree[pick];
+    argmax[k] = argmax[pick];
+  }
+
+  const lowerBound = (value: number) => {
+    let lo = 0;
+    let hi = n;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (ys[mid] < value) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+  const upperBound = (value: number) => {
+    let lo = 0;
+    let hi = n;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (ys[mid] <= value) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+  /** Max x (and whose) over sorted positions [from, to). */
+  const rangeMax = (from: number, to: number) => {
+    let best = Number.NEGATIVE_INFINITY;
+    let owner = -1;
+    for (let l = from + n, r = to + n; l < r; l >>= 1, r >>= 1) {
+      if (l & 1) {
+        if (tree[l] > best) [best, owner] = [tree[l], argmax[l]];
+        l += 1;
+      }
+      if (r & 1) {
+        r -= 1;
+        if (tree[r] > best) [best, owner] = [tree[r], argmax[r]];
+      }
+    }
+    return { best, owner };
+  };
+
+  return (item, tolerance) => {
+    const from = lowerBound(item.y - tolerance);
+    const to = upperBound(item.y + tolerance);
+    const threshold = item.x + item.width;
+    const { best, owner } = rangeMax(from, to);
+    if (best <= threshold) return false;
+    if (items[owner] !== item) return true;
+    // Only reachable with a negative width (the run is right of its own
+    // end): fall back to the plain check on this window, excluding itself.
+    for (let i = from; i < to; i += 1) {
+      const other = items[order[i]];
+      if (other !== item && other.x > threshold) return true;
+    }
+    return false;
+  };
 }

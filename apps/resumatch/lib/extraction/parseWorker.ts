@@ -127,8 +127,10 @@ export function runParser(
   bytes: Uint8Array,
   options: RunParserOptions,
 ): Promise<ParseResult> {
-  // A private copy goes to the worker, so the caller's bytes stay usable.
-  const copy = bytes.slice().buffer;
+  // A private copy of exactly this view goes to the worker, so the caller's
+  // bytes stay usable. Not `bytes.slice()`: on a Buffer that is a view of the
+  // same memory, and transferring it would detach the caller's backing store.
+  const copy = new Uint8Array(bytes).buffer;
   return new Promise<ParseResult>((resolve) => {
     let settled = false;
     let worker: Worker | undefined;

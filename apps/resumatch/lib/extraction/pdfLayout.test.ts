@@ -213,3 +213,59 @@ describe("margin labels", () => {
     expect(detectMarginLabels(items, PAGE_WIDTH).labels).toEqual([]);
   });
 });
+
+describe("detectMarginLabels on dense pages (#528 review)", () => {
+  type Run = { text: string; x: number; y: number; width: number; height: number };
+
+  // The plain quadratic rule the indexed lookup replaced.
+  function naiveLabels(items: Run[], pageWidth: number): Run[] {
+    const leftEdge = items.reduce((min, item) => Math.min(min, item.x), Infinity);
+    const heights = items.map((item) => item.height).filter((h) => h > 0).sort((a, b) => a - b);
+    const textHeight = heights[Math.floor(heights.length / 2)] || 8;
+    return items.filter(
+      (item) =>
+        /^(skills|experience|education|languages)\s*:?$/i.test(item.text.trim()) &&
+        item.x <= leftEdge + pageWidth * 0.12 &&
+        items.some(
+          (other) => other !== item && Math.abs(other.y - item.y) <= textHeight * 0.5 && other.x > item.x + item.width,
+        ),
+    );
+  }
+
+  it("finds the same label candidates as the plain rule on random pages", () => {
+    let seed = 7;
+    const random = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
+    const words = ["Skills", "Experience", "Education", "Languages", "TypeScript", "Postgres", "Docker"];
+    for (let page = 0; page < 200; page += 1) {
+      const items: Run[] = Array.from({ length: 8 + Math.floor(random() * 60) }, () => ({
+        text: words[Math.floor(random() * words.length)],
+        x: Math.round(random() * 500),
+        y: Math.round(random() * 40) * 6,
+        width: Math.round(random() * 80) - 5,
+        height: random() < 0.1 ? 0 : 10,
+      }));
+      const expected = new Set(naiveLabels(items, PAGE_WIDTH));
+      const { labels, rest } = detectMarginLabels(items, PAGE_WIDTH);
+      // detectMarginLabels may then reject the whole set by its share and
+      // purity rules; when it keeps it, it must be exactly the plain set.
+      if (labels.length > 0) expect(new Set(labels)).toEqual(expected);
+      expect(labels.length + rest.length).toBe(items.length);
+    }
+  });
+
+  it("stays fast on a page of 100k label-like runs on one baseline", () => {
+    // Worst case for the plain rule: every candidate's only partner is the
+    // last run, so each lookup scanned the whole page (~10^10 steps).
+    const items: Run[] = Array.from({ length: 100_000 }, () => ({
+      text: "Skills",
+      x: 40,
+      y: 700,
+      width: 0,
+      height: 10,
+    }));
+    items.push({ text: "TypeScript", x: 300, y: 700, width: 60, height: 10 });
+    const started = Date.now();
+    detectMarginLabels(items, PAGE_WIDTH);
+    expect(Date.now() - started).toBeLessThan(5_000);
+  });
+});

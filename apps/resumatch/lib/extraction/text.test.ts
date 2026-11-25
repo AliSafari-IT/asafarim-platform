@@ -91,6 +91,19 @@ describe("extractText parse deadline (#528)", () => {
     await expect(extractText(junk, DOCX)).resolves.toEqual({ ok: false, reasonCode: "EXTRACTION_ERROR" });
   }, 30_000);
 
+  it("does not consume a Buffer or a Buffer slice the caller still holds", async () => {
+    const pdf = Buffer.from(buildPdf([[CV_LINE, CV_LINE, CV_LINE]]));
+    // A Buffer view into a larger allocation, as Buffer.concat or a stream
+    // read can produce.
+    const backing = Buffer.concat([Buffer.from("junk-before"), pdf, Buffer.from("junk-after")]);
+    const view = backing.subarray(11, 11 + pdf.byteLength);
+    const result = await extractText(view, PDF);
+    expect(result.ok).toBe(true);
+    expect(backing.buffer.byteLength).toBeGreaterThan(0);
+    expect(view.byteLength).toBe(pdf.byteLength);
+    expect(Buffer.compare(view, pdf)).toBe(0);
+  }, 30_000);
+
   it("does not consume the caller's bytes", async () => {
     const bytes = buildPdf([[CV_LINE, CV_LINE]]);
     const length = bytes.byteLength;
