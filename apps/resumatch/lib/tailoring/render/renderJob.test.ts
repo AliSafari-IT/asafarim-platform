@@ -28,23 +28,24 @@ describe("isPublicAddress", () => {
 describe("publicHttpsPolicy", () => {
   it("refuses a public-looking name that resolves to a private address", async () => {
     const policy = publicHttpsPolicy(resolver({ "jobs.example.com": ["10.0.0.5"], "ok.example.com": ["93.184.216.34"] }));
-    expect(await policy("https://jobs.example.com/x")).toBe(false);
-    expect(await policy("https://ok.example.com/x")).toBe(true);
+    expect(await policy("https://jobs.example.com/x")).toBeNull();
+    // The address the request will be pinned to, so it is never resolved again.
+    expect(await policy("https://ok.example.com/x")).toEqual({ address: "93.184.216.34", family: 4 });
   });
 
   it("refuses a name when any one of its addresses is private", async () => {
     const policy = publicHttpsPolicy(resolver({ "mixed.example.com": ["93.184.216.34", "127.0.0.1"] }));
-    expect(await policy("https://mixed.example.com/")).toBe(false);
+    expect(await policy("https://mixed.example.com/")).toBeNull();
   });
 
   it("keeps the plain GET's rules: HTTPS only, no internal names, unresolvable is refused", async () => {
     const lookup = resolver({ "ok.example.com": ["93.184.216.34"] });
     const policy = publicHttpsPolicy(lookup);
-    expect(await policy("http://ok.example.com/")).toBe(false);
-    expect(await policy("https://metadata.google.internal/")).toBe(false);
-    expect(await policy("https://169.254.169.254/")).toBe(false);
-    expect(await policy("https://missing.example.com/")).toBe(false);
-    expect(await policy("wss://ok.example.com/")).toBe(false);
+    expect(await policy("http://ok.example.com/")).toBeNull();
+    expect(await policy("https://metadata.google.internal/")).toBeNull();
+    expect(await policy("https://169.254.169.254/")).toBeNull();
+    expect(await policy("https://missing.example.com/")).toBeNull();
+    expect(await policy("wss://ok.example.com/")).toBeNull();
   });
 
   it("resolves each host once per render", async () => {
@@ -62,7 +63,7 @@ describe("renderJobPosting without a browser", () => {
   });
 
   it("checks the URL before launching anything", async () => {
-    const policy = vi.fn(async () => false);
+    const policy = vi.fn(async () => null);
     expect(await renderJobPosting("https://jobs.example.com/1", { executablePath: "/nonexistent/chrome", policy })).toEqual({
       ok: false,
       failure: "URL_NOT_ALLOWED",
@@ -70,7 +71,7 @@ describe("renderJobPosting without a browser", () => {
   });
 
   it("reports LAUNCH_FAILED for a broken Chromium path, without throwing", async () => {
-    const result = await renderJobPosting("https://jobs.example.com/1", { executablePath: "/nonexistent/chrome", policy: async () => true });
+    const result = await renderJobPosting("https://jobs.example.com/1", { executablePath: "/nonexistent/chrome", policy: async () => ({ address: "93.184.216.34", family: 4 as const }) });
     expect(result).toEqual({ ok: false, failure: "LAUNCH_FAILED" });
   });
 });

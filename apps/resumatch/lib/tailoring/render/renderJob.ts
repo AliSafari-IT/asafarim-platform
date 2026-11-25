@@ -2,7 +2,8 @@ import "server-only";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { log, logError } from "../../observability/logger";
-import { isPublicHttpsUrl, MAX_RESPONSE_BYTES, MIN_USEFUL_CHARACTERS, readJobPage, USER_AGENT, type JobFetchResult, type PageEvidence } from "../fetchJob";
+import { isPublicHttpsUrl, MAX_RESPONSE_BYTES, readJobPage, USER_AGENT, type JobFetchResult, type PageEvidence } from "../fetchJob";
+import { pinnedFetch, type PinnedAddress } from "./pinnedFetch";
 
 /**
  * Headless-render tier of job fetch (issue #518), for postings whose text
@@ -17,9 +18,11 @@ import { isPublicHttpsUrl, MAX_RESPONSE_BYTES, MIN_USEFUL_CHARACTERS, readJobPag
  *
  * - Every HTTP request the page makes goes through one route handler,
  *   which checks the URL (public HTTPS host, and every address its name
- *   resolves to must be public) and then fetches it itself with
- *   `maxRedirects: 0`, following any redirect one hop at a time and
- *   checking each hop the same way (at most `MAX_RENDER_REDIRECTS`).
+ *   resolves to must be public) and then sends it itself, from this
+ *   process, to that checked address (`pinnedFetch`: no second DNS lookup,
+ *   so no rebinding window), streamed under the size cap. Redirects are
+ *   followed one hop at a time, each hop checked the same way (at most
+ *   `MAX_RENDER_REDIRECTS`).
  * - Chromium itself is pointed at a proxy that does not exist, with
  *   loopback included. Anything that escaped the route handler (a
  *   preconnect, a WebSocket, a request type Playwright does not intercept)
@@ -31,12 +34,12 @@ import { isPublicHttpsUrl, MAX_RESPONSE_BYTES, MIN_USEFUL_CHARACTERS, readJobPag
  * Resource bounds: one render at a time per process and at most
  * `MAX_WAITING_RENDERS` waiting (more are refused, not queued), a hard
  * wall-clock limit that closes the browser, a request count cap, a V8 heap
- * cap, and the same response size cap as the plain GET.
+ * cap, and the same response size cap as the plain GET, applied to every
+ * response while it streams in.
  *
- * Residual risk, documented in ventures/resumatch/engineering/job-fetch-render.md:
- * the address check and the fetch resolve the name separately, so a DNS
- * rebinding attacker with a sub-second TTL could still win the race. The
- * plain GET has the same gap.
+ * Known limit, documented in ventures/resumatch/engineering/job-fetch-render.md:
+ * a redirected subresource is served under its original URL, so a
+ * redirected ES module's relative imports resolve against the old path.
  */
 
 export const RENDER_WALL_CLOCK_MS = 25_000;
@@ -64,7 +67,12 @@ export type RenderResult =
   | Extract<JobFetchResult, { ok: true }>
   | { ok: false; failure: RenderFailure; evidence?: PageEvidence };
 
-export type UrlPolicy = (url: string) => Promise<boolean>;
+/**
+ * Decides whether a URL may be requested and, if so, which checked address
+ * the connection goes to (null: refused). The address is used as is, so
+ * the host is never resolved a second time.
+ */
+export type UrlPolicy = (url: string) => Promise<PinnedAddress | null>;
 
 const BLOCKED_IPV4 =
   /^(0\.|10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|22[4-9]\.|2[3-5]\d\.)/;
@@ -84,19 +92,24 @@ export function isPublicAddress(address: string): boolean {
 /**
  * The default policy: the plain GET's URL rule, plus every address the
  * host resolves to must be public (a public name pointing at 10.0.0.1 is
- * refused). Lookups are cached per render.
+ * refused). Lookups are cached per render, and the first address is the
+ * one the request is pinned to.
  */
 export function publicHttpsPolicy(resolve: typeof lookup = lookup): UrlPolicy {
-  const cache = new Map<string, Promise<boolean>>();
+  const cache = new Map<string, Promise<PinnedAddress | null>>();
   return async (url) => {
-    if (!isPublicHttpsUrl(url)) return false;
+    if (!isPublicHttpsUrl(url)) return null;
     const host = new URL(url).hostname.replace(/^\[|\]$/g, "");
-    if (isIP(host)) return isPublicAddress(host);
+    const literal = isIP(host);
+    if (literal) return isPublicAddress(host) ? { address: host, family: literal === 6 ? 6 : 4 } : null;
     let verdict = cache.get(host);
     if (!verdict) {
       verdict = resolve(host, { all: true, verbatim: true })
-        .then((addresses) => addresses.length > 0 && addresses.every((entry) => isPublicAddress(entry.address)))
-        .catch(() => false);
+        .then((addresses): PinnedAddress | null => {
+          if (addresses.length === 0 || !addresses.every((entry) => isPublicAddress(entry.address))) return null;
+          return { address: addresses[0]!.address, family: addresses[0]!.family === 6 ? 6 : 4 };
+        })
+        .catch(() => null);
       cache.set(host, verdict);
     }
     return verdict;
@@ -225,26 +238,40 @@ async function renderOnce(url: string, executablePath: string, policy: UrlPolicy
         if (isMainFrame(request)) leftOrigin = true;
         return route.abort("blockedbyclient");
       }
-      if (!(await policy(target))) return route.abort("blockedbyclient");
+      let pin = await policy(target);
+      if (!pin) return route.abort("blockedbyclient");
       try {
-        // Redirects are followed here, one checked hop at a time: Chromium
-        // does not follow a 3xx that a route handler hands it.
+        // Sent by this process to the checked address, never by Chromium,
+        // and streamed under the size cap. Redirects are followed here, one
+        // checked hop at a time: Chromium does not follow a 3xx that a
+        // route handler hands it.
+        const init = {
+          headers: await request.allHeaders(),
+          timeoutMs: RENDER_NAVIGATION_TIMEOUT_MS,
+          maxBytes: MAX_RESPONSE_BYTES,
+        };
         let hop = target;
-        let response = await route.fetch({ maxRedirects: 0, timeout: RENDER_NAVIGATION_TIMEOUT_MS });
-        for (let hops = 0; response.status() >= 300 && response.status() < 400; hops += 1) {
-          const location = response.headers()["location"];
+        let response = await pinnedFetch(hop, pin, { ...init, method: request.method(), body: request.postDataBuffer() });
+        for (let hops = 0; response.status >= 300 && response.status < 400; hops += 1) {
+          const location = response.headers["location"];
           if (!location || hops >= MAX_RENDER_REDIRECTS) return route.abort("blockedbyclient");
           hop = new URL(location, hop).toString();
           const isDocument = request.resourceType() === "document";
-          if ((isDocument && new URL(hop).origin !== origin) || !(await policy(hop))) {
+          pin = isDocument && new URL(hop).origin !== origin ? null : await policy(hop);
+          if (!pin) {
             if (isDocument && isMainFrame(request)) leftOrigin = true;
             return route.abort("blockedbyclient");
           }
-          response = await route.fetch({ url: hop, maxRedirects: 0, timeout: RENDER_NAVIGATION_TIMEOUT_MS });
+          // A redirect turns the request into a GET, as browsers do for
+          // 301/302/303; 307/308 keep the method and body.
+          const keep = response.status === 307 || response.status === 308;
+          response = await pinnedFetch(hop, pin, {
+            ...init,
+            method: keep ? request.method() : "GET",
+            body: keep ? request.postDataBuffer() : null,
+          });
         }
-        const body = await response.body();
-        if (body.length > MAX_RESPONSE_BYTES) return route.abort("blockedbyclient");
-        return route.fulfill({ response, body });
+        return route.fulfill({ status: response.status, headers: response.headers, body: response.body });
       } catch {
         return route.abort("failed").catch(() => undefined);
       }
@@ -255,12 +282,12 @@ async function renderOnce(url: string, executablePath: string, policy: UrlPolicy
     if (leftOrigin) return { ok: false, failure: "LEFT_ORIGIN" };
     if (!response || !response.ok()) return { ok: false, failure: "HTTP_ERROR" };
 
-    // Wait for the posting text to appear, not for every tracker to finish.
-    await page
-      .waitForFunction((min) => (document.body?.innerText ?? "").trim().length >= min * 4, MIN_USEFUL_CHARACTERS, {
-        timeout: RENDER_SETTLE_MS,
-      })
-      .catch(() => undefined);
+    // Wait until the page's own requests go quiet (the posting's API call
+    // has answered), not merely until some text is painted: a shell can
+    // paint its navigation and cookie banner long before the posting
+    // arrives. A page that never goes quiet (polling trackers) is read
+    // when the settle window ends.
+    await page.waitForLoadState("networkidle", { timeout: RENDER_SETTLE_MS }).catch(() => undefined);
     if (leftOrigin || new URL(page.url()).origin !== origin) return { ok: false, failure: "LEFT_ORIGIN" };
 
     const html = await page.content();

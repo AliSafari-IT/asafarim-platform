@@ -52,7 +52,13 @@ function listen(server: Server, host: string): Promise<string> {
   return new Promise((resolve) => server.listen(0, host, () => resolve(`http://${host}:${(server.address() as AddressInfo).port}`)));
 }
 
-const policy: UrlPolicy = async (url) => new URL(url).origin === siteOrigin;
+/**
+ * The job site is addressed as jobsite.test, a name that does not resolve
+ * anywhere: every request only works because the policy's checked address
+ * (127.0.0.1) is used for the connection, with no second lookup (#518
+ * review: DNS rebinding).
+ */
+const policy: UrlPolicy = async (url) => (new URL(url).origin === siteOrigin ? { address: "127.0.0.1", family: 4 } : null);
 
 beforeAll(async () => {
   internal = createServer((req, res) => {
@@ -73,6 +79,28 @@ beforeAll(async () => {
     if (path === "/api/vacature/1") {
       res.setHeader("content-type", "application/json");
       return res.end(JSON.stringify({ title: "Senior Java Developer", employer: "Stad Gent", description: DESCRIPTION }));
+    }
+    if (path === "/api/slow") {
+      // The posting arrives well after the shell has painted.
+      setTimeout(() => {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({ title: "Senior Java Developer", employer: "Stad Gent", description: DESCRIPTION }));
+      }, 1_500);
+      return;
+    }
+    if (path === "/huge") {
+      // 6 MB, over the 4 MB cap, without a content-length header.
+      res.setHeader("content-type", "text/plain");
+      const chunk = "HUGE-MARKER ".repeat(10_000);
+      let sent = 0;
+      const pump = () => {
+        while (sent < 6 * 1024 * 1024) {
+          sent += chunk.length;
+          if (!res.write(chunk)) return void res.once("drain", pump);
+        }
+        res.end();
+      };
+      return pump();
     }
     if (path === "/to-api") {
       res.writeHead(302, { location: "/api/vacature/1" });
@@ -97,13 +125,24 @@ window.open("${internalOrigin}/secret-popup");
 `),
       );
     }
+    if (path === "/job-long-shell") {
+      const nav = Array.from({ length: 40 }, (_, i) => `<a href="/menu/${i}">Menu item number ${i}</a>`).join(" ");
+      return res.end(`<!doctype html><html><head><title>Vacature | Jobs</title></head><body>
+<nav>${nav}</nav><div id="app">Laden...</div>
+<script>
+fetch("/api/slow").then(r => r.json()).then(job => {
+  document.getElementById("app").innerHTML = "<h1>" + job.title + "</h1><p>" + job.description + "</p>";
+});
+fetch("/huge").then(r => r.text()).then(t => { document.body.insertAdjacentHTML("beforeend", "<p>" + t.slice(0, 50) + "</p>"); }).catch(() => {});
+</script></body></html>`);
+    }
     if (path === "/job-navigates") {
       return res.end(shellPage(`setTimeout(() => { window.location.href = "${internalOrigin}/secret-navigation"; }, 50);`));
     }
     res.statusCode = 404;
     res.end("not found");
   });
-  siteOrigin = await listen(site, "127.0.0.1");
+  siteOrigin = (await listen(site, "127.0.0.1")).replace("127.0.0.1", "jobsite.test");
 });
 
 afterAll(async () => {
@@ -127,6 +166,14 @@ describe.skipIf(!executablePath)("renderJobPosting with real Chromium (#518)", (
     expect(result.rawText).toContain("Senior Java Developer");
     expect(result.rawText).toContain("Spring Boot en PostgreSQL");
     expect(result.title).toBe("Vacature | Jobs");
+  }, 40_000);
+
+  it("waits for the posting when the shell paints a long menu first, and refuses an oversized response", async () => {
+    const result = await renderJobPosting(`${siteOrigin}/job-long-shell`, { policy, executablePath });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.rawText).toContain("Spring Boot en PostgreSQL");
+    expect(result.rawText).not.toContain("HUGE-MARKER");
   }, 40_000);
 
   it("blocks every in-page request toward a private address: fetch, redirect, beacon, WebSocket, image, iframe, popup, preconnect", async () => {
