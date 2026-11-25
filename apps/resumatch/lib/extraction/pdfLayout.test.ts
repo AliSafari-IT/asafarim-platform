@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MARGIN_LABEL_RULES,
   type PositionedItem,
   detectColumnBoundaries,
   detectMarginLabels,
@@ -217,40 +218,59 @@ describe("margin labels", () => {
 describe("detectMarginLabels on dense pages (#528 review)", () => {
   type Run = { text: string; x: number; y: number; width: number; height: number };
 
-  // The plain quadratic rule the indexed lookup replaced.
-  function naiveLabels(items: Run[], pageWidth: number): Run[] {
+  // The whole detector as it was before the indexed lookup: the plain
+  // quadratic partner check plus the same count, share and purity guards.
+  function naiveDetect(items: Run[], pageWidth: number): { labels: Run[]; rest: Run[] } {
+    const none = { labels: [] as Run[], rest: items };
+    if (items.length < 8) return none;
     const leftEdge = items.reduce((min, item) => Math.min(min, item.x), Infinity);
+    const marginWidth = pageWidth * 0.12;
     const heights = items.map((item) => item.height).filter((h) => h > 0).sort((a, b) => a - b);
     const textHeight = heights[Math.floor(heights.length / 2)] || 8;
-    return items.filter(
+    const tolerance = textHeight * MARGIN_LABEL_RULES.LINE_TOLERANCE_RATIO;
+    const labels = items.filter(
       (item) =>
-        /^(skills|experience|education|languages)\s*:?$/i.test(item.text.trim()) &&
-        item.x <= leftEdge + pageWidth * 0.12 &&
+        MARGIN_LABEL_RULES.LABEL_PATTERN.test(item.text.trim()) &&
+        item.x <= leftEdge + marginWidth &&
         items.some(
-          (other) => other !== item && Math.abs(other.y - item.y) <= textHeight * 0.5 && other.x > item.x + item.width,
+          (other) => other !== item && Math.abs(other.y - item.y) <= tolerance && other.x > item.x + item.width,
         ),
     );
+    if (labels.length < 2) return none;
+    if (labels.length / items.length > MARGIN_LABEL_RULES.MAX_LABEL_COLUMN_SHARE) return none;
+    const inMargin = items.filter((item) => item.x <= leftEdge + marginWidth);
+    if (labels.length / inMargin.length < MARGIN_LABEL_RULES.MIN_MARGIN_LABEL_PURITY) return none;
+    const labelSet = new Set(labels);
+    return { labels, rest: items.filter((item) => !labelSet.has(item)) };
   }
 
-  it("finds the same label candidates as the plain rule on random pages", () => {
+  it("gives exactly the plain rule's labels and rest on random pages", () => {
     let seed = 7;
     const random = () => ((seed = (seed * 1103515245 + 12345) % 2 ** 31) / 2 ** 31);
     const words = ["Skills", "Experience", "Education", "Languages", "TypeScript", "Postgres", "Docker"];
-    for (let page = 0; page < 200; page += 1) {
-      const items: Run[] = Array.from({ length: 8 + Math.floor(random() * 60) }, () => ({
-        text: words[Math.floor(random() * words.length)],
-        x: Math.round(random() * 500),
-        y: Math.round(random() * 40) * 6,
-        width: Math.round(random() * 80) - 5,
-        height: random() < 0.1 ? 0 : 10,
-      }));
-      const expected = new Set(naiveLabels(items, PAGE_WIDTH));
-      const { labels, rest } = detectMarginLabels(items, PAGE_WIDTH);
-      // detectMarginLabels may then reject the whole set by its share and
-      // purity rules; when it keeps it, it must be exactly the plain set.
-      if (labels.length > 0) expect(new Set(labels)).toEqual(expected);
-      expect(labels.length + rest.length).toBe(items.length);
+    let pagesWithLabels = 0;
+    for (let page = 0; page < 400; page += 1) {
+      const runs = 8 + Math.floor(random() * 60);
+      const items: Run[] = Array.from({ length: runs }, () => {
+        // Roughly a CV: a narrow left margin of headings, a body to the right.
+        const margin = random() < 0.15;
+        return {
+          text: margin ? words[Math.floor(random() * 4)] : words[Math.floor(random() * words.length)],
+          x: margin ? Math.round(random() * 30) : 120 + Math.round(random() * 380),
+          y: Math.round(random() * 240),
+          width: Math.round(random() * 80) - 5,
+          height: random() < 0.1 ? 0 : 10,
+        };
+      });
+      const expected = naiveDetect(items, PAGE_WIDTH);
+      const actual = detectMarginLabels(items, PAGE_WIDTH);
+      expect(actual.labels).toEqual(expected.labels);
+      expect(actual.rest).toEqual(expected.rest);
+      if (expected.labels.length > 0) pagesWithLabels += 1;
     }
+    // The generator must actually produce label columns, or the comparison
+    // above only ever checks empty results.
+    expect(pagesWithLabels).toBeGreaterThan(20);
   });
 
   it("stays fast on a page of 100k label-like runs on one baseline", () => {

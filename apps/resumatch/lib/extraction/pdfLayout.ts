@@ -364,6 +364,14 @@ export function reconstructReadingOrder(pages: { items: PositionedItem[]; width:
     .join("\n");
 }
 
+/** The margin-label thresholds, exported so tests check against the same values. */
+export const MARGIN_LABEL_RULES = {
+  LINE_TOLERANCE_RATIO,
+  LABEL_PATTERN,
+  MAX_LABEL_COLUMN_SHARE,
+  MIN_MARGIN_LABEL_PURITY,
+} as const;
+
 /**
  * Find a narrow column of section labels beside the body text.
  *
