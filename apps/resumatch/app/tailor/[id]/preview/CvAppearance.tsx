@@ -33,17 +33,19 @@ export function CvAppearance({
   const byViewer = useRef(false);
 
   useEffect(() => {
-    if (!ref.current) return;
+    const details = ref.current;
+    if (!details) return;
     if (forceOpen) {
-      ref.current.open = true;
-      return;
+      details.open = true;
+    } else {
+      try {
+        if (window.localStorage.getItem(STORAGE_KEY) === "1") details.open = true;
+      } catch {
+        // Storage blocked: start closed.
+      }
     }
-    try {
-      if (window.localStorage.getItem(STORAGE_KEY) === "1")
-        ref.current.open = true;
-    } catch {
-      // Storage blocked: start closed.
-    }
+    // Its starting state is settled (tests wait for this before toggling).
+    details.dataset.ready = "true";
   }, [forceOpen]);
 
   function onToggle() {

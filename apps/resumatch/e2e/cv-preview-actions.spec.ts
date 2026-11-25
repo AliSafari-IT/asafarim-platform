@@ -68,6 +68,7 @@ test("the actions are grouped: status, main row, supporting links, CV appearance
 
   // CV appearance: closed, saying what the CV shows now.
   const appearance = page.getByTestId("cv-appearance");
+  await expect(appearance).toHaveAttribute("data-ready", "true");
   await expect(appearance).not.toHaveAttribute("open", "");
   await expect(appearance.locator("summary")).toContainText("CV appearance");
   await expect(appearance.locator("summary")).toContainText("Grouped by category");
@@ -207,6 +208,7 @@ test("CV appearance: settings with their notes beneath, Rewrite only for the par
   await expect(page.getByTestId("cv-appearance")).not.toHaveAttribute("open", "");
   // ...and that is remembered too.
   await page.reload();
+  await expect(page.getByTestId("cv-appearance")).toHaveAttribute("data-ready", "true");
   await expect(page.getByTestId("cv-skills-layout")).toBeHidden();
   await expect(page.getByTestId("cv-appearance")).not.toHaveAttribute("open", "");
 });
@@ -232,6 +234,7 @@ test("advice on a hand-edited paragraph opens CV appearance without changing the
   await e2eDb().tailoredResume.update({ where: { id: CV_ID }, data: { skillsLayout: "columns" } });
   await page.reload();
   // Columns hide the advice, so nothing forces it open, and the close was remembered.
+  await expect(appearance).toHaveAttribute("data-ready", "true");
   await expect(appearance).not.toHaveAttribute("open", "");
   await expect(appearance.locator("summary")).toContainText("Compact columns");
 });

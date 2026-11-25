@@ -317,6 +317,9 @@ export async function seedCoverLetters(letters: { id: string; paragraphs: string
  *  The page remembers it open, so later reloads in the same test keep it. */
 export async function openCvAppearance(page: Page) {
   const appearance = page.getByTestId("cv-appearance");
+  // Wait until it has restored its starting state (remembered or forced
+  // open), so the click below never closes what just opened.
+  await expect(appearance).toHaveAttribute("data-ready", "true");
   if (!(await appearance.evaluate((el: HTMLDetailsElement) => el.open))) {
     await appearance.locator("summary").click();
   }
