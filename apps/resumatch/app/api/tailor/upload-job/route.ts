@@ -7,6 +7,7 @@ import { safeDisplayFilename, validateUpload } from "../../../../lib/documents/f
 import { extractText } from "../../../../lib/extraction/text";
 import { inferJobMetaWithFallback } from "../../../../lib/tailoring/jobMetaAi/degraded";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
+import { openDraft } from "../../../../lib/tailoring/drafts/store";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -79,6 +80,9 @@ export async function POST(request: Request) {
     },
     select: { id: true, status: true },
   });
+
+  // Kept as an unfinished Tailor run until the CV is saved or discarded.
+  await openDraft(workspace.id, targetJob.id);
 
   return NextResponse.json({
     id: targetJob.id,

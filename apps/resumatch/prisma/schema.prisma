@@ -68,6 +68,7 @@ model Workspace {
   contactPreferences ContactPreferences?
   writingPreferenceRevisions WritingPreferenceRevision[]
   tailoringFeedback TailoringFeedback[]
+  tailorDrafts    TailorDraft[]
 
   @@map("workspaces")
 }
@@ -361,6 +362,7 @@ model TargetJob {
   applications    Application[]
   coverLetters    CoverLetter[]
   evidence        CandidateEvidence[]
+  draft           TailorDraft?
 
   @@index([workspaceId, createdAt])
   @@map("target_jobs")
@@ -1239,4 +1241,43 @@ model TailoringFeedback {
   /// #933: the retention sweep reads by age across workspaces.
   @@index([createdAt])
   @@map("tailoring_feedback")
+}
+
+/// An unfinished Tailor run, saved on the server so a candidate can leave
+/// /tailor (or reload) and come back to it (lib/tailoring/drafts). One per
+/// job: it is opened when a job lands (fetched, pasted, uploaded or typed
+/// in), updated as the candidate fills in the options card and the review,
+/// and deleted when the CV is saved or the candidate discards it. The job
+/// itself (`target_jobs`) is never refetched to resume.
+///
+/// Holds the candidate's own text (the note, review edits) and a copy of
+/// the AI suggestions under review, so it is exported, erased with the
+/// workspace, and deleted `DRAFT_RETENTION_DAYS` after its last change.
+model TailorDraft {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  targetJobId String    @unique
+  targetJob   TargetJob @relation(fields: [targetJobId], references: [id], onDelete: Cascade)
+
+  /// "options" (the card under the job) or "review" (suggestions to check).
+  step String @default("options")
+  /// The options card's choices (draftOptionsSchema). Null until changed.
+  options Json?
+  /// The preview the review belongs to. Resuming a review whose preview is
+  /// gone or already used falls back to the options card.
+  previewId String?
+  /// The review as the candidate left it (client shape, size-capped). Null
+  /// on the options step.
+  review Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workspaceId, updatedAt])
+  /// Retention sweep reads by age across workspaces.
+  @@index([updatedAt])
+  @@map("tailor_drafts")
 }

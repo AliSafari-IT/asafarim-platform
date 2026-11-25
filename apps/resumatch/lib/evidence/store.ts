@@ -1,4 +1,5 @@
 import { getJobmatchDb } from "../db/client";
+import { Prisma } from "../db/generated";
 import type { CandidateProfileContent } from "../profile/contract";
 import { recordAuditEvent } from "../workspace";
 import { MAX_EVIDENCE_ITEMS, readExperienceRef, type EvidenceInput, type EvidenceKind, type EvidenceScope, type ExperienceRef } from "./contract";
@@ -331,7 +332,8 @@ export interface EvidenceDeletionResult {
 /**
  * Deletes the item and every revision (#929), and with them every hidden
  * copy of what it led the AI to write (#933): previews made with it, and
- * the review feedback of saved CVs that used it. The saved CVs keep their
+ * the review feedback of saved CVs that used it, and the review in any
+ * Tailor draft made from such a preview. The saved CVs keep their
  * own text, which the candidate sees and can delete, and the revision ids
  * in their context, which hold no content. All in one transaction, after
  * locking the item, so a concurrent edit or a second delete cannot leave a
@@ -343,6 +345,15 @@ export async function deleteEvidence(workspaceId: string, id: string): Promise<E
     if (locked.length === 0) return null;
     const { cvIds, previewIds } = await linkedHistory(tx, workspaceId, await revisionIdsOf(tx, workspaceId, id));
     const previews = previewIds.length > 0 ? await tx.tailorPreview.deleteMany({ where: { workspaceId, id: { in: previewIds } } }) : { count: 0 };
+    // A Tailor draft on one of those previews holds a copy of its
+    // suggestions in its review: the review goes, the draft goes back to
+    // the options card (its job and choices stay).
+    if (previewIds.length > 0) {
+      await tx.tailorDraft.updateMany({
+        where: { workspaceId, previewId: { in: previewIds } },
+        data: { step: "options", previewId: null, review: Prisma.DbNull },
+      });
+    }
     const feedback = cvIds.length > 0 ? await tx.tailoringFeedback.deleteMany({ where: { workspaceId, tailoredResumeId: { in: cvIds } } }) : { count: 0 };
     await tx.candidateEvidence.deleteMany({ where: { id, workspaceId } });
     return { savedCvs: cvIds.length, previewsDeleted: previews.count, feedbackDeleted: feedback.count };
