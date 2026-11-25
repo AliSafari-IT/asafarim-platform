@@ -4,8 +4,10 @@ import {
   addFiles,
   checkSelection,
   combineJobFileTexts,
+  joinedLength,
   parseSourceFiles,
   uploadSourceUrl,
+  withoutFileHeaders,
 } from "./jobFiles";
 
 const f = (name: string, size: number, lastModified = 1) => ({ name, size, lastModified });
@@ -68,5 +70,26 @@ describe("uploadSourceUrl and parseSourceFiles", () => {
     expect(parseSourceFiles(null)).toBeNull();
     expect(parseSourceFiles([])).toBeNull();
     expect(parseSourceFiles([{ name: "a" }])).toBeNull();
+  });
+});
+
+describe("withoutFileHeaders and joinedLength", () => {
+  it("blanks only the header lines", () => {
+    const parts = [
+      { name: "a.pdf", text: "First" },
+      { name: "b.md", text: "=== not a header\nSecond" },
+    ];
+    const joined = combineJobFileTexts(parts, 1000);
+    expect(withoutFileHeaders(joined)).toBe("\nFirst\n\n\n=== not a header\nSecond");
+    expect(withoutFileHeaders("Plain posting")).toBe("Plain posting");
+  });
+
+  it("measures the joined text before it is cut", () => {
+    const parts = [
+      { name: "a.pdf", text: "First" },
+      { name: "b.md", text: "Second" },
+    ];
+    expect(joinedLength(parts)).toBeGreaterThanOrEqual(combineJobFileTexts(parts, 1_000_000).length);
+    expect(joinedLength([{ name: "a", text: "abc" }])).toBe(3);
   });
 });

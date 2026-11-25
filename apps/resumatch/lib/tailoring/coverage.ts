@@ -1,3 +1,4 @@
+import { withoutFileHeaders } from "./jobFiles";
 /**
  * Deterministic keyword/skill coverage report (issue #428). No provider
  * call, no persistence — computed at render time from the target job's own
@@ -103,7 +104,8 @@ export interface CoverageReport {
 const MAX_MISSING_KEYWORDS = 12;
 
 export function computeCoverage(profileSkills: string[], jobText: string, resumeText: string): CoverageReport {
-  const jobTokenCounts = significantJobTokens(jobText);
+  // An uploaded set's file headers are names, not posting words.
+  const jobTokenCounts = significantJobTokens(withoutFileHeaders(jobText));
   const jobTokens = new Set(jobTokenCounts.keys());
   const resumeTokens = new Set(tokenize(resumeText));
 

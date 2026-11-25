@@ -107,6 +107,30 @@ export function addFiles<T extends { name: string; size: number }>(current: read
   return next;
 }
 
+/** The header line `combineJobFileTexts` puts above each file's text. */
+export const FILE_HEADER_LINE = /^=== File \d+ of \d+: .* ===$/;
+
+/** The text with the file headers blanked out, for the deterministic
+ *  checks (job fit, CV coverage): a file name is not posting content. */
+export function withoutFileHeaders(text: string): string {
+  if (!text.startsWith("=== File ")) return text;
+  return text
+    .split("\n")
+    .map((line) => (FILE_HEADER_LINE.test(line.trim()) ? "" : line))
+    .join("\n");
+}
+
+/** Characters the headers and separators of `count` files take, at most:
+ *  the route refuses a set whose text would not fit under the cap. */
+export function joinedLength(parts: readonly { name: string; text: string }[]): number {
+  if (parts.length === 1) return parts[0].text.length;
+  const total = parts.length;
+  return parts.reduce(
+    (sum, part, index) => sum + `=== File ${index + 1} of ${total}: ${part.name} ===\n`.length + part.text.trim().length + 2,
+    0,
+  );
+}
+
 /**
  * The job text from each file's text, in upload order. A single file is
  * stored exactly as before; several are each headed by their name so the

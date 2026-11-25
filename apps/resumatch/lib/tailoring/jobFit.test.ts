@@ -123,3 +123,11 @@ describe("assessJobFit", () => {
   });
 });
 
+
+describe("assessJobFit on an uploaded set of files", () => {
+  it("scores the same with or without the file headers", () => {
+    const joined = `=== File 1 of 2: Kubernetes_Platform_Engineer_Brochure.pdf ===\n${reactJob}\n\n=== File 2 of 2: Kubernetes_Benefits.txt ===\nFree lunch.`;
+    const plain = `\n${reactJob}\n\n\nFree lunch.`;
+    expect(assessJobFit(developer, joined)).toEqual(assessJobFit(developer, plain));
+  });
+});

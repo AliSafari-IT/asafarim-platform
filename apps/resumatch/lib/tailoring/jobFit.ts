@@ -1,5 +1,6 @@
 import type { CandidateProfileContent } from "../profile/contract";
 import { fold, STOPWORDS, words as coverageWords } from "./coverage";
+import { withoutFileHeaders } from "./jobFiles";
 
 /**
  * Job fit check: does this posting look like it is within the candidate's
@@ -205,7 +206,9 @@ function profileEvidenceText(profile: CandidateProfileContent): string {
     .join("\n");
 }
 
-export function assessJobFit(profile: CandidateProfileContent, jobText: string): JobFit {
+export function assessJobFit(profile: CandidateProfileContent, postingText: string): JobFit {
+  // An uploaded set's file headers are names, not posting words.
+  const jobText = withoutFileHeaders(postingText);
   const evidence = profileEvidenceText(profile);
   const profileStems = stems(evidence);
   const terms = keyTerms(jobText);

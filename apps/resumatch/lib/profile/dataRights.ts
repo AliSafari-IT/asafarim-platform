@@ -9,6 +9,7 @@ import { DRAFT_RETENTION_DAYS } from "../tailoring/drafts/contract";
 import { parseTailoredResumeContent } from "../tailoring/ai/schema";
 import { parseStoredTailoringContext, type TailoringContext } from "../tailoring/context";
 import { parseProfileContent } from "./contract";
+import { parseSourceFiles, type SourceFile } from "../tailoring/jobFiles";
 
 /**
  * Candidate data rights (JM-023).
@@ -72,6 +73,9 @@ export interface DataExport {
     status: string;
     fetchedAt: string;
     rawText: string | null;
+    /** Uploaded jobs: the files it was read from (names, sniffed type,
+     *  size, characters). Null for other intake paths and older uploads. */
+    sourceFiles: SourceFile[] | null;
   }[];
   tailoredResumes: {
     id: string;
@@ -336,6 +340,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       status: job.status,
       fetchedAt: job.fetchedAt.toISOString(),
       rawText: job.rawText,
+      sourceFiles: parseSourceFiles(job.sourceFiles),
     })),
     tailoredResumes: tailoredResumes.map((resume) => ({
       id: resume.id,

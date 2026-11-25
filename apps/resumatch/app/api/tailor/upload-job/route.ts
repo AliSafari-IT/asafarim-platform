@@ -11,6 +11,7 @@ import {
   MAX_JOB_FILES,
   MAX_JOB_FILES_TOTAL_BYTES,
   combineJobFileTexts,
+  joinedLength,
   uploadSourceUrl,
   type SourceFile,
 } from "../../../../lib/tailoring/jobFiles";
@@ -111,6 +112,18 @@ export async function POST(request: Request) {
   }
 
   const read = results.filter((r): r is Extract<FileResult, { ok: true }> => r.ok);
+  // Cutting the joined text would drop the last files without saying so:
+  // refuse the set instead (each file alone is already capped).
+  if (read.length > 1 && joinedLength(read) > MAX_EXTRACTED_CHARACTERS) {
+    return NextResponse.json(
+      {
+        error: "Together these files hold more text than one job can use. Remove the largest, or upload only the files about this job.",
+        code: "TEXT_TOO_LONG",
+        files: read.map((r) => ({ name: r.name, ok: true, characters: r.text.length })),
+      },
+      { status: 422 },
+    );
+  }
   const rawText = combineJobFileTexts(read, MAX_EXTRACTED_CHARACTERS);
   const sourceFiles: SourceFile[] = read.map((r) => ({
     name: r.name,

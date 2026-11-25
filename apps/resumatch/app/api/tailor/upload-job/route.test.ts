@@ -114,6 +114,21 @@ describe("upload-job with several files", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it("refuses a set whose joined text would be cut, instead of dropping the last file", async () => {
+    // Each file is under the 400,000-character cap alone, not together.
+    const long = `${posting("Company")} `.repeat(1200);
+    const res = await POST(
+      upload([
+        new File([long], "company.txt", { type: "text/plain" }),
+        new File([long], "brochure.txt", { type: "text/plain" }),
+        new File([posting("Vacancy")], "vacancy.txt", { type: "text/plain" }),
+      ]),
+    );
+    expect(res.status).toBe(422);
+    expect((await res.json()).code).toBe("TEXT_TOO_LONG");
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("refuses more than five files before reading any", async () => {
     const files = Array.from({ length: 6 }, (_, i) => new File([posting(`Part ${i}`)], `part-${i}.txt`, { type: "text/plain" }));
     const res = await POST(upload(files));
