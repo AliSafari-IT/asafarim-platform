@@ -1,6 +1,12 @@
 [
   {
     "date": "2026-11-25",
+    "title": "Resumatch: edit the CV skills paragraph by hand (0.6.16)",
+    "sha": "72d6db77",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/72d6db77"
+  },
+  {
+    "date": "2026-11-25",
     "title": "Resumatch: service-wide AI budget, visible budget and specific fallback messages (0.6.10) (#756)",
     "sha": "151811ed",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/151811ed"
@@ -112,11 +118,5 @@
     "title": "Resumatch: CV PDF without page chrome; contact & links on the profile",
     "sha": "1b4a0d25",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/1b4a0d25"
-  },
-  {
-    "date": "2026-11-20",
-    "title": "Resumatch: warn before tailoring a CV to an off-scope job",
-    "sha": "0183ac30",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/0183ac30"
   }
 ]
