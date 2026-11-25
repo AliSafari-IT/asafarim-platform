@@ -93,7 +93,8 @@ test("requirements, three optional questions, a confirmed 'yes', a 'no', and cit
   await expect(page.locator(".rm-review")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Based on: Full-stack developer · Example Software").first()).toBeVisible();
   await expect(page.getByText("Based on: Support engineer · Helpdesk Example").first()).toBeVisible();
-  await expect(page.getByTestId("requirements-review-note")).toContainText("job requirement(s) aren't backed by your profile");
+  // #964: the gaps are in the review's clickable summary.
+  await expect(page.getByTestId("claims-summary-gaps")).toContainText("job requirement(s) not found in your profile");
 
   const preview = await e2eDb().tailorPreview.findFirstOrThrow({ where: { workspaceId } });
   const context = preview.context as { selection: { unmetRequirementIds: string[] }; evidenceRevisionIds: string[] };
@@ -112,7 +113,14 @@ test("skipping every question still generates, claiming nothing the profile lack
   await expect(page.getByTestId("requirements-panel")).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Tailor my CV to this job" }).click();
   await expect(page.locator(".rm-review")).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator(".rm-review")).not.toContainText(/Kubernetes|GraphQL|Terraform/);
+  // The CV claims none of them; #964 lists them apart, as gaps to discuss.
+  await expect(page.getByTestId("claim-gaps")).toContainText("Kubernetes");
+  const cvText = await page.locator(".rm-review").evaluate((root) => {
+    const copy = root.cloneNode(true) as HTMLElement;
+    copy.querySelector("#rm-claim-gaps")?.remove();
+    return copy.textContent ?? "";
+  });
+  expect(cvText).not.toMatch(/Kubernetes|GraphQL|Terraform/);
   const preview = await e2eDb().tailorPreview.findFirstOrThrow({ where: { workspaceId } });
   expect((preview.context as { selection: { unmetRequirementIds: string[] } }).selection.unmetRequirementIds).toEqual([]);
 });

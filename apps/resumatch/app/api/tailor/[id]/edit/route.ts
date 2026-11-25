@@ -12,6 +12,7 @@ import { parseCoverLetterSuggestion } from "../../../../../lib/tailoring/ai/cove
 import {
   applyCandidateEdits,
   hasCandidateEdits,
+  readStoredCandidateEdits,
   MAX_CV_SKILLS,
   parseCandidateEdits,
   TooManySkillsError,
@@ -78,6 +79,7 @@ async function saveEdit(request: Request, id: string): Promise<Response> {
       targetJobId: true,
       content: true,
       skillsParagraph: true,
+      candidateEdits: true,
       coverLetter: { select: { id: true } },
     },
   });
@@ -100,6 +102,10 @@ async function saveEdit(request: Request, id: string): Promise<Response> {
   let candidateEdits;
   try {
     candidateEdits = parseCandidateEdits(rawCandidateEdits);
+    // #964: an in-place edit has no claim check, so it keeps the claims the
+    // candidate confirmed when the CV was first saved.
+    const sent = rawCandidateEdits && typeof rawCandidateEdits === "object" && "confirmedClaims" in rawCandidateEdits;
+    if (!sent) candidateEdits = { ...candidateEdits, confirmedClaims: readStoredCandidateEdits(row.candidateEdits).confirmedClaims };
   } catch {
     return NextResponse.json(
       { error: "Your added skills or bullets could not be saved as written. Shorten any long text and try again." },

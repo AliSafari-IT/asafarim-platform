@@ -76,7 +76,7 @@ describe("applyCandidateEdits", () => {
       skillsOrder: ["SQL", "React"],
       experienceBullets: [["My own bullet."]],
     });
-    const content = applyCandidateEdits(merged, { addedSkills: ["Kubernetes"], removedSkills: ["React"], ownBullets: [], ownSummary: null });
+    const content = applyCandidateEdits(merged, { addedSkills: ["Kubernetes"], removedSkills: ["React"], ownBullets: [], ownSummary: null, confirmedClaims: [] });
     expect(content.skills).toEqual(["SQL", "Kubernetes"]);
     expect(content.experience[0].bullets).toEqual(["My own bullet."]);
   });
@@ -122,7 +122,7 @@ describe("the CV's skill limit", () => {
     const { TooManySkillsError } = await import("./candidateEdits");
     const { tailoredResumeContentSchema } = await import("./ai/schema");
     const content = tailoredResumeContentSchema.parse({ skills: Array.from({ length: 200 }, (_, i) => `S${i}`) });
-    expect(() => applyCandidateEdits(content, { addedSkills: ["New"], removedSkills: [], ownBullets: [], ownSummary: null })).toThrow(TooManySkillsError);
-    expect(applyCandidateEdits(content, { addedSkills: ["New"], removedSkills: ["S0"], ownBullets: [], ownSummary: null }).skills).toHaveLength(200);
+    expect(() => applyCandidateEdits(content, { addedSkills: ["New"], removedSkills: [], ownBullets: [], ownSummary: null, confirmedClaims: [] })).toThrow(TooManySkillsError);
+    expect(applyCandidateEdits(content, { addedSkills: ["New"], removedSkills: ["S0"], ownBullets: [], ownSummary: null, confirmedClaims: [] }).skills).toHaveLength(200);
   });
 });

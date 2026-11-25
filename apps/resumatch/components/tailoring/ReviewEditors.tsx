@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type TextareaHTMLAttributes } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { useTranslation } from "@asafarim/shared-i18n";
 import {
   canonicalSkill,
@@ -209,6 +209,9 @@ export function ReviewBulletsEditor({
   onChange,
   onAdd,
   disabled,
+  claimView,
+  claimExtras,
+  needsReview,
 }: {
   /** "Title · Employer", for labels. */
   role: string;
@@ -216,6 +219,13 @@ export function ReviewBulletsEditor({
   onChange: (key: string, patch: Partial<ReviewBullet> | null) => void;
   onAdd: () => void;
   disabled: boolean;
+  /** #964: the bullet's text with its flagged words highlighted, shown
+   *  instead of the text box; null keeps the text box. */
+  claimView?: (bullet: ReviewBullet) => ReactNode | null;
+  /** #964: the review card, badges and recheck status under the text. */
+  claimExtras?: (bullet: ReviewBullet) => ReactNode;
+  /** #964: for "Show only items needing review". */
+  needsReview?: (key: string) => boolean;
 }) {
   const { t } = useTranslation();
   const full = acceptedBulletCount(bullets) >= MAX_BULLETS_PER_ROLE;
@@ -232,6 +242,8 @@ export function ReviewBulletsEditor({
               <li
                 key={bullet.key}
                 data-bullet-key={bullet.key}
+                data-review-item
+                data-needs-review={needsReview?.(bullet.key) || undefined}
                 className={`rm-bullet-item rm-bullet-item--editable${bullet.accepted ? "" : " rm-bullet-item--unaccepted"}`}
               >
                 <input
@@ -242,6 +254,7 @@ export function ReviewBulletsEditor({
                   aria-label={t("resumatch.review.bullet.keep", { n: index + 1, role })}
                 />
                 <div className="rm-bullet-item__body">
+                  {claimView?.(bullet) ?? (
                   <GrowingTextarea
                     className="rm-bullet-item__text"
                     value={bullet.text}
@@ -254,6 +267,12 @@ export function ReviewBulletsEditor({
                     placeholder={own ? t("resumatch.review.bullet.placeholder") : undefined}
                     data-own={own || edited ? "true" : undefined}
                   />
+                  )}
+                  {!bullet.accepted ? (
+                    <span className="rm-claim-badge" data-testid="bullet-excluded">
+                      {t("resumatch.claimReview.excluded")}
+                    </span>
+                  ) : null}
                   {own || edited || bullet.fromProfile ? (
                     <div className="rm-bullet-item__meta">
                       <span className="rm-skill-chip__tag">
@@ -284,7 +303,8 @@ export function ReviewBulletsEditor({
                       ) : null}
                     </div>
                   ) : null}
-                  {!own && !edited && bullet.flags && bullet.flags.length > 0 ? (
+                  {claimExtras ? claimExtras(bullet) : null}
+                  {!claimExtras && !own && !edited && bullet.flags && bullet.flags.length > 0 ? (
                     <p className="rm-claim-flag" data-testid="claim-flag">
                       {t("resumatch.claims.bulletFlag")}
                     </p>
