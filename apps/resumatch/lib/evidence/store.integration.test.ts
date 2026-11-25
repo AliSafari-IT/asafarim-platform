@@ -80,7 +80,7 @@ describe.skipIf(!TEST_DB)("background evidence store (#929)", () => {
     expect((await store.listEvidence(other, job, profile)).map((v) => v.title)).toEqual(["Faster checkout"]);
     expect((await store.listEvidence(other, job, profile))[0]!.detail).toBe("Someone else's.");
     expect((await store.confirmEvidence(other, (draft as { id: string }).id, (draft as { revisionId: string }).revisionId)).ok).toBe(false);
-    expect(await store.deleteEvidence(other, (forJob as { id: string }).id)).toBe(false);
+    expect(await store.deleteEvidence(other, (forJob as { id: string }).id)).toBeNull();
     // Nor attach it to its job.
     expect(await store.createEvidence(other, input("x"), { scope: "APPLICATION", targetJobId: job, confirm: true })).toEqual({ ok: false, error: "job_not_found" });
   });
@@ -196,7 +196,7 @@ describe.skipIf(!TEST_DB)("background evidence store (#929)", () => {
   it("deleting an item removes every revision", async () => {
     const created = await store.createEvidence(ws, input("To delete."), { scope: "BACKGROUND", targetJobId: null, confirm: true });
     if (!created.ok) throw new Error("create failed");
-    expect(await store.deleteEvidence(ws, created.id)).toBe(true);
+    expect(await store.deleteEvidence(ws, created.id)).not.toBeNull();
     expect(await db.candidateEvidenceRevision.count({ where: { evidenceId: created.id } })).toBe(0);
   });
 });

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { sweepExpiredDocuments } from "../../../lib/documents/retention";
+import { sweepExpiredPersonalization } from "../../../lib/privacy/retention";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -13,6 +14,10 @@ export const maxDuration = 60;
  * RESUMATCH_RETENTION_TOKEN is unset the route is disabled outright — an
  * unset secret must never mean "no authentication required", which is how
  * an internal endpoint becomes a public one.
+ *
+ * Also sweeps expired previews and review feedback (#933,
+ * lib/privacy/retention.ts). The document fields stay at the top level so
+ * an existing scheduler reading them keeps working.
  */
 export async function POST(request: Request) {
   const expected = process.env.RESUMATCH_RETENTION_TOKEN;
@@ -26,7 +31,8 @@ export async function POST(request: Request) {
   }
 
   const result = await sweepExpiredDocuments();
-  return NextResponse.json(result);
+  const personalization = await sweepExpiredPersonalization();
+  return NextResponse.json({ ...result, personalization });
 }
 
 /** Constant-time comparison, so a wrong token cannot be found byte by byte. */

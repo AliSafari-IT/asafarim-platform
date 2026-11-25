@@ -103,6 +103,23 @@ export function storeDedupedResult<T>(
   }
 }
 
+/**
+ * Forget every stored result for one workspace (#933): erasure must not
+ * leave an extracted CV or fetched job in memory for the next five minutes.
+ * Returns how many entries were dropped.
+ */
+export function forgetWorkspaceDedupResults(workspaceId: string): number {
+  const prefix = `${workspaceId}::`;
+  let dropped = 0;
+  for (const key of [...entries.keys()]) {
+    if (key.startsWith(prefix)) {
+      entries.delete(key);
+      dropped += 1;
+    }
+  }
+  return dropped;
+}
+
 /** Test-only: forget every stored result. */
 export function clearDedupCacheForTests(): void {
   entries.clear();

@@ -22,6 +22,7 @@ const profile = parseProfileContent({
 });
 const jobText = "Backend engineer (Node.js, PostgreSQL). You build Node.js services and PostgreSQL schemas.";
 
+vi.mock("../../../../lib/privacy/retention", () => ({ maybeSweepPersonalization: () => null }));
 vi.mock("../../../../lib/workspace", () => ({ getCurrentWorkspace: async () => ({ id: "ws_1" }) }));
 vi.mock("../../../../lib/profile/versions", () => ({ getVersion: async () => ({ content: profile }) }));
 vi.mock("../../../../lib/db/client", () => ({

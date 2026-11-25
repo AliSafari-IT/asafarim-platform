@@ -92,6 +92,8 @@ export function EvidencePanel({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<EvidenceView | null>(null);
+  /** What deleting `deleting` touches (#933); null while it loads or if it failed. */
+  const [impact, setImpact] = useState<{ savedCvs: number; previews: number } | null>(null);
 
   const load = useCallback(async (): Promise<EvidenceView[] | null> => {
     try {
@@ -212,8 +214,29 @@ export function EvidencePanel({
     }
   }
 
+  /** Opens the delete dialog and asks the server what the delete touches,
+   *  so the dialog can say which saved history it affects. */
+  function askDelete(item: EvidenceView) {
+    setImpact(null);
+    setDeleting(item);
+    void fetch(`/api/evidence/${item.id}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: { impact?: { savedCvs: number; previews: number } } | null) => {
+        if (body?.impact) setImpact(body.impact);
+      })
+      .catch(() => undefined);
+  }
+
+  function deleteMessage(): string {
+    const parts = [t("resumatch.evidence.dialog.message")];
+    if (impact && impact.savedCvs > 0) parts.push(t("resumatch.evidence.dialog.savedCvs", { count: impact.savedCvs }));
+    if (impact && impact.previews > 0) parts.push(t("resumatch.evidence.dialog.previews"));
+    return parts.join(" ");
+  }
+
   async function remove(item: EvidenceView) {
     setDeleting(null);
+    setImpact(null);
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -287,7 +310,7 @@ export function EvidencePanel({
               {t("resumatch.evidence.action.keepForAll")}
             </Button>
           ) : null}
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setDeleting(item)}>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => askDelete(item)}>
             {t("resumatch.evidence.action.delete")}
           </Button>
         </div>
@@ -455,12 +478,15 @@ export function EvidencePanel({
       <ConfirmDialog
         open={deleting !== null}
         title={t("resumatch.evidence.dialog.title")}
-        message={t("resumatch.evidence.dialog.message")}
+        message={deleteMessage()}
         confirmLabel={t("resumatch.evidence.dialog.confirm")}
         cancelLabel={t("resumatch.evidence.dialog.cancel")}
         tone="danger"
         onConfirm={() => deleting && void remove(deleting)}
-        onCancel={() => setDeleting(null)}
+        onCancel={() => {
+          setDeleting(null);
+          setImpact(null);
+        }}
       />
     </details>
   );

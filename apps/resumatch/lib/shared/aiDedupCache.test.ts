@@ -65,3 +65,17 @@ describe("aiDedupCache (issue #513)", () => {
     ).toBe(AI_DEDUP_MAX_ENTRIES);
   });
 });
+
+describe("forgetWorkspaceDedupResults (#933)", () => {
+  it("drops only that workspace's entries", async () => {
+    const cache = await import("./aiDedupCache");
+    cache.clearDedupCacheForTests();
+    const parts = { kind: "extract" as const, provider: "p", model: "m", promptCacheKey: "k" };
+    cache.storeDedupedResult({ ...parts, workspaceId: "ws_a" }, { v: 1 });
+    cache.storeDedupedResult({ ...parts, workspaceId: "ws_a", promptCacheKey: "k2" }, { v: 2 });
+    cache.storeDedupedResult({ ...parts, workspaceId: "ws_ab" }, { v: 3 });
+    expect(cache.forgetWorkspaceDedupResults("ws_a")).toBe(2);
+    expect(cache.getDedupedResult({ ...parts, workspaceId: "ws_a" })).toBeUndefined();
+    expect(cache.getDedupedResult({ ...parts, workspaceId: "ws_ab" })).toEqual({ v: 3 });
+  });
+});

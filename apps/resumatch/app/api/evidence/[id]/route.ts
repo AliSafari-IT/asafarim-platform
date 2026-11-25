@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { evidenceErrorResponse, parseEvidenceWriteBody, readJson } from "../../../../lib/evidence/http";
-import { deleteEvidence, reviseEvidence } from "../../../../lib/evidence/store";
+import { deleteEvidence, evidenceDeletionImpact, reviseEvidence } from "../../../../lib/evidence/store";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -8,8 +8,20 @@ export const dynamic = "force-dynamic";
 /**
  * PUT saves an edit on top of `baseRevisionId` (409 EVIDENCE_STALE when the
  * item changed since). Changed text adds a revision; earlier revisions, and
- * the CVs that used them, stay as they were. DELETE removes the item.
+ * the CVs that used them, stay as they were. DELETE removes the item,
+ * the previews made with it and the review feedback of CVs that used it
+ * (#933); GET says how many of those there are, so the candidate is told
+ * before confirming.
  */
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const workspace = await getCurrentWorkspace();
+  if (!workspace) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+  const { id } = await params;
+  const impact = await evidenceDeletionImpact(workspace.id, id);
+  if (!impact) return evidenceErrorResponse("not_found");
+  return NextResponse.json({ impact });
+}
+
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const workspace = await getCurrentWorkspace();
   if (!workspace) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
@@ -32,6 +44,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const workspace = await getCurrentWorkspace();
   if (!workspace) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
   const { id } = await params;
-  if (!(await deleteEvidence(workspace.id, id))) return evidenceErrorResponse("not_found");
-  return NextResponse.json({ deleted: true });
+  const result = await deleteEvidence(workspace.id, id);
+  if (!result) return evidenceErrorResponse("not_found");
+  return NextResponse.json({ deleted: true, ...result });
 }
