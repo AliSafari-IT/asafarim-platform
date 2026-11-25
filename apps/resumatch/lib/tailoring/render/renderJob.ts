@@ -200,6 +200,15 @@ async function renderOnce(url: string, executablePath: string, policy: UrlPolicy
     });
     await context.routeWebSocket(/.*/, (ws) => ws.close());
     let requests = 0;
+    // `frame()` throws for a popup's first navigation (its frame does not
+    // exist yet); that is never the main frame.
+    const isMainFrame = (request: import("playwright-core").Request): boolean => {
+      try {
+        return page !== null && request.frame() === page.mainFrame();
+      } catch {
+        return false;
+      }
+    };
     await context.route("**/*", async (route) => {
       const request = route.request();
       const target = request.url();
@@ -213,7 +222,7 @@ async function renderOnce(url: string, executablePath: string, policy: UrlPolicy
         return route.abort("blockedbyclient");
       }
       if (request.resourceType() === "document" && targetOrigin !== origin) {
-        if (page && request.frame() === page.mainFrame()) leftOrigin = true;
+        if (isMainFrame(request)) leftOrigin = true;
         return route.abort("blockedbyclient");
       }
       if (!(await policy(target))) return route.abort("blockedbyclient");
@@ -228,7 +237,7 @@ async function renderOnce(url: string, executablePath: string, policy: UrlPolicy
           hop = new URL(location, hop).toString();
           const isDocument = request.resourceType() === "document";
           if ((isDocument && new URL(hop).origin !== origin) || !(await policy(hop))) {
-            if (isDocument && page && request.frame() === page.mainFrame()) leftOrigin = true;
+            if (isDocument && isMainFrame(request)) leftOrigin = true;
             return route.abort("blockedbyclient");
           }
           response = await route.fetch({ url: hop, maxRedirects: 0, timeout: RENDER_NAVIGATION_TIMEOUT_MS });
@@ -264,7 +273,7 @@ async function renderOnce(url: string, executablePath: string, policy: UrlPolicy
   try {
     const result = await Promise.race([work().catch((): RenderResult => ({ ok: false, failure: "ERROR" })), deadline]);
     if (result.ok) log.info("tailoring.job_fetch_render.succeeded", { characters: result.rawText.length });
-    else log.info("tailoring.job_fetch_render.failed", { failure: result.failure });
+    else log.info("tailoring.job_fetch_render.failed", { reasonCode: result.failure });
     return result;
   } catch (error) {
     logError("tailoring.job_fetch_render.error", error, {});
