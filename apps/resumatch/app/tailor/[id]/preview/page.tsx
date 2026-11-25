@@ -244,7 +244,7 @@ export default async function TailoredResumePreviewPage({
           </Link>
         </div>
 
-        <CvAppearance summary={appearanceSummary} forceOpen={skillsAdvice.length > 0}>
+        <CvAppearance summary={appearanceSummary} forceOpen={skillsAdvice.length > 0 && effectiveSkillsLayout(skillsInput) === "paragraph"}>
           <PhotoToggle id={id} hasPhoto={profilePhoto !== null} initialShown={showPhoto} />
           {skillsDisplay ? (
             <SkillsLayoutPicker

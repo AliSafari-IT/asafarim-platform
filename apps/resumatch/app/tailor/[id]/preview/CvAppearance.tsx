@@ -28,6 +28,9 @@ export function CvAppearance({
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDetailsElement>(null);
+  // Set when the viewer clicks the summary (Enter and Space click it too),
+  // so only their own choice is remembered, not an open for the advice.
+  const byViewer = useRef(false);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -44,8 +47,8 @@ export function CvAppearance({
   }, [forceOpen]);
 
   function onToggle() {
-    // Opened for the advice, not by the viewer: not a preference to keep.
-    if (forceOpen) return;
+    if (!byViewer.current) return;
+    byViewer.current = false;
     try {
       window.localStorage.setItem(STORAGE_KEY, ref.current?.open ? "1" : "0");
     } catch {
@@ -60,7 +63,12 @@ export function CvAppearance({
       onToggle={onToggle}
       data-testid="cv-appearance"
     >
-      <summary className="rm-appearance__summary">
+      <summary
+        className="rm-appearance__summary"
+        onClick={() => {
+          byViewer.current = true;
+        }}
+      >
         <svg
           className="rm-appearance__chevron"
           viewBox="0 0 12 12"
