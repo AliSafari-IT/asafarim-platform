@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  approvedBulletOrigins,
+  approvedIndexOf,
   approvedBullets,
   approvedOwnBullets,
   buildReviewBullets,
@@ -96,5 +98,24 @@ describe("claim-check flags on the review (#930)", () => {
     let n = 0;
     const bullets = buildReviewBullets(["A", "B"], [], null, () => `k${n++}`);
     expect(bullets.every((b) => b.accepted && b.flags === undefined)).toBe(true);
+  });
+});
+
+describe("approved bullet origins (#932)", () => {
+  it("names the AI suggestion each saved bullet came from, aligned with approvedBullets", () => {
+    let n = 0;
+    const bullets = buildReviewBullets(["A", "B", "C"], ["Mine"], null, () => `k${n++}`);
+    // Untick "B", reword "C".
+    bullets[2]!.accepted = false;
+    bullets[3]!.text = "C, reworded";
+    expect(approvedBullets(bullets)).toEqual(["Mine", "A", "C, reworded"]);
+    expect(approvedBulletOrigins(bullets)).toEqual([null, 0, 2]);
+    expect(approvedIndexOf(bullets, bullets[3]!.key)).toBe(2);
+    expect(approvedIndexOf(bullets, bullets[2]!.key)).toBe(-1);
+  });
+
+  it("gives the profile's own role summary no origin", () => {
+    const bullets = buildReviewBullets([], [], "Built APIs.", () => "k");
+    expect(approvedBulletOrigins(bullets)).toEqual([null]);
   });
 });

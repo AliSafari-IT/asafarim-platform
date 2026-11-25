@@ -166,8 +166,10 @@ export async function createEvidence(
   workspaceId: string,
   input: EvidenceInput,
   options: { scope: EvidenceScope; targetJobId: string | null; confirm: boolean },
+  /** A transaction to write in (#932 promotions); defaults to the client. */
+  client: Client = getJobmatchDb(),
 ): Promise<EvidenceWriteResult> {
-  const db = getJobmatchDb();
+  const db = client;
   const targetJobId = options.scope === "APPLICATION" ? options.targetJobId : null;
   if (options.scope === "APPLICATION" && (!targetJobId || !(await jobBelongs(db, workspaceId, targetJobId)))) {
     return { ok: false, error: "job_not_found" };

@@ -15,8 +15,11 @@ import { RequirementsPanel } from "../../components/tailoring/RequirementsPanel"
 import { ReviewBulletsEditor, ReviewSkillsEditor } from "../../components/tailoring/ReviewEditors";
 import { MAX_PROPOSED_SKILLS, NO_CANDIDATE_EDITS, ownBulletsByRole } from "../../lib/tailoring/candidateEdits";
 import {
+  approvedBulletOrigins,
   approvedBullets,
+  approvedIndexOf,
   approvedOwnBullets,
+  isOwnBullet,
   buildReviewBullets,
   orderProfileSkills,
   seedSkillEdits,
@@ -36,6 +39,9 @@ import {
 import { WritingSettingsSummary, WritingSource } from "../../components/tailoring/WritingSettings";
 import { putWritingPreferences } from "../../lib/writingPreferences/client";
 import type { WritingPreferences, WritingPreferencesView } from "../../lib/writingPreferences/contract";
+import { deriveFeedback, type FeedbackItem, type FeedbackReason, type OriginalSuggestions } from "../../lib/tailoring/feedback";
+import { preferencePromotionPayload } from "../../lib/tailoring/feedbackScope";
+import { FeedbackPanel, type BackgroundDraft, type OwnBulletChoice, type PreferenceDraft } from "../../components/tailoring/FeedbackPanel";
 
 const MIN_PASTE_CHARS = 120;
 
@@ -165,6 +171,16 @@ interface ReviewState {
   /** null when the candidate didn't opt into a cover letter on the fetched
    *  card, or the call degraded with nothing to review. */
   coverLetter: ReviewCoverLetter | null;
+  /** #932: the suggestions as generated (null when editing a saved CV),
+   *  for the "Your changes" panel. The server keeps its own copy. */
+  original?: OriginalSuggestions | null;
+  profileHeadline?: string | null;
+  /** #932: optional reason codes, by feedback key. */
+  feedbackReasons?: Record<string, FeedbackReason>;
+  /** #932: bullets to add to the confirmed background, by review bullet key. */
+  background?: Record<string, BackgroundDraft>;
+  /** #932: new style notes to remember, or null for none. */
+  preferenceDraft?: PreferenceDraft | null;
   /** The confirmed profile's own name — used only to render the letter
    *  quality checklist's "signed with your name" check (issue #456), same
    *  as generate-confirm carries it into the persisted content in code. */
@@ -223,6 +239,69 @@ async function readJsonBody(res: Response): Promise<Record<string, any> | null> 
   } catch {
     return null;
   }
+}
+
+/** The CV part of what Save sends: what the candidate approved. */
+function approvedCvOf(review: ReviewState) {
+  return {
+    headline: review.headline.trim() || null,
+    summary: review.summary.trim() || null,
+    // The merge appends profile skills left out of the order in
+    // profile order, exactly as orderProfileSkills shows them, so
+    // the first 60 (the proposal's own cap) say the same thing.
+    skillsOrder: review.keepOriginalSkillOrder ? [] : review.suggestedSkillsOrder.slice(0, MAX_PROPOSED_SKILLS),
+    experienceBullets: review.experience.map((entry) => approvedBullets(entry.bullets)),
+  };
+}
+
+/** The letter part of what Save sends, with each paragraph's origin (#932). */
+function approvedLetterOf(review: ReviewState) {
+  const letter = review.coverLetter;
+  if (!letter || !letter.include || letter.degraded) return null;
+  const kept = letter.paragraphs.map((p, index) => ({ text: p.trim(), index })).filter((p) => p.text);
+  return {
+    approved: { greeting: letter.greeting.trim(), paragraphs: kept.map((p) => p.text), signOff: letter.signOff.trim() },
+    paragraphOrigins: kept.map((p) => p.index),
+  };
+}
+
+/** #932: the feedback the server will record for this review. */
+function feedbackOf(review: ReviewState): FeedbackItem[] {
+  if (!review.original) return [];
+  const letter = approvedLetterOf(review);
+  return deriveFeedback({
+    original: review.original,
+    profile: {
+      headline: review.profileHeadline ?? null,
+      summary: review.profileSummary,
+      skills: review.originalSkillsOrder,
+      roles: review.experience.length,
+    },
+    approved: review.degraded ? null : approvedCvOf(review),
+    bulletOrigins: review.experience.map((entry) => approvedBulletOrigins(entry.bullets)),
+    letter: { included: letter !== null, approved: letter?.approved ?? null, paragraphOrigins: letter?.paragraphOrigins },
+  });
+}
+
+/** #932: bullets the candidate wrote or rewrote and kept, which they may
+ *  add to their confirmed background. */
+function ownBulletChoices(review: ReviewState): (OwnBulletChoice & { experienceIndex: number; bulletIndex: number })[] {
+  if (review.degraded) return [];
+  return review.experience.flatMap((entry, experienceIndex) =>
+    entry.bullets.flatMap((bullet) => {
+      const bulletIndex = approvedIndexOf(entry.bullets, bullet.key);
+      if (bulletIndex === -1 || !isOwnBullet(bullet)) return [];
+      return [
+        {
+          key: bullet.key,
+          role: entry.employer ? `${entry.title} · ${entry.employer}` : entry.title,
+          text: bullet.text.trim(),
+          experienceIndex,
+          bulletIndex,
+        },
+      ];
+    }),
+  );
 }
 
 /** The review of a saved CV, filled in as it was saved (no AI call). */
@@ -700,6 +779,21 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
               }
             : null,
           profileFullName: profile.fullName,
+          original: {
+            cv: suggestions
+              ? {
+                  headline: suggestions.headline,
+                  summary: suggestions.summary,
+                  skillsOrder: suggestions.skillsOrder ?? [],
+                  experienceBullets: suggestions.experienceBullets ?? [],
+                }
+              : null,
+            coverLetter: coverLetterResult?.suggestion && !coverLetterResult.degraded ? coverLetterResult.suggestion : null,
+          },
+          profileHeadline: profile.headline,
+          feedbackReasons: {},
+          background: {},
+          preferenceDraft: null,
         };
 
         setState({ kind: "reviewing", review });
@@ -810,19 +904,31 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
                   previewId: review.previewId,
                   instructions: review.instructions,
                 }),
-            approved: review.degraded
-              ? null
+            approved: review.degraded ? null : approvedCvOf(review),
+            // #932: which AI bullet each approved one started from, a reason
+            // per change, and what the candidate chose to remember.
+            ...(editOf
+              ? {}
               : {
-                  headline: review.headline.trim() || null,
-                  summary: review.summary.trim() || null,
-                  // The merge appends profile skills left out of the order in
-                  // profile order, exactly as orderProfileSkills shows them, so
-                  // the first 60 (the proposal's own cap) say the same thing.
-                  skillsOrder: review.keepOriginalSkillOrder
-                    ? []
-                    : review.suggestedSkillsOrder.slice(0, MAX_PROPOSED_SKILLS),
-                  experienceBullets: review.experience.map((entry) => approvedBullets(entry.bullets)),
-                },
+                  bulletOrigins: review.experience.map((entry) => approvedBulletOrigins(entry.bullets)),
+                  feedbackReasons: review.feedbackReasons ?? {},
+                  promotions: {
+                    // Only the notes the candidate typed in: an untouched one
+                    // must not overwrite a newer saved note after a conflict.
+                    preference: preferencePromotionPayload(
+                      review.preferenceDraft ?? null,
+                      savedWriting?.revisionId ?? null,
+                      Boolean(review.coverLetter?.include && !review.coverLetter.degraded),
+                    ),
+                    background: ownBulletChoices(review)
+                      .filter((choice) => review.background?.[choice.key])
+                      .map((choice) => ({
+                        experienceIndex: choice.experienceIndex,
+                        bulletIndex: choice.bulletIndex,
+                        ...review.background![choice.key]!,
+                      })),
+                  },
+                }),
             // The candidate's own changes: applied to this CV only, and
             // kept so "Regenerate" can bring them back.
             candidateEdits: review.degraded
@@ -840,16 +946,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
                     .filter((row) => row.bullets.length > 0),
                   ownSummary: ownSummaryOf(review.summary, review.aiSummary),
                 },
-            coverLetter:
-              review.coverLetter && review.coverLetter.include && !review.coverLetter.degraded
-                ? {
-                    approved: {
-                      greeting: review.coverLetter.greeting.trim(),
-                      paragraphs: review.coverLetter.paragraphs.map((p) => p.trim()).filter(Boolean),
-                      signOff: review.coverLetter.signOff.trim(),
-                    },
-                  }
-                : null,
+            coverLetter: approvedLetterOf(review),
           }),
         });
         const body = await readJsonBody(res);
@@ -862,6 +959,10 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
           // A stale one (#928: the job text or note changed) can't be saved
           // either, but the review stays so its edits can still be copied
           // before "Back to options" runs it again.
+          // #932: preferences saved elsewhere meanwhile: show the new ones.
+          if (body?.code === "PREFERENCES_STALE" && body.current !== undefined) {
+            setSavedWriting((body.current as WritingPreferencesView | null) ?? null);
+          }
           if (res.status !== 409 || editOf || body?.code === "PREVIEW_CONTEXT_STALE") {
             setState({ kind: "reviewing", review, saveError: message });
             return;
@@ -879,22 +980,42 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
         }
         // The CV is saved even when its letter is not (coverLetterError);
         // the preview page then says so instead of silently dropping it.
-        router.push(
-          body.coverLetterId
-            ? `/tailor/${body.id}/preview?coverLetterId=${body.coverLetterId}`
-            : body.coverLetterError
-              ? `/tailor/${body.id}/preview?coverLetterFailed=1`
-              : `/tailor/${body.id}/preview`,
-        );
+        const query = new URLSearchParams();
+        if (body.coverLetterId) query.set("coverLetterId", body.coverLetterId);
+        else if (body.coverLetterError) query.set("coverLetterFailed", "1");
+        if (body.promotionFailed) query.set("rememberFailed", "1");
+        const qs = query.toString();
+        router.push(qs ? `/tailor/${body.id}/preview?${qs}` : `/tailor/${body.id}/preview`);
       } catch {
         setState({ kind: "reviewing", review, saveError: t("resumatch.flow.error.network") });
       }
     },
-    [confirmedVersionId, router, t],
+    [confirmedVersionId, router, savedWriting, t],
   );
 
   /** A language's name for use inside a sentence, in the UI language. */
   const languageName = (code: OutputLanguage) => t(`resumatch.lang.${code}`);
+
+  /** #932: a feedback key as the candidate sees it. */
+  const feedbackLabel = (key: string): string => {
+    const bullet = /^bullet:(\d+):(\d+)$/.exec(key);
+    if (bullet && (state.kind === "reviewing" || state.kind === "confirming")) {
+      const entry = state.review.experience[Number(bullet[1])];
+      const role = entry ? (entry.employer ? `${entry.title} · ${entry.employer}` : entry.title) : "";
+      return t("resumatch.feedback.label.bullet", { n: Number(bullet[2]) + 1, role });
+    }
+    const paragraph = /^letter\.paragraph:(\d+)$/.exec(key);
+    if (paragraph) return t("resumatch.feedback.label.letterParagraph", { n: Number(paragraph[1]) + 1 });
+    const labels: Record<string, string> = {
+      headline: "resumatch.feedback.label.headline",
+      summary: "resumatch.feedback.label.summary",
+      skills: "resumatch.feedback.label.skills",
+      letter: "resumatch.feedback.label.letter",
+      "letter.greeting": "resumatch.feedback.label.letterGreeting",
+      "letter.signOff": "resumatch.feedback.label.letterSignOff",
+    };
+    return labels[key] ? t(labels[key]) : key;
+  };
 
   const activeJobId =
     state.kind === "fetched" || state.kind === "loading_review"
@@ -1457,6 +1578,36 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
                   </p>
                 )}
               </div>
+            ) : null}
+
+            {!state.review.editOf && state.review.original ? (
+              <FeedbackPanel
+                items={feedbackOf(state.review)}
+                labelFor={feedbackLabel}
+                reasons={state.review.feedbackReasons ?? {}}
+                onReasonChange={(key, reason) => {
+                  const next = { ...(state.review.feedbackReasons ?? {}) };
+                  if (reason) next[key] = reason;
+                  else delete next[key];
+                  updateReview("feedbackReasons", next);
+                }}
+                ownBullets={ownBulletChoices(state.review)}
+                background={state.review.background ?? {}}
+                onBackgroundChange={(key, draft) => {
+                  const next = { ...(state.review.background ?? {}) };
+                  if (draft) next[key] = draft;
+                  else delete next[key];
+                  updateReview("background", next);
+                }}
+                preference={state.review.preferenceDraft ?? null}
+                onPreferenceChange={(draft) => updateReview("preferenceDraft", draft)}
+                savedNotes={{
+                  cv: savedWriting?.preferences.cv.styleNote ?? null,
+                  letter: savedWriting?.preferences.coverLetter.styleNote ?? null,
+                }}
+                includeLetter={Boolean(state.review.coverLetter?.include && !state.review.coverLetter.degraded)}
+                disabled={state.kind === "confirming"}
+              />
             ) : null}
 
             {state.kind === "reviewing" && state.saveError ? (

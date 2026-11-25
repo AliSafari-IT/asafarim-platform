@@ -14,6 +14,10 @@ export interface ReviewBullet {
   /** The wording it started with (the AI's, or the profile's role
    *  summary), or null for a bullet the candidate wrote. */
   aiText: string | null;
+  /** #932: the index of the AI suggestion this bullet started from, in the
+   *  role's original AI bullets. Unset for the candidate's own bullets and
+   *  the profile's role summary. */
+  aiIndex?: number;
   /** The profile's own role summary, shown because the AI wrote no
    *  bullets for this role. */
   fromProfile?: boolean;
@@ -100,6 +104,7 @@ export function buildReviewBullets(
       text,
       accepted: !flagged && acceptedBulletCount(bullets) < MAX_BULLETS_PER_ROLE,
       aiText: text,
+      aiIndex: index,
       ...(meta ? { sources: meta.sources, flags: meta.flags } : {}),
     });
   });
@@ -121,6 +126,22 @@ export function approvedBullets(bullets: ReviewBullet[]): string[] {
     .filter((b) => b.accepted && b.text.trim())
     .map((b) => b.text.trim())
     .slice(0, MAX_BULLETS_PER_ROLE);
+}
+
+/** The bullets `approvedBullets` returns, in the same order. */
+function approvedEntries(bullets: ReviewBullet[]): ReviewBullet[] {
+  return bullets.filter((b) => b.accepted && b.text.trim()).slice(0, MAX_BULLETS_PER_ROLE);
+}
+
+/** #932: aligned with `approvedBullets`, the AI suggestion each approved
+ *  bullet started from (null: the candidate's own or the profile's). */
+export function approvedBulletOrigins(bullets: ReviewBullet[]): (number | null)[] {
+  return approvedEntries(bullets).map((b) => (typeof b.aiIndex === "number" ? b.aiIndex : null));
+}
+
+/** #932: where a bullet sits in `approvedBullets`, or -1 when it is not saved. */
+export function approvedIndexOf(bullets: ReviewBullet[], key: string): number {
+  return approvedEntries(bullets).findIndex((b) => b.key === key);
 }
 
 /** The approved bullets the candidate wrote or rewrote — the ones a

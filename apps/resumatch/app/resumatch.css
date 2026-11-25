@@ -6811,3 +6811,92 @@
 }
 
 [data-app="resumatch"] .rx-import__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+/* #932: "Your changes to the suggestions" on the Tailor review
+   (components/tailoring/FeedbackPanel). */
+.rm-feedback {
+  margin: 1rem 0 0;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  min-width: 0;
+}
+.rm-feedback h3 {
+  margin: 0 0 0.25rem;
+}
+.rm-feedback__summary {
+  font-size: 0.88rem;
+  margin: 0.5rem 0;
+}
+.rm-feedback__list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.rm-feedback__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--accent, #4338ca) 4%, transparent);
+  min-width: 0;
+}
+.rm-feedback__label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.rm-feedback__badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.rm-feedback__badge--edited {
+  color: var(--accent);
+}
+.rm-feedback__badge--rejected {
+  color: var(--muted);
+}
+.rm-feedback__reason {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+.rm-feedback__reason .ui-select {
+  min-height: 2rem;
+  max-width: 100%;
+}
+.rm-feedback__scope-note {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.5rem 0 0;
+}
+.rm-feedback__group {
+  margin-top: 0.75rem;
+}
+.rm-feedback__proposal {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+}
+.rm-feedback .jm-field {
+  display: grid;
+  gap: 0.25rem;
+}
+.rm-feedback textarea.ui-input,
+.rm-feedback input.ui-input {
+  width: 100%;
+}
