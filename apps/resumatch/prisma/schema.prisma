@@ -461,7 +461,7 @@ model TailoredResume {
   /// inferred from targetJobId.
   coverLetter CoverLetter?
   /// What the candidate did with each AI suggestion on the review (#932).
-  /// Null for CVs saved before 0.6.10, from a legacy preview, or edited in
+  /// Null for CVs saved before 0.6.11, from a legacy preview, or edited in
   /// place (an in-place edit has no preview to compare against).
   feedback    TailoringFeedback?
 
@@ -616,7 +616,7 @@ model TailorPreview {
   /// tailorSuggestionsSchema), before the candidate touched anything. The
   /// server's own copy: generate-confirm derives the review feedback from
   /// it, never from what the client echoes. Null on a degraded run and on
-  /// previews made before 0.6.10.
+  /// previews made before 0.6.11.
   suggestions           Json?
   /// The letter suggestion as generated (#932), after the grounding check.
   /// Null when no letter was requested or the call degraded.

@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * (kept, edited, left out), what was saved, the optional reason, and the
  * outcome of anything they chose to remember. Workspace-scoped: another
  * workspace's CV id reads as not found. 404 too for a CV with no feedback
- * (saved before 0.6.10, from a legacy preview, or edited in place only).
+ * (saved before 0.6.11, from a legacy preview, or edited in place only).
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const workspace = await getCurrentWorkspace();
