@@ -79,7 +79,30 @@ export type ProseGroundingMode = "prose" | "headline";
  * must already be lower-cased.
  */
 export function ungroundedProseTokenCount(text: string, sourceLower: string, mode: ProseGroundingMode): number {
-  let count = 0;
+  return ungroundedProseTokens(text, sourceLower, mode).length;
+}
+
+/** One notable token the source does not back, with its position in the
+ *  text (#964: the review highlights exactly this). */
+export interface UngroundedToken {
+  /** The token without trailing dots. */
+  token: string;
+  index: number;
+  isNumber: boolean;
+}
+
+/**
+ * The same check as `ungroundedProseTokenCount`, returning each ungrounded
+ * token and where it is. `allowed`, when given, exempts a non-number token
+ * (lower-cased, trailing dots stripped) the way a masked name is exempt.
+ */
+export function ungroundedProseTokens(
+  text: string,
+  sourceLower: string,
+  mode: ProseGroundingMode,
+  allowed?: (tokenLower: string) => boolean,
+): UngroundedToken[] {
+  const found: UngroundedToken[] = [];
   for (const match of text.matchAll(NOTABLE_TOKEN)) {
     const token = match[0].replace(/\.+$/, "");
     if (token.length === 0) continue;
@@ -90,11 +113,12 @@ export function ungroundedProseTokenCount(text: string, sourceLower: string, mod
       } else if (SENTENCE_START.test(text.slice(0, match.index))) {
         continue;
       }
+      if (allowed?.(token.toLowerCase())) continue;
     }
     const grounded = isNumber ? containsWholeNumber(sourceLower, token) : sourceLower.includes(token.toLowerCase());
-    if (!grounded) count += 1;
+    if (!grounded) found.push({ token, index: match.index ?? 0, isNumber });
   }
-  return count;
+  return found;
 }
 
 /**

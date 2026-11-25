@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
@@ -13,7 +13,36 @@ import { JobFitPanel } from "../../components/tailoring/JobFitPanel";
 import { EvidencePanel } from "../../components/tailoring/EvidencePanel";
 import { RequirementsPanel } from "../../components/tailoring/RequirementsPanel";
 import { ReviewBulletsEditor, ReviewSkillsEditor } from "../../components/tailoring/ReviewEditors";
-import { MAX_PROPOSED_SKILLS, NO_CANDIDATE_EDITS, ownBulletsByRole } from "../../lib/tailoring/candidateEdits";
+import {
+  ClaimCard,
+  ClaimSummaryBar,
+  ClaimText,
+  markId,
+  RequirementGaps,
+  SaveImpact,
+  type EvidenceSource,
+  type SaveImpactItem,
+} from "../../components/tailoring/ClaimReview";
+import {
+  applyRecheck,
+  confirmedClaimsOf,
+  fieldIssuesFrom,
+  isCurrent,
+  isEdited,
+  openCount,
+  openGapCount,
+  openIssues,
+  removalFor,
+  savedConfirmation,
+  setAllStatus,
+  setIssueStatus,
+  withoutOpenIssues,
+  type ClaimReviewState,
+  type FieldIssues,
+  type RequirementGap,
+} from "../../lib/tailoring/claimReview";
+import type { ClaimIssue } from "../../lib/tailoring/selection/claims";
+import { MAX_BULLETS_PER_ROLE, MAX_PROPOSED_SKILLS, NO_CANDIDATE_EDITS, ownBulletsByRole } from "../../lib/tailoring/candidateEdits";
 import {
   approvedBulletOrigins,
   approvedBullets,
@@ -160,6 +189,15 @@ interface ReviewState {
   summaryFlags?: string[];
   flaggedClaims?: number;
   unbackedRequirements?: number;
+  /** #964: what exactly the claim check could not trace, per checked text
+   *  ("headline", "summary", or a bullet's key), and what the candidate
+   *  did about it. Missing on a draft from before #964: the older notes
+   *  above are shown instead. */
+  claimReview?: ClaimReviewState;
+  /** #964: job requirements the profile does not back, to discuss. */
+  gaps?: RequirementGap[];
+  /** The source labels of this preview, for review cards. */
+  sourceLabels?: Record<string, string>;
   headline: string;
   summary: string;
   /** The summary the review started with before any typing (the AI's,
@@ -255,16 +293,83 @@ async function readJsonBody(res: Response): Promise<Record<string, any> | null> 
 }
 
 /** The CV part of what Save sends: what the candidate approved. */
+/**
+ * #964: the headline or summary Save sends. The AI's own text leaves out
+ * the words still open (or falls back to the profile's text when they
+ * cannot be cut cleanly); text the candidate typed is kept as written.
+ */
+function savedFieldText(review: ReviewState, key: "headline" | "summary"): string {
+  const text = review[key];
+  const field = review.claimReview?.[key];
+  if (!field || isEdited(field, text)) return text;
+  const result = withoutOpenIssues(field, text);
+  if (!result.fallback) return result.text;
+  return (key === "headline" ? review.profileHeadline : review.profileSummary) ?? "";
+}
+
 function approvedCvOf(review: ReviewState) {
   return {
-    headline: review.headline.trim() || null,
-    summary: review.summary.trim() || null,
+    headline: savedFieldText(review, "headline").trim() || null,
+    summary: savedFieldText(review, "summary").trim() || null,
     // The merge appends profile skills left out of the order in
     // profile order, exactly as orderProfileSkills shows them, so
     // the first 60 (the proposal's own cap) say the same thing.
     skillsOrder: review.keepOriginalSkillOrder ? [] : review.suggestedSkillsOrder.slice(0, MAX_PROPOSED_SKILLS),
     experienceBullets: review.experience.map((entry) => approvedBullets(entry.bullets)),
   };
+}
+
+/** #964: the text a claim-review key stands for on screen. */
+function claimFieldText(review: ReviewState, key: string): string | undefined {
+  if (key === "headline" || key === "summary") return review[key];
+  for (const entry of review.experience) {
+    const bullet = entry.bullets.find((b) => b.key === key);
+    if (bullet) return bullet.text;
+  }
+  return undefined;
+}
+
+/** #964: the text a key will be saved with, or undefined when it is not saved. */
+function savedClaimText(review: ReviewState, key: string): string | undefined {
+  if (key === "headline" || key === "summary") return savedFieldText(review, key);
+  for (const entry of review.experience) {
+    const bullet = entry.bullets.find((b) => b.key === key);
+    if (bullet) return bullet.accepted ? bullet.text : undefined;
+  }
+  return undefined;
+}
+
+/** #964: what Save will do with each claim still open, for "Before you save". */
+function saveImpactOf(review: ReviewState, locationOf: (key: string) => string, fieldName: (key: "headline" | "summary") => string): SaveImpactItem[] {
+  const items: SaveImpactItem[] = [];
+  for (const [key, field] of Object.entries(review.claimReview ?? {})) {
+    const text = claimFieldText(review, key);
+    if (text === undefined) continue;
+    const current = isCurrent(field, text);
+    const open = current ? openIssues(field) : [];
+    const location = locationOf(key);
+    if (field.field !== "bullet") {
+      const k = key as "headline" | "summary";
+      if (open.length === 0) continue;
+      if (isEdited(field, text)) {
+        for (const issue of open) items.push({ kind: "kept", location, text: issue.text, targetId: markId(key, issue.id) });
+        continue;
+      }
+      const result = withoutOpenIssues(field, text);
+      if (result.fallback) items.push({ kind: "fallback", location, field: fieldName(k), text: "", targetId: null });
+      else for (const issue of open) items.push({ kind: "removed", location, field: fieldName(k), text: issue.text, targetId: markId(key, issue.id) });
+      continue;
+    }
+    const bullet = review.experience.flatMap((e) => e.bullets).find((b) => b.key === key);
+    if (!bullet) continue;
+    if (!bullet.accepted && field.issues.length > 0) {
+      const first = open[0] ?? field.issues[0]!;
+      items.push({ kind: "excluded", location, text: text.length > 140 ? `${text.slice(0, 139)}…` : text, targetId: current ? markId(key, first.id) : null });
+    } else if (bullet.accepted) {
+      for (const issue of open) items.push({ kind: "kept", location, text: issue.text, targetId: markId(key, issue.id) });
+    }
+  }
+  return items;
 }
 
 /** The letter part of what Save sends, with each paragraph's origin (#932). */
@@ -938,6 +1043,51 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
           preferenceDraft: null,
         };
 
+        // #964: the exact words behind every flag, per checked text, and
+        // the job requirements the profile does not back. A claim the
+        // candidate confirmed on the CV being regenerated stays confirmed.
+        const savedClaims = seedEdits.confirmedClaims ?? [];
+        const issuesOf = (field: string, experienceIndex: number | null = null, bulletIndex: number | null = null) =>
+          ((claimFor(field, experienceIndex, bulletIndex) as { issues?: ClaimIssue[] } | undefined)?.issues ?? []) as ClaimIssue[];
+        if (claimCheck) {
+          const claimReview: ClaimReviewState = {};
+          if (suggestions?.headline) {
+            claimReview.headline = fieldIssuesFrom("headline", null, suggestions.headline, issuesOf("headline"), (issue) =>
+              savedConfirmation(savedClaims, "headline", undefined, issue),
+            );
+          }
+          if (suggestions?.summary && !seedEdits.ownSummary) {
+            claimReview.summary = fieldIssuesFrom("summary", null, suggestions.summary, issuesOf("summary"), (issue) =>
+              savedConfirmation(savedClaims, "summary", undefined, issue),
+            );
+          }
+          review.experience = review.experience.map((entry, experienceIndex) => {
+            const role = { title: entry.title, employer: entry.employer, startedOn: entry.startedOn };
+            let ticked = entry.bullets.filter((b) => b.accepted).length;
+            return {
+              ...entry,
+              bullets: entry.bullets.map((bullet) => {
+                if (bullet.aiIndex === undefined || bullet.aiText === null) return bullet;
+                const field = fieldIssuesFrom("bullet", experienceIndex, bullet.text, issuesOf("bullet", experienceIndex, bullet.aiIndex), (issue) =>
+                  savedConfirmation(savedClaims, "bullet", role, issue),
+                );
+                claimReview[bullet.key] = field;
+                // Every issue already confirmed: it starts ticked again.
+                if (!bullet.accepted && field.issues.length > 0 && openIssues(field).length === 0 && ticked < MAX_BULLETS_PER_ROLE) {
+                  ticked += 1;
+                  return { ...bullet, accepted: true };
+                }
+                return bullet;
+              }),
+            };
+          });
+          review.claimReview = claimReview;
+          review.sourceLabels = Object.fromEntries(sourceLabels);
+          review.gaps = ((body.requirements ?? []) as { id: string; text: string; priority: string; status: string }[])
+            .filter((r) => r.status !== "supported")
+            .map((r) => ({ requirementId: r.id, text: r.text, priority: r.priority, status: r.status, decision: "open" as const }));
+        }
+
         setState({ kind: "reviewing", review });
       } catch {
         setState({ kind: "error", message: t("resumatch.flow.error.network"), canGoBack: true });
@@ -1029,6 +1179,303 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
     });
   }, []);
 
+  // ── #964: the claim review ──
+  const [activeIssue, setActiveIssue] = useState<{ key: string; id: string } | null>(null);
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [onlyFlagged, setOnlyFlagged] = useState(false);
+  const [recheckStatus, setRecheckStatus] = useState<Record<string, { status: "checking" | "failed"; text: string }>>({});
+
+  /** Change the review in one step (text, ticks and issue statuses together). */
+  const mutateReview = useCallback((change: (review: ReviewState) => ReviewState) => {
+    setState((previous) => (previous.kind === "reviewing" ? { kind: "reviewing", review: change(previous.review) } : previous));
+  }, []);
+
+  const withClaim = (review: ReviewState, key: string, change: (field: FieldIssues) => FieldIssues): ReviewState => {
+    const field = review.claimReview?.[key];
+    return field ? { ...review, claimReview: { ...review.claimReview, [key]: change(field) } } : review;
+  };
+
+  const withBullet = (review: ReviewState, key: string, patch: Partial<ReviewBullet>): ReviewState => ({
+    ...review,
+    experience: review.experience.map((entry) =>
+      entry.bullets.some((b) => b.key === key) ? { ...entry, bullets: entry.bullets.map((b) => (b.key === key ? { ...b, ...patch } : b)) } : entry,
+    ),
+  });
+
+  /** A bullet whose issues are all settled (none open, none excluded) is
+   *  ticked, room allowing; one with an excluded issue is not. */
+  const settleBullet = (review: ReviewState, key: string): ReviewState => {
+    const field = review.claimReview?.[key];
+    if (!field || field.field !== "bullet") return review;
+    const entry = review.experience.find((e) => e.bullets.some((b) => b.key === key));
+    const bullet = entry?.bullets.find((b) => b.key === key);
+    if (!entry || !bullet) return review;
+    const excluded = field.issues.some((i) => i.status === "excluded");
+    const open = openIssues(field).length > 0;
+    if (!open && !excluded && !bullet.accepted && entry.bullets.filter((b) => b.accepted).length < MAX_BULLETS_PER_ROLE) {
+      return withBullet(review, key, { accepted: true });
+    }
+    if ((open || excluded) && bullet.accepted && !isEdited(field, bullet.text)) return withBullet(review, key, { accepted: false });
+    return review;
+  };
+
+  /** Bullet tick box: ticking a flagged bullet says its claims are true
+   *  (confirmed by the candidate); unticking leaves it out. */
+  const changeBullet = useCallback(
+    (experienceIndex: number, key: string, patch: Partial<ReviewBullet> | null) => {
+      if (patch && patch.accepted !== undefined && patch.text === undefined) {
+        const accepted = patch.accepted;
+        mutateReview((review) => {
+          let next = withBullet(review, key, { accepted });
+          next = withClaim(next, key, (field) =>
+            accepted ? setAllStatus(field, ["open", "excluded"], "confirmed") : setAllStatus(field, ["open", "confirmed"], "excluded"),
+          );
+          return next;
+        });
+        return;
+      }
+      updateBullet(experienceIndex, key, patch);
+    },
+    [mutateReview, updateBullet],
+  );
+
+  // An edited text is checked again before its issues count as resolved.
+  useEffect(() => {
+    if (state.kind !== "reviewing" || !state.review.claimReview || state.review.degraded) return;
+    const review = state.review;
+    const dirty = Object.entries(review.claimReview!).flatMap(([key, field]) => {
+      const text = claimFieldText(review, key);
+      if (text === undefined || isCurrent(field, text)) return [];
+      if (recheckStatus[key]?.text === text) return []; // checking it, or it failed for this text
+      return [{ key, field, text }];
+    });
+    if (dirty.length === 0) return;
+    const timer = setTimeout(async () => {
+      setRecheckStatus((previous) => ({ ...previous, ...Object.fromEntries(dirty.map((d) => [d.key, { status: "checking" as const, text: d.text }])) }));
+      try {
+        const res = await fetch("/api/tailor/check-claims", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            previewId: review.previewId,
+            items: dirty.map((d) => ({ field: d.field.field, experienceIndex: d.field.experienceIndex, text: d.text })),
+          }),
+        });
+        const body = (await readJsonBody(res)) as { issues?: ClaimIssue[][] } | null;
+        if (!res.ok || !Array.isArray(body?.issues)) throw new Error("recheck failed");
+        mutateReview((current) => {
+          let next = current;
+          dirty.forEach((d, index) => {
+            // Typed on since: the next run checks the newer text.
+            if (claimFieldText(next, d.key) !== d.text) return;
+            next = withClaim(next, d.key, (field) => applyRecheck(field, d.text, body.issues![index] ?? []));
+            next = settleBullet(next, d.key);
+          });
+          return next;
+        });
+        setRecheckStatus((previous) => {
+          const next = { ...previous };
+          for (const d of dirty) if (next[d.key]?.text === d.text) delete next[d.key];
+          return next;
+        });
+      } catch {
+        setRecheckStatus((previous) => ({ ...previous, ...Object.fromEntries(dirty.map((d) => [d.key, { status: "failed" as const, text: d.text }])) }));
+      }
+    }, 700);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, recheckStatus, mutateReview]);
+
+  /** Every open issue in page order: headline, summary, then each role's bullets. */
+  const openIssueOrder = (review: ReviewState): { key: string; id: string }[] => {
+    const claims = review.claimReview ?? {};
+    const keys = ["headline", "summary", ...review.experience.flatMap((e) => e.bullets.map((b) => b.key))];
+    return keys.flatMap((key) => {
+      const field = claims[key];
+      const text = claimFieldText(review, key);
+      if (!field || text === undefined || !isCurrent(field, text)) return [];
+      return openIssues(field)
+        .sort((a, b) => a.start - b.start)
+        .map((issue) => ({ key, id: issue.id }));
+    });
+  };
+
+  const focusIssue = useCallback((target: { key: string; id: string }) => {
+    setEditingField(null);
+    setActiveIssue(target);
+    requestAnimationFrame(() => {
+      const el = document.getElementById(markId(target.key, target.id));
+      el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      el?.focus({ preventScroll: true });
+    });
+  }, []);
+
+  const reviewNext = (review: ReviewState) => {
+    const order = openIssueOrder(review);
+    if (order.length === 0) return;
+    const at = activeIssue ? order.findIndex((o) => o.key === activeIssue.key && o.id === activeIssue.id) : -1;
+    focusIssue(order[(at + 1) % order.length]!);
+  };
+
+  const editClaim = (key: string, issue: { start: number; end: number }) => {
+    setEditingField(key);
+    setActiveIssue(null);
+    requestAnimationFrame(() => {
+      const el =
+        key === "headline" || key === "summary"
+          ? document.getElementById(`rm-review-${key}`)
+          : document.querySelector(`[data-bullet-key="${key}"] textarea`);
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        el.focus();
+        el.setSelectionRange(issue.start, issue.end);
+      }
+    });
+  };
+
+  const setClaimText = (key: string, text: string) => {
+    mutateReview((review) =>
+      key === "headline" || key === "summary" ? { ...review, [key]: text } : withBullet(review, key, { text }),
+    );
+    setActiveIssue(null);
+  };
+
+  const setStatus = (key: string, issueId: string, status: "open" | "confirmed" | "excluded", detail?: string | null) => {
+    mutateReview((review) => {
+      let next = withClaim(review, key, (field) => setIssueStatus(field, issueId, status, detail));
+      if (status === "excluded") {
+        next = withBullet(next, key, { accepted: false });
+        next = withClaim(next, key, (field) => setAllStatus(field, ["open", "confirmed"], "excluded"));
+      }
+      return settleBullet(next, key);
+    });
+  };
+
+  const addGapBullet = (requirementId: string, roleIndex: number, text: string) => {
+    const key = nextBulletKey();
+    mutateReview((review) => ({
+      ...review,
+      experience: review.experience.map((entry, i) =>
+        i === roleIndex
+          ? {
+              ...entry,
+              bullets: [...entry.bullets, { key, text, accepted: entry.bullets.filter((b) => b.accepted).length < MAX_BULLETS_PER_ROLE, aiText: null }],
+            }
+          : entry,
+      ),
+      gaps: (review.gaps ?? []).map((g) => (g.requirementId === requirementId ? { ...g, decision: "added" } : g)),
+    }));
+  };
+
+  const claimRole = (review: ReviewState, key: string) => {
+    const field = review.claimReview?.[key];
+    return field?.field === "bullet" && field.experienceIndex !== null ? review.experience[field.experienceIndex] : undefined;
+  };
+
+  /** "Experience at Probex Belgium", "Headline". */
+  const claimLocation = (review: ReviewState, key: string): string => {
+    if (key === "headline" || key === "summary") return t(`resumatch.claimReview.location.${key}`);
+    const role = claimRole(review, key);
+    if (!role) return t("resumatch.review.experience");
+    return role.employer
+      ? t("resumatch.claimReview.location.role", { employer: role.employer })
+      : t("resumatch.claimReview.location.title", { title: role.title });
+  };
+
+  /** "your role at Probex Belgium", "your profile". */
+  const claimWhere = (review: ReviewState, key: string): string => {
+    const role = claimRole(review, key);
+    if (!role) return t("resumatch.claimReview.where.profile");
+    return role.employer ? t("resumatch.claimReview.where.role", { employer: role.employer }) : t("resumatch.claimReview.where.title", { title: role.title });
+  };
+
+  const evidenceSource = (review: ReviewState, id: string): EvidenceSource => {
+    const label = review.sourceLabels?.[id] ?? id;
+    const section = id.startsWith("exp:")
+      ? "experience"
+      : id.startsWith("edu:")
+        ? "education"
+        : id === "skills"
+          ? "skills"
+          : id === "languages"
+            ? "languages"
+            : id === "certs"
+              ? "certifications"
+              : id === "headline" || id === "summary" || id === "work_auth"
+                ? "about"
+                : null;
+    return { label, href: section ? `/profile#rm-sec-${section}` : null };
+  };
+
+  const needsReview = (review: ReviewState, key: string): boolean => {
+    const field = review.claimReview?.[key];
+    const text = claimFieldText(review, key);
+    return Boolean(field && text !== undefined && isCurrent(field, text) && openIssues(field).length > 0);
+  };
+
+  /** The highlighted text of a checked field, or null for the plain editor. */
+  const claimView = (review: ReviewState, key: string, text: string): ReactNode | null => {
+    const field = review.claimReview?.[key];
+    if (!field || editingField === key || !isCurrent(field, text) || field.issues.length === 0) return null;
+    return (
+      <ClaimText
+        fieldKey={key}
+        text={text}
+        issues={field.issues}
+        activeId={activeIssue?.key === key ? activeIssue.id : null}
+        onOpen={(id) => setActiveIssue(activeIssue?.key === key && activeIssue.id === id ? null : { key, id })}
+      />
+    );
+  };
+
+  /** The card of the open highlight, the edit/recheck status and badges. */
+  const claimExtras = (review: ReviewState, key: string, text: string, disabled: boolean): ReactNode => {
+    const field = review.claimReview?.[key];
+    if (!field) return null;
+    const status = recheckStatus[key];
+    const issue = activeIssue?.key === key && isCurrent(field, text) ? field.issues.find((i) => i.id === activeIssue.id) : undefined;
+    const allConfirmed = isCurrent(field, text) && field.issues.length > 0 && field.issues.every((i) => i.status === "confirmed");
+    return (
+      <>
+        {editingField === key || allConfirmed || status ? (
+          <div className="rm-claim-row">
+            {allConfirmed ? <span className="rm-claim-badge rm-claim-badge--confirmed">{t("resumatch.claimReview.confirmedBadge")}</span> : null}
+            {status?.text === text ? (
+              <span className="rm-claim-status" role="status">
+                {t(status.status === "checking" ? "resumatch.claimReview.checking" : "resumatch.claimReview.recheckFailed")}
+              </span>
+            ) : null}
+            {editingField === key ? (
+              <button type="button" className="rm-link-button" onClick={() => setEditingField(null)} disabled={disabled}>
+                {t("resumatch.claimReview.action.done")}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {issue ? (
+          <ClaimCard
+            key={`${key}:${issue.id}`}
+            issue={issue}
+            location={claimLocation(review, key)}
+            where={claimWhere(review, key)}
+            source={(id) => evidenceSource(review, id)}
+            removal={removalFor(text, issue, field.field)}
+            isBullet={field.field === "bullet"}
+            onEdit={() => editClaim(key, issue)}
+            onRemove={(next) => setClaimText(key, next)}
+            onExclude={() => setStatus(key, issue.id, "excluded")}
+            onConfirm={(detail) => setStatus(key, issue.id, "confirmed", detail)}
+            onUndo={() => setStatus(key, issue.id, "open")}
+            onClose={() => {
+              setActiveIssue(null);
+              requestAnimationFrame(() => document.getElementById(markId(key, issue.id))?.focus());
+            }}
+            disabled={disabled}
+          />
+        ) : null}
+      </>
+    );
+  };
+
   const confirm = useCallback(
     async (review: ReviewState) => {
       setState({ kind: "confirming", review });
@@ -1090,6 +1537,19 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
                     }))
                     .filter((row) => row.bullets.length > 0),
                   ownSummary: ownSummaryOf(review.summary, review.aiSummary),
+                  // #964: claims the candidate confirmed, kept apart from
+                  // what the profile backs, for this CV only.
+                  // An in-place edit has no claim check: the server keeps
+                  // the CV's own.
+                  ...(editOf
+                    ? {}
+                    : {
+                        confirmedClaims: confirmedClaimsOf(
+                          review.claimReview,
+                          (i) => review.experience[i],
+                          (key) => savedClaimText(review, key),
+                        ),
+                      }),
                 },
             coverLetter: approvedLetterOf(review),
           }),
@@ -1607,7 +2067,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
       ) : null}
 
       {state.kind === "reviewing" || state.kind === "confirming" ? (
-        <div className="rm-review">
+        <div className={`rm-review${onlyFlagged && state.review.claimReview ? " rm-review--only-flagged" : ""}`}>
           <Card title={t(state.review.editOf ? "resumatch.review.editTitle" : "resumatch.review.title")}>
             {state.review.editOf ? (
               <p className="rm-regen-note" role="status" data-testid="edit-note">
@@ -1643,13 +2103,28 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
                   </p>
                 ) : null}
 
-                {state.review.flaggedClaims ? (
+                {state.review.claimReview ? (
+                  <ClaimSummaryBar
+                    open={openCount(state.review.claimReview)}
+                    gaps={openGapCount(state.review.gaps)}
+                    onNext={() => reviewNext(state.review)}
+                    onGaps={() => {
+                      const el = document.getElementById("rm-claim-gaps");
+                      el?.scrollIntoView({ block: "start", behavior: "smooth" });
+                      el?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+                    }}
+                    onlyFlagged={onlyFlagged}
+                    onOnlyFlagged={setOnlyFlagged}
+                  />
+                ) : null}
+
+                {!state.review.claimReview && state.review.flaggedClaims ? (
                   <p className="rm-claim-flag" data-testid="claims-flagged-note">
                     {t("resumatch.claims.flaggedNote", { count: state.review.flaggedClaims })}
                   </p>
                 ) : null}
 
-                {state.review.unbackedRequirements ? (
+                {!state.review.claimReview && state.review.unbackedRequirements ? (
                   <p className="rm-evidence__review-note" data-testid="requirements-review-note">
                     {t("resumatch.requirements.reviewNote", { count: state.review.unbackedRequirements })}
                   </p>
@@ -1666,35 +2141,41 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
                   </p>
                 ) : null}
 
-                <div className="rm-review__section">
+                <div className="rm-review__section" data-review-item data-needs-review={needsReview(state.review, "headline") || undefined}>
                   <label htmlFor="rm-review-headline" className="rm-review__section-label">{t("resumatch.review.headline")}</label>
+                  {claimView(state.review, "headline", state.review.headline) ?? (
                   <input
                     id="rm-review-headline"
                     type="text"
                     value={state.review.headline}
                     onChange={(e) => updateReview("headline", e.target.value)}
                     disabled={state.kind === "confirming"}
-                    aria-describedby={state.review.headlineFlags?.length ? "rm-review-headline-flag" : undefined}
+                    aria-describedby={!state.review.claimReview && state.review.headlineFlags?.length ? "rm-review-headline-flag" : undefined}
                   />
-                  {state.review.headlineFlags?.length ? (
+                  )}
+                  {claimExtras(state.review, "headline", state.review.headline, state.kind === "confirming")}
+                  {!state.review.claimReview && state.review.headlineFlags?.length ? (
                     <p id="rm-review-headline-flag" className="rm-claim-flag">
                       {t("resumatch.claims.fieldFlag")}
                     </p>
                   ) : null}
                 </div>
 
-                <div className="rm-review__section">
+                <div className="rm-review__section" data-review-item data-needs-review={needsReview(state.review, "summary") || undefined}>
                   <label htmlFor="rm-review-summary" className="rm-review__section-label">{t("resumatch.review.summary")}</label>
+                  {claimView(state.review, "summary", state.review.summary) ?? (
                   <textarea className="ui-input"
                     id="rm-review-summary"
                     rows={4}
                     value={state.review.summary}
                     onChange={(e) => updateReview("summary", e.target.value)}
                     disabled={state.kind === "confirming"}
-                    aria-describedby={state.review.summaryFlags?.length ? "rm-review-summary-help rm-review-summary-flag" : "rm-review-summary-help"}
+                    aria-describedby={!state.review.claimReview && state.review.summaryFlags?.length ? "rm-review-summary-help rm-review-summary-flag" : "rm-review-summary-help"}
                     maxLength={2000}
                   />
-                  {state.review.summaryFlags?.length ? (
+                  )}
+                  {claimExtras(state.review, "summary", state.review.summary, state.kind === "confirming")}
+                  {!state.review.claimReview && state.review.summaryFlags?.length ? (
                     <p id="rm-review-summary-flag" className="rm-claim-flag">
                       {t("resumatch.claims.fieldFlag")}
                     </p>
@@ -1727,6 +2208,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
                   </div>
                 </div>
 
+                <div data-review-item>
                 <ReviewSkillsEditor
                   baseSkills={
                     state.review.keepOriginalSkillOrder ? state.review.originalSkillsOrder : state.review.suggestedSkillsOrder
@@ -1741,12 +2223,18 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
                   disabled={state.kind === "confirming"}
                 />
                 <p className="rm-review__own-note">{t("resumatch.review.ownNote")}</p>
+                </div>
 
                 {state.review.experience.length > 0 ? (
                   <div className="rm-review__section">
                     <span className="rm-review__section-label">{t("resumatch.review.experience")}</span>
                     {state.review.experience.map((entry, entryIndex) => (
-                      <div className="rm-entry" key={entryIndex}>
+                      <div
+                        className="rm-entry"
+                        key={entryIndex}
+                        data-review-item
+                        data-needs-review={entry.bullets.some((b) => needsReview(state.review, b.key)) || undefined}
+                      >
                         <div className="rm-entry__heading">
                           <strong>{entry.title}</strong>
                           {entry.employer ? <span className="rm-entry__sub"> · {entry.employer}</span> : null}
@@ -1759,19 +2247,44 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
                         <ReviewBulletsEditor
                           role={entry.employer ? `${entry.title} · ${entry.employer}` : entry.title}
                           bullets={entry.bullets}
-                          onChange={(key, patch) => updateBullet(entryIndex, key, patch)}
+                          onChange={(key, patch) => changeBullet(entryIndex, key, patch)}
                           onAdd={() => addBullet(entryIndex)}
                           disabled={state.kind === "confirming"}
+                          {...(state.review.claimReview
+                            ? {
+                                claimView: (bullet: ReviewBullet) => claimView(state.review, bullet.key, bullet.text),
+                                claimExtras: (bullet: ReviewBullet) => claimExtras(state.review, bullet.key, bullet.text, state.kind === "confirming"),
+                                needsReview: (key: string) => needsReview(state.review, key),
+                              }
+                            : {})}
                         />
                       </div>
                     ))}
                   </div>
                 ) : null}
+
+                {state.review.gaps && state.review.gaps.length > 0 ? (
+                  <RequirementGaps
+                    gaps={state.review.gaps}
+                    roles={state.review.experience.map((entry, index) => ({
+                      index,
+                      label: entry.employer ? `${entry.title} · ${entry.employer}` : entry.title,
+                    }))}
+                    onDecide={(requirementId, decision) =>
+                      mutateReview((review) => ({
+                        ...review,
+                        gaps: (review.gaps ?? []).map((g) => (g.requirementId === requirementId ? { ...g, decision } : g)),
+                      }))
+                    }
+                    onAdd={addGapBullet}
+                    disabled={state.kind === "confirming"}
+                  />
+                ) : null}
               </>
             )}
 
             {state.review.coverLetter ? (
-              <div className="rm-review__section">
+              <div className="rm-review__section" data-review-item>
                 {state.review.editOf ? (
                   <span className="rm-review__section-label">{t("resumatch.coverLetter")}</span>
                 ) : (
@@ -1904,6 +2417,23 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
                 }}
                 includeLetter={Boolean(state.review.coverLetter?.include && !state.review.coverLetter.degraded)}
                 disabled={state.kind === "confirming"}
+              />
+            ) : null}
+
+            {!state.review.editOf && state.review.claimReview ? (
+              <SaveImpact
+                items={saveImpactOf(
+                  state.review,
+                  (key) => claimLocation(state.review, key),
+                  // German keeps its capital nouns.
+                  (key) => (pageLocale.startsWith("de") ? t(`resumatch.claimReview.location.${key}`) : t(`resumatch.claimReview.location.${key}`).toLowerCase()),
+                )}
+                confirmed={Object.values(state.review.claimReview).reduce((n, f) => n + f.issues.filter((i) => i.status === "confirmed").length, 0)}
+                onJump={(id) => {
+                  const target = openIssueOrder(state.review).find((o) => markId(o.key, o.id) === id);
+                  if (target) focusIssue(target);
+                  else document.getElementById(id)?.scrollIntoView({ block: "center", behavior: "smooth" });
+                }}
               />
             ) : null}
 

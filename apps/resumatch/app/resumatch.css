@@ -1805,9 +1805,8 @@
   line-height: 1.45;
 }
 
-.rm-bullet-item--unaccepted span {
+.rm-bullet-item--unaccepted > span {
   opacity: 0.45;
-  text-decoration: line-through;
 }
 
 /* Hand edits on the review (2026-11-22): skill chips you can remove or
@@ -1986,9 +1985,10 @@
   border-color: var(--rm-edit-accent);
 }
 
+/* #964: an unticked bullet stays readable; the "Excluded from CV" badge
+   says it is left out, instead of a strike-through. */
 .rm-bullet-item--unaccepted textarea.rm-bullet-item__text {
   color: var(--muted);
-  text-decoration: line-through;
 }
 
 .rm-bullet-item__meta {
@@ -7352,4 +7352,317 @@
 .rm-feedback textarea.ui-input,
 .rm-feedback input.ui-input {
   width: 100%;
+}
+
+/* ── #964: actionable claim review ──
+   The exact words the claim check could not trace are buttons inside
+   readable text; each opens a card (what, why, profile evidence, what to
+   do). Colours are tokens with dark variants so every state keeps AA. */
+.rm-review {
+  --rm-claim-bg: #fef3c7;
+  --rm-claim-ink: #78350f;
+  --rm-claim-line: #b45309;
+  --rm-confirm-bg: #e0e7ff;
+  --rm-confirm-ink: #312e81;
+  --rm-excluded-bg: #f1f5f9;
+  --rm-excluded-ink: #334155;
+}
+
+[data-app="resumatch"][data-theme="dark"] .rm-review {
+  --rm-claim-bg: rgba(251, 191, 36, 0.2);
+  --rm-claim-ink: #fde68a;
+  --rm-claim-line: #fbbf24;
+  --rm-confirm-bg: rgba(165, 180, 252, 0.18);
+  --rm-confirm-ink: #c7d2fe;
+  --rm-excluded-bg: rgba(148, 163, 184, 0.18);
+  --rm-excluded-ink: #e2e8f0;
+}
+
+.rm-claim-summary {
+  margin: 0.75rem 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.6rem;
+  border-left: 3px solid var(--rm-claim-line);
+  background: var(--rm-claim-bg);
+  color: var(--rm-claim-ink);
+}
+
+.rm-claim-summary--done {
+  border-left-color: var(--rm-edit-accent);
+  background: var(--rm-confirm-bg);
+  color: var(--rm-confirm-ink);
+  font-size: 0.85rem;
+}
+
+.rm-claim-summary__line {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.rm-claim-summary .rm-link-button {
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+.rm-claim-summary__hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+}
+
+.rm-claim-summary__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 0.5rem;
+}
+
+.rm-claim-summary .rm-small-button {
+  border-color: currentColor;
+  color: inherit;
+}
+
+.rm-claim-text {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.4));
+  border-radius: 0.5rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.rm-claim-mark {
+  font: inherit;
+  padding: 0 0.15rem;
+  margin: 0;
+  border: 0;
+  border-bottom: 2px solid var(--rm-claim-line);
+  border-radius: 0.2rem;
+  background: var(--rm-claim-bg);
+  color: var(--rm-claim-ink);
+  cursor: pointer;
+  text-align: inherit;
+}
+
+.rm-claim-mark--confirmed {
+  border-bottom-style: dashed;
+  border-bottom-color: var(--rm-edit-accent);
+  background: var(--rm-confirm-bg);
+  color: var(--rm-confirm-ink);
+}
+
+.rm-claim-mark--excluded {
+  border-bottom-style: dotted;
+  border-bottom-color: var(--muted);
+  background: var(--rm-excluded-bg);
+  color: var(--rm-excluded-ink);
+}
+
+.rm-claim-mark[aria-expanded="true"],
+.rm-claim-mark:focus-visible {
+  outline: 2px solid var(--rm-edit-accent);
+  outline-offset: 1px;
+}
+
+.rm-claim-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+}
+
+.rm-claim-badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--rm-excluded-bg);
+  color: var(--rm-excluded-ink);
+}
+
+.rm-claim-badge--confirmed {
+  background: var(--rm-confirm-bg);
+  color: var(--rm-confirm-ink);
+}
+
+.rm-claim-status {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.rm-claim-card {
+  margin-top: 0.5rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.4));
+  border-left: 3px solid var(--rm-claim-line);
+  border-radius: 0.6rem;
+  background: var(--surface, transparent);
+  font-size: 0.85rem;
+}
+
+.rm-claim-card--confirmed {
+  border-left-color: var(--rm-edit-accent);
+}
+
+.rm-claim-card--excluded {
+  border-left-color: var(--muted);
+}
+
+.rm-claim-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.rm-claim-card__title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rm-claim-card__quote {
+  margin: 0.4rem 0 0.5rem;
+  padding: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.rm-claim-card__label {
+  display: block;
+  margin: 0.5rem 0 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.rm-claim-card__why,
+.rm-claim-card__none,
+.rm-claim-card__ask,
+.rm-claim-card__confirmed p,
+.rm-claim-card__preview {
+  margin: 0 0 0.25rem;
+}
+
+.rm-claim-card__evidence {
+  margin: 0 0 0.3rem;
+  overflow-wrap: anywhere;
+}
+
+.rm-claim-card__evidence span {
+  font-weight: 600;
+}
+
+.rm-claim-card__ask {
+  margin-top: 0.6rem;
+  font-weight: 600;
+}
+
+.rm-claim-card__preview {
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.4rem;
+  background: var(--rm-excluded-bg);
+  color: var(--rm-excluded-ink);
+}
+
+.rm-claim-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.rm-small-button--primary {
+  background: var(--rm-edit-accent);
+  color: var(--surface, #fff);
+}
+
+.rm-small-button--primary:hover:not(:disabled) {
+  background: var(--rm-edit-accent);
+  filter: brightness(1.08);
+}
+
+.rm-claim-card textarea,
+.rm-claim-gap textarea,
+.rm-claim-gap select {
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+.rm-claim-card__profile-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.rm-claim-gaps__hint {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.rm-claim-gaps__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.rm-claim-gap {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.4));
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.rm-claim-gap__text {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.rm-claim-gap__done {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+}
+
+.rm-claim-impact {
+  margin-top: 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.4));
+  font-size: 0.85rem;
+}
+
+.rm-claim-impact p {
+  margin: 0.25rem 0;
+}
+
+.rm-claim-impact__title {
+  font-weight: 700;
+}
+
+.rm-claim-impact__list {
+  margin: 0 0 0.35rem;
+  padding-left: 1.1rem;
+  overflow-wrap: anywhere;
+}
+
+.rm-claim-impact__where {
+  color: var(--muted);
+}
+
+/* "Show only items needing review". */
+.rm-review--only-flagged [data-review-item]:not([data-needs-review]) {
+  display: none;
 }

@@ -146,6 +146,8 @@ test("skills and bullets edited on the review reach the saved CV, its preview an
       },
     ],
     ownSummary: null,
+    // #964: nothing flagged here, so nothing confirmed.
+    confirmedClaims: [],
   });
 
   // The profile itself is unchanged: the edits are this CV's only.

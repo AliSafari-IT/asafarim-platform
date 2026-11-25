@@ -3,7 +3,7 @@ import { parseProfileContent } from "../../profile/contract";
 import { NO_EVIDENCE, type GenerationEvidence } from "../../evidence/prompt";
 import { parseTailorSuggestions } from "../ai/schema";
 import { TailorFixtureProvider } from "../ai/providers/fixture";
-import { checkClaims } from "./claims";
+import { checkClaims, recheckClaims } from "./claims";
 import { extractRequirements } from "./requirements";
 import { selectTailoringInputs } from "./select";
 
@@ -205,5 +205,112 @@ describe("checkClaims (#930)", () => {
     const check = checkClaims({ suggestions: output.suggestions, sources: selection.sources, requirements: selection.requirements, coverage: selection.coverage, outputLanguage: null });
     expect(check.claims.filter((c) => c.field === "bullet").map((c) => c.sourceIds)).toEqual([["exp:0"], ["exp:0"], ["exp:1"], ["exp:1"]]);
     expect(check.flagged).toBe(0);
+  });
+});
+
+describe("claim issues: exact spans, reasons and evidence (#964)", () => {
+  const issuesOf = (finding: { issues: { reason: string; text: string; start: number; end: number }[] }) =>
+    finding.issues.map((i) => ({ reason: i.reason, text: i.text }));
+
+  it("points at the number and the name, not the whole bullet", () => {
+    const text = "Built Go services that handle 5 million payments a month for Visa";
+    const finding = bullet(run({ experienceBullets: [[text]], sources: { experienceBullets: [[["exp:0"]]] } }), 0);
+    expect(issuesOf(finding)).toEqual([
+      { reason: "number_not_found", text: "5" },
+      { reason: "name_not_found", text: "Visa" },
+    ]);
+    for (const issue of finding.issues) expect(text.slice(issue.start, issue.end)).toBe(issue.text);
+    // What the role does say, to compare against.
+    expect(finding.issues[0]!.evidence).toEqual([
+      { sourceId: "exp:0", kind: "context", excerpt: expect.stringContaining("2 million payments") },
+    ]);
+  });
+
+  it("a name the profile has for another role is 'not linked to this role', with where it is", () => {
+    const finding = bullet(
+      run({ experienceBullets: [[], ["Answered tickets about PostgreSQL tuning"]], sources: { experienceBullets: [[], [["exp:1"]]] } }),
+      1,
+    );
+    // PostgreSQL is a listed skill, so a bullet may name it.
+    expect(finding.issues).toEqual([]);
+    const other = bullet(
+      run({ experienceBullets: [[], ["Answered tickets about Contoso payments"]], sources: { experienceBullets: [[], [["exp:1"]]] } }),
+      1,
+    );
+    expect(other.issues).toMatchObject([
+      { reason: "name_not_in_role", text: "Contoso", evidence: expect.arrayContaining([expect.objectContaining({ sourceId: "exp:0", kind: "match" })]) },
+    ]);
+  });
+
+  it("highlights the high-risk wording only", () => {
+    const text = "Led a team of support engineers answering customer tickets";
+    const finding = bullet(run({ experienceBullets: [[], [text]], sources: { experienceBullets: [[], [["exp:1"]]] } }), 1);
+    expect(finding.issues).toMatchObject([{ reason: "responsibility", rule: "people_leadership", text: "Led a team", whole: false }]);
+  });
+
+  it("names the requirement a bullet's role does not back, and where the profile does", () => {
+    const evidence: GenerationEvidence = {
+      professional: [{ revisionId: "rev_k", kind: "PROJECT", title: "Cluster", detail: "Ran Kubernetes clusters.", role: "Backend Engineer at Contoso", roleIndex: 0 }],
+      motivation: [],
+      revisionIds: ["rev_k"],
+    };
+    const finding = bullet(
+      run({ experienceBullets: [[], ["Answered tickets about Kubernetes clusters"]], sources: { experienceBullets: [[], [["exp:1"]]] } }, { evidence }),
+      1,
+    );
+    const issue = finding.issues.find((i) => i.text === "Kubernetes")!;
+    expect(issue).toMatchObject({ reason: "requirement_not_in_role", requirementText: expect.stringContaining("Kubernetes") });
+    expect(issue.evidence[0]).toMatchObject({ sourceId: "ev:rev_k", kind: "match", excerpt: "Ran Kubernetes clusters." });
+  });
+
+  it("an unmet requirement says who said no", () => {
+    const dutch = extractRequirements(JOB).find((r) => r.text.includes("Dutch"))!.id;
+    const summary = run({ summary: "Backend engineer, fluent in Dutch.", sources: { summary: ["summary"] } }, { unmet: [dutch] }).claims.find(
+      (c) => c.field === "summary",
+    )!;
+    expect(summary.issues.find((i) => i.reason === "requirement_unmet")).toMatchObject({ text: "Dutch", unmetBy: "candidate", requirementId: dutch });
+  });
+
+  it("a bullet with no source of its own is one whole-claim issue", () => {
+    const finding = bullet(run({ experienceBullets: [["Tuned PostgreSQL"]] }), 0);
+    expect(finding.issues).toMatchObject([{ reason: "no_role_source", whole: true, text: "Tuned PostgreSQL" }]);
+  });
+
+  it("joins a number written with a thousands separator, and its plus sign", () => {
+    const finding = bullet(run({ experienceBullets: [["Closed 1,200+ tickets for Go services"]], sources: { experienceBullets: [[["exp:0"]]] } }), 0);
+    expect(issuesOf(finding)).toEqual([{ reason: "number_not_found", text: "1,200+" }]);
+  });
+
+  it("every flagged claim has at least one issue, and a clean one none", () => {
+    const check = run({
+      headline: "Backend Engineer · Go · Rust",
+      summary: "Built Go services.",
+      experienceBullets: [["Built Go services handling 2 million payments a month", "Led 4 engineers"]],
+      sources: { headline: ["headline"], summary: ["summary"], experienceBullets: [[["exp:0"], ["exp:0"]]] },
+    });
+    for (const claim of check.claims) expect(claim.issues.length > 0).toBe(claim.flags.length > 0);
+  });
+});
+
+describe("recheckClaims (#964)", () => {
+  const selection = selectTailoringInputs({ profile, jobText: JOB, evidence: NO_EVIDENCE });
+  const input = { sources: selection.sources, requirements: selection.requirements, coverage: selection.coverage, outputLanguage: null };
+
+  it("checks an edited bullet against its own role, and an edited summary against the profile", () => {
+    const [fixed, still, summary] = recheckClaims(
+      [
+        { field: "bullet", experienceIndex: 0, text: "Built Go services handling 2 million payments a month" },
+        { field: "bullet", experienceIndex: 1, text: "Answered 300 customer tickets" },
+        { field: "summary", experienceIndex: null, text: "Engineer at Contoso and Fabrikam." },
+      ],
+      input,
+    );
+    expect(fixed).toEqual([]);
+    expect(still).toMatchObject([{ reason: "number_not_found", text: "300" }]);
+    expect(summary).toEqual([]);
+  });
+
+  it("checks nothing for an empty text or a role the profile does not have", () => {
+    expect(recheckClaims([{ field: "bullet", experienceIndex: 9, text: "Led 9 people" }, { field: "headline", experienceIndex: null, text: " " }], input)).toEqual([[], []]);
   });
 });

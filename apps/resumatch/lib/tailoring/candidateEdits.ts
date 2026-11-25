@@ -46,6 +46,32 @@ const ownBulletsSchema = z.object({
   bullets: z.array(z.string().trim().min(1).max(MAX_CV_BULLET_CHARS)).max(MAX_BULLETS_PER_ROLE),
 });
 
+/** Most claims a candidate can confirm on one CV (#964). */
+export const MAX_CONFIRMED_CLAIMS = 40;
+export const MAX_CONFIRMED_DETAIL_CHARS = 500;
+
+/**
+ * #964: a claim the claim check could not trace to the profile, which the
+ * candidate said is true on the review. Kept apart from what the profile
+ * backs: it belongs to this CV only, it is never written to the profile,
+ * the evidence store or a prompt, and the detail is the candidate's own
+ * words. Updating the profile is a separate, explicit step.
+ */
+const confirmedClaimSchema = z
+  .object({
+    where: z.enum(["headline", "summary", "bullet"]),
+    /** The bullet's role (title + employer + start date), null otherwise. */
+    title: z.string().trim().max(120).nullable().default(null),
+    employer: z.string().trim().max(120).nullable().default(null),
+    startedOn: z.string().trim().max(40).nullable().default(null),
+    /** The exact words that could not be traced. */
+    claim: z.string().trim().min(1).max(MAX_CV_BULLET_CHARS),
+    /** Why they could not be (a ClaimIssueReason). */
+    reason: z.string().trim().min(1).max(40),
+    detail: z.string().trim().max(MAX_CONFIRMED_DETAIL_CHARS).nullable().default(null),
+  })
+  .strict();
+
 export const candidateEditsSchema = z
   .object({
     addedSkills: z.array(skillName).max(MAX_ADDED_SKILLS).default([]),
@@ -58,13 +84,16 @@ export const candidateEditsSchema = z
      *  instead of the AI's (0.5.0). Null when the CV keeps the AI's. Kept so
      *  "Regenerate" starts from it again instead of a fresh AI summary. */
     ownSummary: z.string().trim().min(1).max(MAX_SUMMARY_CHARS).nullable().default(null),
+    /** #964: claims the candidate confirmed on the review. */
+    confirmedClaims: z.array(confirmedClaimSchema).max(MAX_CONFIRMED_CLAIMS).default([]),
   })
   .strict();
 
 export type CandidateEdits = z.infer<typeof candidateEditsSchema>;
 export type OwnBullets = z.infer<typeof ownBulletsSchema>;
+export type ConfirmedClaim = z.infer<typeof confirmedClaimSchema>;
 
-export const NO_CANDIDATE_EDITS: CandidateEdits = { addedSkills: [], removedSkills: [], ownBullets: [], ownSummary: null };
+export const NO_CANDIDATE_EDITS: CandidateEdits = { addedSkills: [], removedSkills: [], ownBullets: [], ownSummary: null, confirmedClaims: [] };
 
 export function canonicalSkill(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
@@ -87,7 +116,8 @@ export function hasCandidateEdits(edits: CandidateEdits): boolean {
     edits.addedSkills.length > 0 ||
     edits.removedSkills.length > 0 ||
     edits.ownBullets.some((r) => r.bullets.length > 0) ||
-    Boolean(edits.ownSummary)
+    Boolean(edits.ownSummary) ||
+    edits.confirmedClaims.length > 0
   );
 }
 

@@ -142,13 +142,15 @@ function languageCodesIn(textLower: string): Set<string> {
   return codes;
 }
 
-function spokenLanguageClaimUnbacked(sentence: string, profileCodes: ReadonlySet<string>): boolean {
+/** The spoken-language claim, from its verb to the sentence end, when it
+ *  names a language the profile does not. */
+function spokenLanguageClaim(sentence: string, profileCodes: ReadonlySet<string>): { index: number; length: number } | null {
   const match = LANGUAGE_CLAIM.exec(sentence);
-  if (!match) return false;
+  if (!match) return null;
   for (const code of languageCodesIn(match[1]!.toLowerCase())) {
-    if (!profileCodes.has(code)) return true;
+    if (!profileCodes.has(code)) return { index: match.index, length: match[0].replace(/[\s,;:]+$/, "").length };
   }
-  return false;
+  return null;
 }
 
 export interface ClaimEvidence {
@@ -178,11 +180,25 @@ export function splitSentences(paragraph: string): string[] {
 
 /** The rule ids a sentence breaks, given the profile's evidence. */
 export function unbackedClaims(sentence: string, evidence: ClaimEvidence): string[] {
-  const broken: string[] = [];
+  return unbackedClaimMatches(sentence, evidence).map((m) => m.rule);
+}
+
+/** One broken rule and the words in the sentence that make the claim
+ *  (#964: the review highlights exactly these). */
+export interface UnbackedClaimMatch {
+  rule: string;
+  index: number;
+  length: number;
+}
+
+export function unbackedClaimMatches(sentence: string, evidence: ClaimEvidence): UnbackedClaimMatch[] {
+  const broken: UnbackedClaimMatch[] = [];
   for (const rule of CLAIM_RULES) {
-    if (rule.claim.test(sentence) && !rule.evidence.test(evidence.profileText)) broken.push(rule.id);
+    const match = rule.claim.exec(sentence);
+    if (match && !rule.evidence.test(evidence.profileText)) broken.push({ rule: rule.id, index: match.index, length: match[0].length });
   }
-  if (spokenLanguageClaimUnbacked(sentence, evidence.languageCodes)) broken.push("spoken_language");
+  const language = spokenLanguageClaim(sentence, evidence.languageCodes);
+  if (language) broken.push({ rule: "spoken_language", ...language });
   return broken;
 }
 
