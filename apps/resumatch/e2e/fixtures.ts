@@ -312,3 +312,13 @@ export async function seedCoverLetters(letters: { id: string; paragraphs: string
     });
   }
 }
+
+/** Opens "CV appearance" on the CV preview (photo switch, skills layout).
+ *  The page remembers it open, so later reloads in the same test keep it. */
+export async function openCvAppearance(page: Page) {
+  const appearance = page.getByTestId("cv-appearance");
+  if (!(await appearance.evaluate((el: HTMLDetailsElement) => el.open))) {
+    await appearance.locator("summary").click();
+  }
+  await expect(appearance).toHaveAttribute("open", "");
+}

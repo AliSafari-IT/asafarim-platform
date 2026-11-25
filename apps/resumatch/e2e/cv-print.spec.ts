@@ -19,7 +19,7 @@ test("print shows only the CV", async ({ page }) => {
   await page.goto(`/tailor/${CV_ID}/preview`);
   await expect(page).toHaveTitle("Jordan Example – CV – Example Audio");
   await page.emulateMedia({ media: "print" });
-  for (const text of ["Your tailored CV", "Download PDF", "Written in English", "View cover letter"]) {
+  for (const text of ["Your tailored CV", "Download", "Written in English", "View cover letter", "CV appearance"]) {
     await expect(page.getByText(text).filter({ visible: true })).toHaveCount(0);
   }
   await expect(page.getByTestId("cv").filter({ visible: true })).toBeVisible();

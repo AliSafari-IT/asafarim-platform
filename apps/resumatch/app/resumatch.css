@@ -737,32 +737,294 @@
     flex: 1 1 auto;
   }
 }
-/* "Show photo on this CV" switch in the preview toolbar. */
-.rm-photo-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-  cursor: pointer;
+/* ─── CV preview action area (app/tailor/[id]/preview/page.tsx) ─────────
+   Rows in the CV's own 48rem column, left-aligned: the application status,
+   the main actions (Edit CV and Download, with Send application as the one
+   filled accent button), the supporting links, then "CV appearance".
+   Every control in a row is the same 2.5rem height and radius. */
+.rm-preview-actions {
+  --rm-action-h: 2.5rem;
+  display: grid;
+  gap: 0.85rem;
+  max-width: 48rem;
+  margin: 0 auto 1.25rem;
 }
-.rm-preview-photo {
+.rm-preview-actions .ui-btn {
+  min-height: var(--rm-action-h);
+  padding-block: 0;
+  border-radius: var(--radius-sm, 6px);
+}
+.rm-preview-actions .ui-btn:focus-visible,
+.rm-preview-link:focus-visible,
+.rm-appearance__summary:focus-visible,
+.rm-download__item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Status: "✓ Saved to applications" with a text link, apart from the buttons. */
+.rm-preview-status {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  justify-content: flex-end;
-  gap: 0.25rem 0.75rem;
-  max-width: 48rem;
-  margin: -0.25rem auto 1rem;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.rm-preview-status__text {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+.rm-preview-status__check {
+  color: var(--color-success-text, #16a34a);
+  font-weight: 700;
+}
+.rm-preview-status__error {
+  color: var(--color-danger-text, #b42318);
+}
+
+/* Text links (status, supporting row, appearance): quiet, accent, underlined on hover. */
+.rm-preview-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.15rem 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  border-radius: var(--radius-xs, 4px);
+}
+.rm-preview-link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.rm-preview-link:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+.rm-preview-status .rm-preview-link {
   font-size: 0.85rem;
 }
-.rm-preview-photo__hint {
+
+/* Main row: Edit CV + Download on the left, Send application on the right. */
+.rm-preview-actions__main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.rm-preview-actions__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.rm-preview-actions .rm-send-entry--toolbar {
+  justify-content: flex-end;
+}
+
+/* Supporting row: View cover letter (with its language badge) · Regenerate CV. */
+.rm-preview-actions__secondary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+.rm-preview-actions__secondary .rx-pill--lang {
+  font-weight: 600;
+}
+.rm-preview-actions__hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* "Download ▾" menu (DownloadMenu.tsx). */
+.rm-download {
+  position: relative;
+}
+.rm-download__chevron {
+  transition: transform var(--dur-1, 0.15s) var(--ease, ease);
+}
+.rm-download__button[aria-expanded="true"] .rm-download__chevron {
+  transform: rotate(180deg);
+}
+.rm-download__menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  gap: 0.15rem;
+  min-width: 15rem;
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface);
+  box-shadow: var(--shadow-2, 0 12px 32px rgba(0, 0, 0, 0.28));
+}
+.rm-download__item {
+  display: grid;
+  gap: 0.1rem;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 0;
+  border-radius: var(--radius-xs, 4px);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rm-download__item:hover,
+.rm-download__item:focus-visible {
+  background: var(--accent-soft);
+}
+.rm-download__item-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.rm-download__item-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* "CV appearance" (CvAppearance.tsx): a native disclosure. */
+.rm-appearance {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 6px);
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+.rm-appearance__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.6rem;
+  min-height: var(--rm-action-h);
+  padding: 0.4rem 0.85rem;
+  list-style: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm, 6px);
+}
+.rm-appearance__summary::-webkit-details-marker {
+  display: none;
+}
+.rm-appearance__summary:hover .rm-appearance__title {
+  color: var(--accent);
+}
+.rm-appearance__chevron {
+  flex: none;
+  color: var(--muted);
+  transition: transform var(--dur-1, 0.15s) var(--ease, ease);
+}
+.rm-appearance[open] .rm-appearance__chevron {
+  transform: rotate(90deg);
+}
+.rm-appearance__title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.rm-appearance__current {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.rm-appearance[open] .rm-appearance__current {
+  display: none;
+}
+.rm-appearance__body {
+  display: grid;
+  gap: 1rem;
+  padding: 0.25rem 0.85rem 0.95rem 2.1rem;
+}
+/* One setting: its control, then its explanation beneath it. */
+.rm-appearance__setting {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+.rm-appearance__control {
+  margin: 0;
+}
+.rm-appearance__hint {
+  margin: 0;
   font-size: 0.8rem;
   color: var(--muted);
 }
 
+/* "Show photo on this CV" switch. */
+.rm-photo-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rm-photo-toggle input {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--accent);
+}
+
+/* On a phone the groups stack, Send application comes first and full
+   width (the main action, easy to reach), and Edit CV and Download share
+   the row beneath it. */
+@media (max-width: 40rem) {
+  .rm-preview-actions {
+    gap: 0.75rem;
+  }
+  .rm-preview-actions__main {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .rm-preview-actions .rm-send-entry--toolbar {
+    order: -1;
+    justify-content: stretch;
+  }
+  .rm-preview-actions .rm-send-entry--toolbar > .ui-btn {
+    flex: 1 1 100%;
+  }
+  .rm-preview-actions__group > .ui-btn,
+  .rm-preview-actions__group > .rm-download {
+    flex: 1 1 0;
+  }
+  .rm-download__button {
+    width: 100%;
+  }
+  .rm-download__menu {
+    right: 0;
+    left: auto;
+  }
+  .rm-preview-actions__group > .ui-btn {
+    min-width: 0;
+  }
+  .rm-appearance__body {
+    padding-left: 0.85rem;
+  }
+}
+
 /* Skills layout picker on the CV preview (SkillsLayoutPicker.tsx). */
 .rm-skills-layout {
+  justify-items: stretch;
+}
+.rm-skills-layout__controls {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 0.5rem;
 }
 .rm-skills-layout__label {
   display: inline-flex;
@@ -772,8 +1034,9 @@
 }
 .rm-skills-layout__select {
   min-width: 15rem;
-  /* Same height as the regular-size "Rewrite paragraph" button beside it. */
-  padding: 0.5rem 2rem 0.5rem 0.65rem;
+  /* Same height as the action buttons ("Edit paragraph", "Rewrite paragraph"). */
+  min-height: var(--rm-action-h, 2.5rem);
+  padding: 0 2rem 0 0.65rem;
   border: 1px solid var(--line-strong, rgba(148, 163, 184, 0.4));
   border-radius: 0.5rem;
   background-color: var(--surface, #fff);
@@ -793,7 +1056,7 @@
     flex: 1 1 100%;
     min-width: 0;
   }
-  .rm-skills-layout > .ui-btn {
+  .rm-skills-layout__controls > .ui-btn {
     flex: 1 1 100%;
   }
 }
@@ -849,7 +1112,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 0.5rem 0.75rem;
   padding: 0.55rem 0.75rem;
   border: 1px solid color-mix(in srgb, var(--color-danger-text, #b00020) 35%, transparent);
@@ -857,7 +1120,7 @@
   background: color-mix(in srgb, var(--color-danger-text, #b00020) 7%, transparent);
   color: var(--color-danger-text, #b00020);
   font-size: 0.85rem;
-  text-align: right;
+  text-align: left;
 }
 /* Hand edit of the skills paragraph, in place in the CV
    (SkillsParagraphEditor.tsx). Screen-only, in the app's own UI type so it

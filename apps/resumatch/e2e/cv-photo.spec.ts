@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   E2E_PLATFORM_USER_ID,
   expect,
+  openCvAppearance,
   seedTailoredResume,
   signInWithPicture,
   test,
@@ -79,6 +80,7 @@ test("add a photo, show it on the CV, the PDF and the DOCX, then remove it", asy
   expect((await docx.body()).toString("latin1")).toContain("word/media/");
 
   // Off for this CV only: the preview and the DOCX both drop it.
+  await openCvAppearance(page);
   const toggle = page.getByTestId("cv-photo-toggle");
   await expect(toggle).toBeChecked();
   await toggle.uncheck();

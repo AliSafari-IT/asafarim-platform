@@ -15,9 +15,13 @@ import type { PdfStatusView } from "../../lib/documentPdfs/describe";
  * - no cover letter: add one;
  * - otherwise: Send application, always. "Save to applications" already
  *   made the PDFs; any still missing are made when the composer opens.
- *   "Create PDFs" beside it is an optional refresh (server-side, the same
- *   layout as the printed PDF); it only adds PDFs for documents that
- *   changed.
+ *   On application cards, "Create PDFs" beside it is an optional refresh
+ *   (server-side, the same layout as the printed PDF); it only adds PDFs
+ *   for documents that changed. It is not a download: the PDFs are the
+ *   email's attachments. The CV and cover-letter pages (`layout="toolbar"`)
+ *   leave it out, because the composer that Send application opens already
+ *   makes missing PDFs and offers "Make a new PDF" for out-of-date ones,
+ *   and their Download buttons are where files are downloaded.
  */
 export function SendApplicationEntry({
   tailoredResumeId,
@@ -125,22 +129,26 @@ export function SendApplicationEntry({
       >
         {phase === "opening" ? t("resumatch.send.entry.opening") : t("resumatch.send.entry.send")}
       </Button>
-      <Button
-        variant="ghost"
-        size={layout === "card" ? "sm" : "md"}
-        onClick={createPdfs}
-        disabled={phase !== "idle"}
-        data-testid="create-pdfs"
-        aria-describedby={hintId}
-      >
-        {phase === "creating" ? t("resumatch.send.entry.creatingPdfs") : t("resumatch.send.entry.createPdfs")}
-      </Button>
+      {layout === "card" ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={createPdfs}
+          disabled={phase !== "idle"}
+          data-testid="create-pdfs"
+          aria-describedby={hintId}
+        >
+          {phase === "creating" ? t("resumatch.send.entry.creatingPdfs") : t("resumatch.send.entry.createPdfs")}
+        </Button>
+      ) : null}
       <span className={layout === "card" ? "rm-send-entry__hint" : "sr-only"} id={hintId}>
         {!pdfs?.ready ? t("resumatch.send.entry.pdfsOnOpen") : stale ? t("resumatch.send.entry.pdfsStale") : t("resumatch.send.entry.pdfsReady")}
       </span>
-      <span className="rm-save-status" role="status" aria-live="polite">
-        {phase === "creating" ? t("resumatch.send.entry.creatingPdfsLong") : refreshed ? t(`resumatch.send.entry.refreshed.${refreshed}`) : ""}
-      </span>
+      {layout === "card" ? (
+        <span className="rm-save-status" role="status" aria-live="polite">
+          {phase === "creating" ? t("resumatch.send.entry.creatingPdfsLong") : refreshed ? t(`resumatch.send.entry.refreshed.${refreshed}`) : ""}
+        </span>
+      ) : null}
       {error ? (
         <span className="rm-send-entry__error" role="alert">
           {error}

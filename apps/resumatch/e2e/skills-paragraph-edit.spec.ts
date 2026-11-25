@@ -1,4 +1,4 @@
-import { expect, seedTailoredResume, test } from "./fixtures";
+import { expect, openCvAppearance, seedTailoredResume, test } from "./fixtures";
 
 /**
  * Hand-editing the CV's skills paragraph: "Edit paragraph" opens it in
@@ -19,6 +19,7 @@ test.beforeEach(async () => {
 
 async function writeParagraph(page: import("@playwright/test").Page) {
   await page.goto(`/tailor/${CV_ID}/preview`);
+  await openCvAppearance(page);
   await page.getByTestId("cv-skills-layout").selectOption("paragraph");
   await expect(page.getByTestId("cv-skills-edit")).toBeVisible();
 }
@@ -40,8 +41,7 @@ test("edit the paragraph in place, keep it after a reload, print and export it",
   await expect(input).toHaveValue(before);
   await expect(page.getByTestId("cv-skills-status")).toContainText("Editing the paragraph");
   // Nothing downloads text that is still being changed.
-  await expect(page.getByRole("button", { name: "Download PDF" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Download DOCX" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Download", exact: true })).toBeDisabled();
   await expect(page.getByTestId("cv-skills-layout")).toBeDisabled();
   await expect(page.getByTestId("cv-skills-rewrite")).toBeDisabled();
 
@@ -52,7 +52,7 @@ test("edit the paragraph in place, keep it after a reload, print and export it",
   await expect(paragraph).toHaveText(EDITED);
   await expect(page.getByTestId("cv-skills-status")).toContainText("now use your edited paragraph");
   await expect(page.getByTestId("cv-skills-edit")).toBeFocused();
-  await expect(page.getByRole("button", { name: "Download PDF" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Download", exact: true })).toBeEnabled();
   // Every sentence names listed skills only: no advice.
   await expect(page.getByTestId("cv-skills-advice")).toHaveCount(0);
 

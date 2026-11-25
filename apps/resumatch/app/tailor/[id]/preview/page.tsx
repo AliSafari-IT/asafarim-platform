@@ -21,8 +21,8 @@ import { SkillsPendingProvider } from "../../../../components/tailoring/SkillsPe
 import { effectiveSkillsLayout, profileSkillCategories, resolveSkillsDisplay } from "../../../../lib/tailoring/skillsLayout";
 import { FooterDate } from "../../../components/app/FooterMeta";
 import { CoverageReport } from "./CoverageReport";
-import { DocxButton } from "./DocxButton";
-import { PrintButton } from "../../../../components/tailoring/PrintButton";
+import { DownloadMenu } from "./DownloadMenu";
+import { CvAppearance } from "./CvAppearance";
 import { QualityChecklist } from "./QualityChecklist";
 import { SaveApplicationButton } from "./SaveApplicationButton";
 import { SendApplicationEntry } from "../../../../components/applicationEmail/SendApplicationEntry";
@@ -134,6 +134,19 @@ export default async function TailoredResumePreviewPage({
       })
     : [];
 
+  // What "CV appearance" says while it is closed.
+  const photoSummary = !profilePhoto
+    ? "resumatch.preview.appearance.noPhoto"
+    : showPhoto
+      ? "resumatch.preview.appearance.photoShown"
+      : "resumatch.preview.appearance.photoHidden";
+  const appearanceSummary = [
+    t(photoSummary),
+    skillsDisplay ? t(`resumatch.preview.skillsLayout.${effectiveSkillsLayout(skillsInput)}`) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   const jobLabel = [row.targetJob.title, row.targetJob.employer].filter(Boolean).join(" · ");
 
   // "Send application" once the CV and its letter both have PDFs; otherwise
@@ -178,22 +191,28 @@ export default async function TailoredResumePreviewPage({
         <Alert tone="warning">{t("resumatch.preview.coverLetterFailed")}</Alert>
       ) : null}
 
-      {/* Two rows of same-size buttons: the CV itself (download, save), then
-          where to go next (its cover letter, back to tailoring). Each row
-          wraps on its own, so a button never ends up alone on a line. */}
-      <div className="rm-preview-toolbar">
-        <div className="rm-preview-toolbar__group">
-          <PrintButton />
-          <DocxButton id={id} />
-          <SaveApplicationButton
-            targetJobId={row.targetJobId}
-            tailoredResumeId={id}
-            hasCoverLetter={Boolean(row.coverLetter)}
-            savedApplicationId={application?.id ?? null}
-          />
-        </div>
-        {row.coverLetter ? (
-          <div className="rm-preview-toolbar__group">
+      {/* The action area, in the order a candidate works through it: where
+          this CV stands, the main actions (review and edit, then download or
+          send), the supporting links, then the CV's appearance settings,
+          folded away. Left-aligned to the CV's own column. */}
+      <section className="rm-preview-actions" aria-label={t("resumatch.preview.actionsLabel")} data-testid="cv-actions">
+        <SaveApplicationButton
+          targetJobId={row.targetJobId}
+          tailoredResumeId={id}
+          hasCoverLetter={Boolean(row.coverLetter)}
+          savedApplicationId={application?.id ?? null}
+        />
+
+        <div className="rm-preview-actions__main" data-testid="cv-actions-main">
+          <div className="rm-preview-actions__group">
+            {/* Back to this CV's review, filled in as it was saved, with no
+                AI call; saving updates this CV (lib/tailoring/editSaved.ts). */}
+            <Link href={`/tailor?edit=${id}#tailor-flow`} className="ui-btn ui-btn--ghost" data-testid="edit-saved">
+              {t("resumatch.preview.edit")}
+            </Link>
+            <DownloadMenu id={id} />
+          </div>
+          {row.coverLetter ? (
             <SendApplicationEntry
               tailoredResumeId={id}
               applicationId={application?.id ?? null}
@@ -201,48 +220,43 @@ export default async function TailoredResumePreviewPage({
               pdfs={pdfStatus ? describePdfStatus(pdfStatus) : null}
               layout="toolbar"
             />
-          </div>
-        ) : null}
-        <div className="rm-preview-toolbar__group">
+          ) : null}
+        </div>
+
+        <div className="rm-preview-actions__secondary">
           {coverLetterId ? (
-            <span className="rm-preview-toolbar__item">
-              <Link href={`/cover-letter/${coverLetterId}/preview`} className="ui-btn ui-btn--ghost">
-                {t("resumatch.preview.viewCoverLetter")}
-              </Link>
+            <Link href={`/cover-letter/${coverLetterId}/preview`} className="rm-preview-link" data-testid="view-cover-letter">
+              {t("resumatch.preview.viewCoverLetter")}
               <LanguageBadge language={row.coverLetter?.outputLanguage} coverLetter />
-            </span>
+            </Link>
           ) : (
-            <>
-              <span className="rm-preview-toolbar__hint">{t("resumatch.preview.noCoverLetter")}</span>
-              <Link href={`/tailor?from=${id}&letter=1#tailor-flow`} className="ui-btn ui-btn--ghost">
+            <span className="rm-preview-actions__hint">
+              {t("resumatch.preview.noCoverLetter")}{" "}
+              <Link href={`/tailor?from=${id}&letter=1#tailor-flow`} className="rm-preview-link">
                 {t("resumatch.preview.addCoverLetter")}
               </Link>
-            </>
+            </span>
           )}
-          {/* Back to this CV's review, filled in as it was saved, with no
-              AI call; saving updates this CV (lib/tailoring/editSaved.ts). */}
-          <Link href={`/tailor?edit=${id}#tailor-flow`} className="ui-btn ui-btn--ghost" data-testid="edit-saved">
-            {t("resumatch.preview.edit")}
-          </Link>
           {/* Back to the tailoring step on the same job, with this CV's
               choices filled in; the regenerated CV is saved as a new one. */}
-          <Link href={`/tailor?from=${id}#tailor-flow`} className="ui-btn ui-btn--ghost" data-testid="edit-regenerate">
+          <Link href={`/tailor?from=${id}#tailor-flow`} className="rm-preview-link" data-testid="edit-regenerate">
             {t("resumatch.preview.regenerate")}
           </Link>
         </div>
-      </div>
 
-      <PhotoToggle id={id} hasPhoto={profilePhoto !== null} initialShown={showPhoto} />
-
-      {skillsDisplay ? (
-        <SkillsLayoutPicker
-          id={id}
-          layout={effectiveSkillsLayout(skillsInput)}
-          paragraph={row.skillsParagraph}
-          edited={handEdited}
-          advice={skillsAdvice}
-        />
-      ) : null}
+        <CvAppearance summary={appearanceSummary} forceOpen={skillsAdvice.length > 0}>
+          <PhotoToggle id={id} hasPhoto={profilePhoto !== null} initialShown={showPhoto} />
+          {skillsDisplay ? (
+            <SkillsLayoutPicker
+              id={id}
+              layout={effectiveSkillsLayout(skillsInput)}
+              paragraph={row.skillsParagraph}
+              edited={handEdited}
+              advice={skillsAdvice}
+            />
+          ) : null}
+        </CvAppearance>
+      </section>
 
       {coverage ? <CoverageReport coverage={coverage} /> : null}
       <QualityChecklist quality={quality} />
