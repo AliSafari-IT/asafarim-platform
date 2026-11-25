@@ -3135,6 +3135,22 @@
   margin-bottom: 1rem;
 }
 
+/* Issue #756: one-line AI budget on /tailor. */
+[data-app="resumatch"] .rm-budget-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+[data-app="resumatch"] .rm-budget-line__pause {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 [data-app="resumatch"] .rm-cost-section {
   margin-top: 2rem;
 }

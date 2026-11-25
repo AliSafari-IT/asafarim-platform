@@ -27,6 +27,7 @@ import {
 } from "../../lib/tailoring/reviewEdits";
 import type { RegenerateSeed } from "../../lib/tailoring/regenerate";
 import type { ReviewBulletMeta } from "../../lib/tailoring/reviewEdits";
+import { degradedMessage, isDegradedReason, type DegradedReason } from "../../lib/tailoring/degradedReason";
 import { ownSummaryOf, type SavedReviewSeed } from "../../lib/tailoring/editSaved";
 import type { JobFit } from "../../lib/tailoring/jobFit";
 import {
@@ -104,6 +105,9 @@ interface ReviewCoverLetter {
   paragraphs: string[];
   signOff: string;
   degraded: boolean;
+  /** #756: why there is no letter, for a specific message; null when the
+   *  server didn't say (the generic message is shown). */
+  degradedReason: DegradedReason | "grounding" | null;
   promptVersion: string;
   modelVersion: string;
   /** #642: the language the letter was asked for, or null for none. */
@@ -126,6 +130,10 @@ interface ReviewState {
   promptVersion: string;
   modelVersion: string;
   degraded: boolean;
+  /** #756: why the CV wasn't AI-tailored; null for the generic message. */
+  degradedReason: DegradedReason | null;
+  /** #756: when the monthly AI budgets reset (YYYY-MM-DD, UTC). */
+  budgetResetsOn: string | null;
   /** The candidate's own freeform steering text for this run (issue #431),
    *  echoed back from generate-preview so confirm() can re-send it for
    *  provenance without re-deriving it. */
@@ -312,6 +320,8 @@ function reviewFromSaved(saved: SavedReviewSeed, nextKey: () => string): ReviewS
     promptVersion: "",
     modelVersion: "",
     degraded: false,
+    degradedReason: null,
+    budgetResetsOn: null,
     instructions: saved.instructions,
     outputLanguage: saved.outputLanguage,
     lowFit: false,
@@ -346,6 +356,7 @@ function reviewFromSaved(saved: SavedReviewSeed, nextKey: () => string): ReviewS
           paragraphs: saved.coverLetter.paragraphs,
           signOff: saved.coverLetter.signOff,
           degraded: false,
+          degradedReason: null,
           promptVersion: "",
           modelVersion: "",
           outputLanguage: saved.coverLetter.outputLanguage,
@@ -671,6 +682,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
           | {
               suggestion: { greeting: string; paragraphs: string[]; signOff: string } | null;
               degraded: boolean;
+              degradedReason?: unknown;
               promptVersion: string;
               modelVersion: string;
               outputLanguage: string | null;
@@ -727,6 +739,8 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
           promptVersion: body.promptVersion,
           modelVersion: body.modelVersion,
           degraded: body.degraded,
+          degradedReason: body.degraded && isDegradedReason(body.degradedReason) ? body.degradedReason : null,
+          budgetResetsOn: typeof body.budgetResetsOn === "string" ? body.budgetResetsOn : null,
           instructions: typeof body.instructions === "string" ? body.instructions : null,
           outputLanguage: isOutputLanguage(body.outputLanguage) ? body.outputLanguage : null,
           lowFit: body.lowFit === true,
@@ -770,6 +784,10 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
                 paragraphs: coverLetterResult.suggestion?.paragraphs ?? [],
                 signOff: coverLetterResult.suggestion?.signOff ?? "",
                 degraded: coverLetterResult.degraded || !coverLetterResult.suggestion,
+                degradedReason:
+                  coverLetterResult.degradedReason === "grounding" || isDegradedReason(coverLetterResult.degradedReason)
+                    ? coverLetterResult.degradedReason
+                    : null,
                 promptVersion: coverLetterResult.promptVersion,
                 modelVersion: coverLetterResult.modelVersion,
                 outputLanguage: isOutputLanguage(coverLetterResult.outputLanguage) ? coverLetterResult.outputLanguage : null,
@@ -1325,7 +1343,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
             ) : null}
             {state.review.degraded ? (
               <Alert tone="warning">
-                {t("resumatch.review.degraded")}
+                {degradedMessage(t, "resumatch.review.degraded", state.review.degradedReason, state.review.budgetResetsOn, pageLocale)}
                 {state.review.outputLanguage ? ` ${t("resumatch.review.degradedLanguage")}` : ""}
               </Alert>
             ) : (
@@ -1497,7 +1515,13 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
 
                 {state.review.coverLetter.degraded ? (
                   <Alert tone="warning">
-                    {t("resumatch.review.cl.degraded")}
+                    {degradedMessage(
+                      t,
+                      "resumatch.review.cl.degraded",
+                      state.review.coverLetter.degradedReason,
+                      state.review.budgetResetsOn,
+                      pageLocale,
+                    )}
                     {state.review.coverLetter.outputLanguage
                       ? ` ${t("resumatch.review.cl.degradedLanguage", {
                           language: languageName(state.review.coverLetter.outputLanguage),

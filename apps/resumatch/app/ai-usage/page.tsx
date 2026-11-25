@@ -7,7 +7,7 @@ import { CostRangeTooLargeError, buildCostTimeline } from "../../lib/costs/read"
 import { RESUMATCH_OPERATIONS, parseCostQuery } from "../../lib/costs/query";
 import { coveragePercent, operationLabel, type Translate } from "../../lib/costs/format";
 import { getCurrentWorkspace } from "../../lib/workspace";
-import { usageSummary, type UsageSummary } from "../../lib/tailoring/ai/quota";
+import { budgetStatus, type BudgetStatus } from "../../lib/tailoring/ai/quota";
 import { BudgetLine } from "./BudgetLine";
 import { CostGroupList, CostTimelineList } from "./CostLists";
 import { RangeNote } from "./LocalTime";
@@ -67,9 +67,9 @@ export default async function AiUsagePage({ searchParams }: { searchParams: Sear
 
   // Issue #514: this month's spend against the budget in effect. A failed
   // read hides the line rather than failing the whole page.
-  let budget: UsageSummary | null = null;
+  let budget: BudgetStatus | null = null;
   try {
-    budget = await usageSummary(workspace.id);
+    budget = await budgetStatus(workspace.id);
   } catch {
     budget = null;
   }

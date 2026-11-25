@@ -250,6 +250,23 @@ export const SETTING_DEFINITIONS: readonly SettingDefinition[] = [
     unit: "USD",
     highImpact: true,
   },
+  {
+    key: "resumatch.aiGlobalMonthlyBudgetUsd",
+    label: "ResuMatch AI service-wide monthly budget",
+    description:
+      "Monthly AI spend ceiling in USD across all ResuMatch workspaces together. Once this month's total reaches it, every AI step falls back until the 1st (UTC), and candidates are told the service-wide budget is used up. Overrides RESUMATCH_AI_GLOBAL_MONTHLY_BUDGET_USD while set; reset to fall back to the env var, and with neither set there is no service-wide ceiling. 0 freezes AI spend for everyone. ResuMatch may take up to a minute to pick up a change.",
+    group: "operations",
+    scope: "resumatch",
+    type: "number",
+    // Shown in the console only. ResuMatch ignores the catalog default and
+    // applies no service-wide ceiling until an admin sets an override or the
+    // env var is set (apps/resumatch/lib/tailoring/ai/quota.ts).
+    defaultValue: 200,
+    min: 0,
+    max: 100000,
+    unit: "USD",
+    highImpact: true,
+  },
   // ── Outbound email (SMTP) ──────────────────────────────────────────────
   // One relay for the whole platform: every mail on the platform goes
   // through @asafarim/auth's mailer. Each key is "admin override, else its

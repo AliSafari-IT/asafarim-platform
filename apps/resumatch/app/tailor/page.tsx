@@ -20,6 +20,8 @@ import { buildSavedReviewSeed, type SavedReviewSeed } from "../../lib/tailoring/
 import { parseTailoredResumeContent } from "../../lib/tailoring/ai/schema";
 import { parseCoverLetterContent } from "../../lib/tailoring/ai/coverLetter/schema";
 import { logError } from "../../lib/observability/logger";
+import { budgetStatus, type BudgetStatus } from "../../lib/tailoring/ai/quota";
+import { BudgetLine } from "../ai-usage/BudgetLine";
 import { getWritingPreferences } from "../../lib/writingPreferences/store";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -36,7 +38,7 @@ export default async function TailorPage({
   searchParams: Promise<{ from?: string; letter?: string; edit?: string }>;
 }) {
   const { from, letter, edit } = await searchParams;
-  const { t } = await getTranslator();
+  const { t, locale } = await getTranslator();
   const workspace = await getCurrentWorkspace();
   if (!workspace) {
     return (
@@ -129,6 +131,14 @@ export default async function TailorPage({
         logError("tailoring.edit.seed_failed", error, { tailoringId: source.id });
       }
     }
+  }
+  // Issue #756: "AI this month: $X of $Y. Resets on <date>." A failed
+  // read hides the line rather than failing the page.
+  let budget: BudgetStatus | null = null;
+  try {
+    budget = await budgetStatus(workspace.id);
+  } catch (error) {
+    logError("tailoring.budget_line_failed", error, {});
   }
   const since = new Date(Date.now() - ACTIVITY_DAYS * 86_400_000);
   const [history, coverLetters, degraded, jobs, recent, recentLetters, recentApplied, recentStatusChanges] = await Promise.all([
@@ -227,6 +237,8 @@ export default async function TailorPage({
         lead={t("resumatch.tailor.hero.lead")}
         aside={<JourneyTracker counts={journey} current="tailor" />}
       />
+
+      {budget ? <BudgetLine budget={budget} t={t} locale={locale} compact /> : null}
 
       <section id="tailor-flow" className="rx-flow" aria-label={t("resumatch.tailor.flowAria")}>
         <TailorFlow

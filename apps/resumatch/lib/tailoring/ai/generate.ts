@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { degradedReasonOf, type DegradedReason } from "../degradedReason";
 import { getJobmatchDb } from "../../db/client";
 import { getEnv, type ResuMatchAiProvider } from "../../env";
 import { logError } from "../../observability/logger";
@@ -21,6 +22,9 @@ export interface TailorProviderCallResult {
    *  over unchanged. */
   suggestions: TailorSuggestions | null;
   degraded: boolean;
+  /** Issue #756: why the call degraded (null when it did not), so the
+   *  review can tell a used-up budget from a provider failure. */
+  degradedReason: DegradedReason | null;
   promptVersion: string;
   /** The model and provider that served the call: the fallback's when the
    *  fallback served it (issue #511), else the primary's. */
@@ -77,6 +81,7 @@ export async function runTailorProviderCall(
 
   let suggestions: TailorSuggestions | null = null;
   let degraded = false;
+  let degradedReason: DegradedReason | null = null;
 
   const attribution: CostAttribution = {
     subjectType: cost.subjectType ?? "target_job",
@@ -144,10 +149,11 @@ export async function runTailorProviderCall(
   } else {
     logError("tailoring.generate.degraded", result.error, { workspaceId, targetJobId, provider: providerName });
     degraded = true;
+    degradedReason = degradedReasonOf(result.error);
     suggestions = null;
   }
 
-  return { suggestions, degraded, promptVersion: prompt.version, modelVersion, providerName };
+  return { suggestions, degraded, degradedReason, promptVersion: prompt.version, modelVersion, providerName };
 }
 
 /**

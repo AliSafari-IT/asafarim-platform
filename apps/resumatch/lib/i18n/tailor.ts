@@ -121,6 +121,12 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.review.title": "Review before saving",
     "resumatch.review.degraded":
       "AI tailoring isn't available right now (budget or provider issue). You can still save your confirmed profile as this tailored CV, unchanged.",
+    "resumatch.review.degraded.workspace_budget":
+      "Your monthly AI budget is used up, so this CV wasn't AI-tailored. It resets on {date}. You can still save your confirmed profile as this tailored CV, unchanged.",
+    "resumatch.review.degraded.global_budget":
+      "The service-wide AI budget for this month is used up, so this CV wasn't AI-tailored. It resets on {date}. You can still save your confirmed profile as this tailored CV, unchanged.",
+    "resumatch.review.degraded.provider":
+      "The AI provider isn't available right now, so this CV wasn't AI-tailored. Try again later. You can still save your confirmed profile as this tailored CV, unchanged.",
     "resumatch.review.degradedLanguage": "The CV language you picked isn't applied to it.",
     "resumatch.review.intro":
       "Nothing here is saved yet. Edit any text, uncheck a bullet you don't want, and confirm when you're happy with it.",
@@ -178,6 +184,14 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.review.bullet.fromProfile": "From your profile",
     "resumatch.review.bullet.fallback": "With no bullet ticked, this role shows your profile's own description.",
     "resumatch.review.cl.degraded": "A cover letter couldn't be drafted right now (budget or provider issue).",
+    "resumatch.review.cl.degraded.workspace_budget":
+      "No cover letter was drafted: your monthly AI budget is used up (it resets on {date}).",
+    "resumatch.review.cl.degraded.global_budget":
+      "No cover letter was drafted: the service-wide AI budget for this month is used up (it resets on {date}).",
+    "resumatch.review.cl.degraded.provider":
+      "No cover letter was drafted: the AI provider isn't available right now. Try again later.",
+    "resumatch.review.cl.degraded.grounding":
+      "No cover letter was drafted: nothing in the draft could be backed by your profile, so it was left out.",
     "resumatch.review.cl.degradedLanguage": "It wasn't written in {language}.",
     "resumatch.review.cl.cvStillSaves": "The CV above will still save.",
     "resumatch.review.cl.removedClaims":
@@ -344,6 +358,12 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.review.title": "Nakijken vóór opslaan",
     "resumatch.review.degraded":
       "AI-afstemming is nu niet beschikbaar (budget- of providerprobleem). Je kunt je bevestigde profiel wel ongewijzigd als dit afgestemde cv opslaan.",
+    "resumatch.review.degraded.workspace_budget":
+      "Je maandelijkse AI-budget is op, dus dit cv is niet door AI afgestemd. Het wordt op {date} vernieuwd. Je kunt je bevestigde profiel wel ongewijzigd als dit afgestemde cv opslaan.",
+    "resumatch.review.degraded.global_budget":
+      "Het AI-budget voor de hele dienst is deze maand op, dus dit cv is niet door AI afgestemd. Het wordt op {date} vernieuwd. Je kunt je bevestigde profiel wel ongewijzigd als dit afgestemde cv opslaan.",
+    "resumatch.review.degraded.provider":
+      "De AI-provider is nu niet beschikbaar, dus dit cv is niet door AI afgestemd. Probeer het later opnieuw. Je kunt je bevestigde profiel wel ongewijzigd als dit afgestemde cv opslaan.",
     "resumatch.review.degradedLanguage": "De cv-taal die je koos, wordt er niet op toegepast.",
     "resumatch.review.intro":
       "Hier is nog niets opgeslagen. Bewerk tekst, vink een punt uit dat je niet wilt, en bevestig als je tevreden bent.",
@@ -401,6 +421,14 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.review.bullet.fromProfile": "Uit je profiel",
     "resumatch.review.bullet.fallback": "Zonder aangevinkt punt toont deze functie de beschrijving uit je profiel.",
     "resumatch.review.cl.degraded": "Er kon nu geen motivatiebrief worden opgesteld (budget- of providerprobleem).",
+    "resumatch.review.cl.degraded.workspace_budget":
+      "Er is geen motivatiebrief opgesteld: je maandelijkse AI-budget is op (het wordt op {date} vernieuwd).",
+    "resumatch.review.cl.degraded.global_budget":
+      "Er is geen motivatiebrief opgesteld: het AI-budget voor de hele dienst is deze maand op (het wordt op {date} vernieuwd).",
+    "resumatch.review.cl.degraded.provider":
+      "Er is geen motivatiebrief opgesteld: de AI-provider is nu niet beschikbaar. Probeer het later opnieuw.",
+    "resumatch.review.cl.degraded.grounding":
+      "Er is geen motivatiebrief opgesteld: niets in het concept werd door je profiel gestaafd, dus het is weggelaten.",
     "resumatch.review.cl.degradedLanguage": "Hij werd niet in het {language} geschreven.",
     "resumatch.review.cl.cvStillSaves": "Het cv hierboven wordt wel opgeslagen.",
     "resumatch.review.cl.removedClaims":
@@ -567,6 +595,12 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.review.title": "Vérifier avant d’enregistrer",
     "resumatch.review.degraded":
       "L’adaptation par l’IA n’est pas disponible pour le moment (problème de budget ou de fournisseur). Vous pouvez tout de même enregistrer votre profil confirmé tel quel comme CV adapté.",
+    "resumatch.review.degraded.workspace_budget":
+      "Votre budget IA mensuel est épuisé, ce CV n’a donc pas été adapté par l’IA. Il sera renouvelé le {date}. Vous pouvez tout de même enregistrer votre profil confirmé tel quel comme CV adapté.",
+    "resumatch.review.degraded.global_budget":
+      "Le budget IA de l’ensemble du service est épuisé pour ce mois, ce CV n’a donc pas été adapté par l’IA. Il sera renouvelé le {date}. Vous pouvez tout de même enregistrer votre profil confirmé tel quel comme CV adapté.",
+    "resumatch.review.degraded.provider":
+      "Le fournisseur d’IA n’est pas disponible pour le moment, ce CV n’a donc pas été adapté par l’IA. Réessayez plus tard. Vous pouvez tout de même enregistrer votre profil confirmé tel quel comme CV adapté.",
     "resumatch.review.degradedLanguage": "La langue de CV choisie n’y est pas appliquée.",
     "resumatch.review.intro":
       "Rien n’est encore enregistré. Modifiez le texte, décochez un point dont vous ne voulez pas, et confirmez quand cela vous convient.",
@@ -625,6 +659,14 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.review.bullet.fallback": "Sans point coché, ce poste affiche la description de votre profil.",
     "resumatch.review.cl.degraded":
       "Aucune lettre de motivation n’a pu être rédigée pour le moment (problème de budget ou de fournisseur).",
+    "resumatch.review.cl.degraded.workspace_budget":
+      "Aucune lettre de motivation n’a été rédigée : votre budget IA mensuel est épuisé (renouvelé le {date}).",
+    "resumatch.review.cl.degraded.global_budget":
+      "Aucune lettre de motivation n’a été rédigée : le budget IA de l’ensemble du service est épuisé pour ce mois (renouvelé le {date}).",
+    "resumatch.review.cl.degraded.provider":
+      "Aucune lettre de motivation n’a été rédigée : le fournisseur d’IA n’est pas disponible pour le moment. Réessayez plus tard.",
+    "resumatch.review.cl.degraded.grounding":
+      "Aucune lettre de motivation n’a été rédigée : rien dans le brouillon n’était étayé par votre profil, il a donc été écarté.",
     "resumatch.review.cl.degradedLanguage": "Elle n’a pas été rédigée en {language}.",
     "resumatch.review.cl.cvStillSaves": "Le CV ci-dessus sera tout de même enregistré.",
     "resumatch.review.cl.removedClaims":
@@ -792,6 +834,12 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.review.title": "Vor dem Speichern prüfen",
     "resumatch.review.degraded":
       "Die KI-Anpassung ist gerade nicht verfügbar (Budget- oder Anbieterproblem). Du kannst dein bestätigtes Profil trotzdem unverändert als diesen angepassten Lebenslauf speichern.",
+    "resumatch.review.degraded.workspace_budget":
+      "Dein monatliches KI-Budget ist aufgebraucht, daher wurde dieser Lebenslauf nicht per KI angepasst. Es wird am {date} erneuert. Du kannst dein bestätigtes Profil trotzdem unverändert als diesen angepassten Lebenslauf speichern.",
+    "resumatch.review.degraded.global_budget":
+      "Das KI-Budget des gesamten Dienstes ist für diesen Monat aufgebraucht, daher wurde dieser Lebenslauf nicht per KI angepasst. Es wird am {date} erneuert. Du kannst dein bestätigtes Profil trotzdem unverändert als diesen angepassten Lebenslauf speichern.",
+    "resumatch.review.degraded.provider":
+      "Der KI-Anbieter ist gerade nicht erreichbar, daher wurde dieser Lebenslauf nicht per KI angepasst. Versuche es später erneut. Du kannst dein bestätigtes Profil trotzdem unverändert als diesen angepassten Lebenslauf speichern.",
     "resumatch.review.degradedLanguage": "Die gewählte Sprache wird darauf nicht angewendet.",
     "resumatch.review.intro":
       "Hier ist noch nichts gespeichert. Bearbeite Text, entferne das Häkchen bei Punkten, die du nicht willst, und bestätige, wenn du zufrieden bist.",
@@ -850,6 +898,14 @@ export const tailorDictionaries: Dictionaries = {
     "resumatch.review.bullet.fallback": "Ohne angehakten Stichpunkt zeigt diese Position die Beschreibung aus Ihrem Profil.",
     "resumatch.review.cl.degraded":
       "Ein Anschreiben konnte gerade nicht entworfen werden (Budget- oder Anbieterproblem).",
+    "resumatch.review.cl.degraded.workspace_budget":
+      "Es wurde kein Anschreiben erstellt: Dein monatliches KI-Budget ist aufgebraucht (Erneuerung am {date}).",
+    "resumatch.review.cl.degraded.global_budget":
+      "Es wurde kein Anschreiben erstellt: Das KI-Budget des gesamten Dienstes ist für diesen Monat aufgebraucht (Erneuerung am {date}).",
+    "resumatch.review.cl.degraded.provider":
+      "Es wurde kein Anschreiben erstellt: Der KI-Anbieter ist gerade nicht erreichbar. Versuche es später erneut.",
+    "resumatch.review.cl.degraded.grounding":
+      "Es wurde kein Anschreiben erstellt: Nichts im Entwurf war durch dein Profil belegt, daher wurde er weggelassen.",
     "resumatch.review.cl.degradedLanguage": "Es wurde nicht auf {language} geschrieben.",
     "resumatch.review.cl.cvStillSaves": "Der Lebenslauf oben wird trotzdem gespeichert.",
     "resumatch.review.cl.removedClaims":
