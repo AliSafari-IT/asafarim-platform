@@ -4,6 +4,7 @@ import { evidenceSourceId, renderProfessionalEvidence, type GenerationEvidence }
 import { assertNoContactDetails, buildProfileUnits, unitText, type ProfileUnit } from "../buildProfileText";
 import { splitSentences } from "../ai/coverLetter/claims";
 import { contentStems } from "../jobFit";
+import { degreeRequirement, educationMeets } from "./degrees";
 import { extractRequirements, termStems, yearMentions, type JobRequirement } from "./requirements";
 
 /**
@@ -247,6 +248,9 @@ function assess(
   // Terms whose positive mention sits near an "N years" of at least the
   // posting's threshold.
   const yearsBacked = new Set<string>();
+  // Terms an education entry itself mentions: all a degree requirement may
+  // rest on.
+  const educationTerms = new Set<string>();
   for (const source of sources) {
     let hits = 0;
     for (const fact of source.facts) {
@@ -259,6 +263,7 @@ function assess(
             continue;
           }
           supported.add(term);
+          if (source.id.startsWith("edu:")) educationTerms.add(term);
           hits += 1;
           if (requirement.minYears !== null && fact.years.some((y) => y.years >= requirement.minYears! && Math.abs(y.index - word.index) <= NEGATION_REACH)) {
             yearsBacked.add(term);
@@ -268,6 +273,25 @@ function assess(
     }
     if (hits > 0) bySource.push({ id: source.id, hits });
   }
+  // A degree requirement ("Bachelor- of masterdiploma") is met by an
+  // education entry at or above its level that names any field it asks
+  // for (degrees.ts): "MSc" and "PhD" never share a word with "master" or
+  // "diploma", so term matching alone asked a doctorate holder whether
+  // they had a degree.
+  const degree = degreeRequirement(requirement);
+  let degreeMet = false;
+  if (degree) {
+    for (const source of sources) {
+      if (!source.id.startsWith("edu:")) continue;
+      const stems = new Set(source.facts.flatMap((f) => [...f.stems]));
+      if (!educationMeets(degree, source.facts.map((f) => f.text).join(" "), stems)) continue;
+      degreeMet = true;
+      for (const term of [...degree.degreeTerms, ...degree.fieldTerms]) supported.add(term);
+      const entry = bySource.find((s) => s.id === source.id);
+      if (entry) entry.hits += 1;
+      else bySource.push({ id: source.id, hits: 1 });
+    }
+  }
   // Supported needs most of the terms, every distinctive one ("React and
   // TypeScript" is not met by React alone), and a stated number of years
   // when the posting sets a threshold. Anything less stays unknown, so the
@@ -275,7 +299,11 @@ function assess(
   const needed = Math.ceil(requirement.terms.length / 2);
   const keys = requirement.keyTerms.length > 0 ? requirement.keyTerms : requirement.terms;
   const yearsOk = requirement.minYears === null || keys.some((t) => yearsBacked.has(t));
-  const isSupported = supported.size >= needed && requirement.keyTerms.every((t) => supported.has(t)) && yearsOk;
+  // A degree is a fact about education: "master" in a summary ("mentored
+  // master students") never supports one. An entry that names no level we
+  // know ("Graduaat Programmeren") still counts by its own words.
+  const backing = degree ? (degreeMet ? supported : educationTerms) : supported;
+  const isSupported = (degreeMet && yearsOk) || (backing.size >= needed && requirement.keyTerms.every((t) => backing.has(t)) && yearsOk);
   const deniedKey = [...denied].filter((t) => keys.includes(t));
   const profileDenies = deniedKey.some((t) => !supported.has(t));
   // Any key term both claimed and denied is a contradiction, even when
