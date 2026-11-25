@@ -15,6 +15,8 @@ import { cvShowsPhoto, photoSrc } from "../../../../lib/profile/photo";
 import { getProfilePhoto } from "../../../../lib/profile/photoStore";
 import { PhotoToggle } from "./PhotoToggle";
 import { SkillsLayoutPicker } from "./SkillsLayoutPicker";
+import { reviewHandEditedParagraph } from "../../../../lib/tailoring/ai/skillsParagraph/advice";
+import { candidateProfileSchema } from "../../../../lib/profile/contract";
 import { SkillsPendingProvider } from "../../../../components/tailoring/SkillsPending";
 import { effectiveSkillsLayout, profileSkillCategories, resolveSkillsDisplay } from "../../../../lib/tailoring/skillsLayout";
 import { FooterDate } from "../../../components/app/FooterMeta";
@@ -72,6 +74,7 @@ export default async function TailoredResumePreviewPage({
       showPhoto: true,
       skillsLayout: true,
       skillsParagraph: true,
+      skillsParagraphEditedAt: true,
       createdAt: true,
       profileVersion: { select: { content: true } },
       targetJobId: true,
@@ -117,6 +120,19 @@ export default async function TailoredResumePreviewPage({
     categoryOf: profileSkillCategories(row.profileVersion.content),
   };
   const skillsDisplay = resolveSkillsDisplay(skillsInput);
+  // A hand-edited paragraph keeps the candidate's words; the AI check's
+  // rules only point at sentences worth a second look (no AI call).
+  const handEdited = Boolean(row.skillsParagraphEditedAt && row.skillsParagraph?.trim());
+  const skillsAdvice = handEdited
+    ? reviewHandEditedParagraph({
+        paragraph: row.skillsParagraph ?? "",
+        skills: content.skills,
+        outputLanguage: row.outputLanguage,
+        // Advice only: a version that no longer parses still gets the
+        // skill-list rules, just not the profile-backed claim rules.
+        profileContent: candidateProfileSchema.safeParse(row.profileVersion.content).data ?? null,
+      })
+    : [];
 
   const jobLabel = [row.targetJob.title, row.targetJob.employer].filter(Boolean).join(" · ");
 
@@ -222,7 +238,9 @@ export default async function TailoredResumePreviewPage({
         <SkillsLayoutPicker
           id={id}
           layout={effectiveSkillsLayout(skillsInput)}
-          hasParagraph={Boolean(row.skillsParagraph?.trim())}
+          paragraph={row.skillsParagraph}
+          edited={handEdited}
+          advice={skillsAdvice}
         />
       ) : null}
 

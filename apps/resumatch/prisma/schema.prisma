@@ -439,6 +439,12 @@ model TailoredResume {
   /// until the candidate asks for one.
   skillsParagraph String?
 
+  /// When the candidate last edited skillsParagraph by hand on the CV
+  /// preview (lib/tailoring/ai/skillsParagraph/handEdit.ts). Null while the
+  /// paragraph is the AI's checked text; a new AI paragraph clears it.
+  /// Rewrite asks before replacing a hand edit. Rendering only.
+  skillsParagraphEditedAt DateTime?
+
   /// What the candidate changed by hand on the review screen
   /// (lib/tailoring/candidateEdits.ts): skills added or removed for this
   /// CV only, and bullets they wrote or rewrote. Already applied to

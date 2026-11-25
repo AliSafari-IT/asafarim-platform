@@ -99,8 +99,7 @@ export function ClassicTemplate({
       ) : null}
 
       {skillsDisplay ? (
-        <SkillsSection>
-          <h2>{labels.skills}</h2>
+        <SkillsSection heading={<h2>{labels.skills}</h2>}>
           <SkillsBlock display={skillsDisplay} labels={labels} />
         </SkillsSection>
       ) : null}

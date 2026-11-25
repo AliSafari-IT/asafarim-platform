@@ -4,14 +4,11 @@ import { log, logError } from "../../../observability/logger";
 import { runProviderCallWithBudget } from "../../../ai/runProviderCall";
 import { resolveFallbackProvider } from "../../../ai/fallbackProvider";
 import type { CostAttribution } from "../../../costs/ledger";
-import type { SkillCategory } from "../../../profile/skillCategories";
 import { getVersion } from "../../../profile/versions";
-import { buildProfileText } from "../../buildProfileText";
-import { isOutputLanguage, templateLabels, type OutputLanguage } from "../../language";
-import { groupSkillsForCv, profileSkillCategories } from "../../skillsLayout";
 import { parseTailoredResumeContent } from "../schema";
 import { recordBilledFailure, settleProviderCall, QuotaExceededError } from "../quota";
 import { checkSkillsParagraph } from "./check";
+import { skillsParagraphInputs } from "./inputs";
 import { renderSkillsParagraphPrompt } from "./prompts";
 import { SkillsParagraphProviderError } from "./provider";
 import { SKILLS_PARAGRAPH_MODEL_VERSIONS, getSkillsParagraphProvider } from "./registry";
@@ -43,21 +40,12 @@ export async function writeSkillsParagraph(
   const content = parseTailoredResumeContent(row.content);
   if (content.skills.length === 0) return { ok: false, reason: "no_skills" };
 
-  // A CV with no language applied (older, or degraded) was written from the
-  // profile as it stands; English is the honest default for its labels.
-  const language: OutputLanguage = isOutputLanguage(row.outputLanguage) ? row.outputLanguage : "en";
-  const labels = templateLabels(language);
   const version = await getVersion(workspaceId, row.profileVersionId);
-  const categoryOf = profileSkillCategories(version?.content);
-  const groups = groupSkillsForCv(content.skills, categoryOf).map(({ category, skills }) => ({
-    label: category ? labels.skillCategories[category as SkillCategory] : "",
-    skills,
-    category: category ?? null,
-  }));
-  // Only the headings the prompt actually showed back a word in the reply.
-  const categoryLabels = groups.map((group) => group.label).filter(Boolean);
-  // Evidence for the claim rules only; it never reaches the prompt.
-  const profileText = version ? buildProfileText(version.content).text : "";
+  const { language, groups, categoryLabels, profileText } = skillsParagraphInputs({
+    skills: content.skills,
+    outputLanguage: row.outputLanguage,
+    profileContent: version?.content,
+  });
 
   const primary = opts.provider ?? getEnv().aiProvider;
   const fallbackName = resolveFallbackProvider(primary);
@@ -153,7 +141,8 @@ export async function writeSkillsParagraph(
 
   await db.tailoredResume.updateMany({
     where: { id: tailoredResumeId, workspaceId },
-    data: { skillsParagraph: checked.paragraph, skillsLayout: "paragraph" },
+    // A fresh AI paragraph replaces any hand edit (the picker asks first).
+    data: { skillsParagraph: checked.paragraph, skillsLayout: "paragraph", skillsParagraphEditedAt: null },
   });
   return { ok: true, paragraph: checked.paragraph, removedSentences: checked.removedSentences };
 }

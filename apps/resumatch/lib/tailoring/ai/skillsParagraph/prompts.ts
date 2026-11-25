@@ -18,8 +18,8 @@ const ALL_FENCES = [SKILLS_FENCE];
 export const SKILLS_PARAGRAPH_PROMPT_VERSION = "skills_paragraph@2";
 
 const MAX_SKILLS_TEXT_LENGTH = 6000;
-/** Stored and printed, so it stays a paragraph, not a page. */
-export const MAX_SKILLS_PARAGRAPH_LENGTH = 1500;
+// Shared with the hand-edit limits, which must stay client-safe.
+export { MAX_SKILLS_PARAGRAPH_LENGTH } from "./handEditRules";
 
 /**
  * v2 (2026-11-21): v1 asked for "plain, factual sentences" and allowed

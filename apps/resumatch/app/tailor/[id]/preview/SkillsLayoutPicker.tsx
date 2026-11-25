@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
+import { ConfirmDialog } from "@asafarim/ui";
 import { SKILLS_LAYOUTS, type SkillsLayout } from "../../../../lib/tailoring/skillsLayout";
+import { handEditProblem } from "../../../../lib/tailoring/ai/skillsParagraph/handEditRules";
+import type { HandEditAdvice } from "../../../../lib/tailoring/ai/skillsParagraph/advice";
 import { Spinner, useSkillsPending } from "../../../../components/tailoring/SkillsPending";
 
 /** What a failed attempt was, so "Try again" can repeat exactly that. */
@@ -13,6 +16,7 @@ type Status =
   | { kind: "idle" }
   | { kind: "busy"; writing: boolean }
   | { kind: "done"; removed: number }
+  | { kind: "saved" }
   | { kind: "error"; code: string; retry: Attempt };
 
 /** After this long, the status says that a slow answer is normal. */
@@ -30,25 +34,47 @@ const SLOW_AFTER_MS = 12_000;
  * on screen) the picker shows a spinner and a live status, the CV's Skills
  * section shows a "writing" overlay, and the downloads wait
  * (components/tailoring/SkillsPending.tsx).
+ *
+ * "Edit paragraph" opens the paragraph for small changes by hand, in place
+ * in the CV's Skills section (SkillsParagraphEditor). Saving stores the
+ * candidate's own text on this CV (PUT /api/tailor/[id]/skills-paragraph),
+ * with no AI call; the PDF and DOCX use it. Their words are not
+ * fact-checked away, but the sentences the AI check would not have kept
+ * are listed as "worth a second look" (`advice`, computed by the page).
+ * Rewrite asks before it replaces a hand-edited paragraph.
  */
 export function SkillsLayoutPicker({
   id,
   layout,
-  hasParagraph,
+  paragraph,
+  edited,
+  advice,
 }: {
   id: string;
   layout: SkillsLayout;
-  hasParagraph: boolean;
+  /** The CV's current paragraph, AI-written or hand-edited; null before one is written. */
+  paragraph: string | null;
+  /** Whether the candidate edited the paragraph by hand. */
+  edited: boolean;
+  /** Sentences of a hand-edited paragraph worth a second look. */
+  advice: HandEditAdvice[];
 }) {
+  const hasParagraph = Boolean(paragraph?.trim());
   const { t } = useTranslation();
   const router = useRouter();
   const [value, setValue] = useState<SkillsLayout>(layout);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [refreshing, startRefresh] = useTransition();
   const [slow, setSlow] = useState(false);
-  const { setPending } = useSkillsPending();
+  const { setPending, edit, setEdit, editActions } = useSkillsPending();
   const selectRef = useRef<HTMLSelectElement>(null);
   const rewriteRef = useRef<HTMLButtonElement>(null);
+  const editRef = useRef<HTMLButtonElement>(null);
+  const [confirmRewrite, setConfirmRewrite] = useState(false);
+  // A saved edit keeps the editor open (saving) until the refreshed CV is
+  // on screen, so the old paragraph never flashes back in between.
+  const closeEditorAfterRefresh = useRef(false);
+  const editing = edit !== null;
   // Which control had focus when the work started: disabling it drops
   // focus to <body>, so it gets focus back once the work is done.
   const focusBack = useRef<HTMLElement | null>(null);
@@ -73,17 +99,32 @@ export function SkillsLayoutPicker({
     return () => window.clearTimeout(timer);
   }, [writing]);
 
+  // Close the editor once its saved text is on screen, and give focus
+  // back to "Edit paragraph".
   useEffect(() => {
-    if (busy || !focusBack.current) return;
+    if (refreshing || !closeEditorAfterRefresh.current) return;
+    closeEditorAfterRefresh.current = false;
+    setEdit(null);
+    setIsWrite(false);
+    focusBack.current = editRef.current;
+  }, [refreshing, setEdit]);
+  // Leaving the page with the editor open must not leave it open on the next CV.
+  useEffect(() => () => setEdit(null), [setEdit]);
+
+  useEffect(() => {
+    if (busy || editing || !focusBack.current) return;
     const target = focusBack.current.isConnected ? focusBack.current : selectRef.current;
     focusBack.current = null;
     if (document.activeElement === document.body || document.activeElement === null) target?.focus();
-  }, [busy]);
+  }, [busy, editing]);
 
   function begin(isWriting: boolean) {
     setIsWrite(isWriting);
     const active = document.activeElement;
-    focusBack.current = active === selectRef.current || active === rewriteRef.current ? (active as HTMLElement) : null;
+    focusBack.current =
+      active === selectRef.current || active === rewriteRef.current || active === editRef.current
+        ? (active as HTMLElement)
+        : null;
     setStatus({ kind: "busy", writing: isWriting });
   }
 
@@ -130,6 +171,56 @@ export function SkillsLayoutPicker({
     if (await writeParagraph({ kind: "rewrite" })) refresh();
   }
 
+  /** Rewrite replaces a hand edit, so it asks first. */
+  function requestRewrite() {
+    if (edited) setConfirmRewrite(true);
+    else void rewrite();
+  }
+
+  function startEdit() {
+    setStatus({ kind: "idle" });
+    setEdit({ draft: paragraph ?? "", saving: false, error: null });
+  }
+
+  function cancelEdit() {
+    setEdit(null);
+    focusBack.current = editRef.current;
+  }
+
+  async function saveEdit(draft: string) {
+    const problem = handEditProblem(draft);
+    if (problem) {
+      setEdit((current) => (current ? { ...current, error: problem } : current));
+      return;
+    }
+    setEdit((current) => (current ? { ...current, saving: true, error: null } : current));
+    const response = await fetch(`/api/tailor/${id}/skills-paragraph`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ paragraph: draft }),
+    }).catch(() => null);
+    if (!response?.ok) {
+      const body = (await response?.json().catch(() => null)) as { code?: string } | null;
+      const error = body?.code === "empty" || body?.code === "too_long" ? body.code : "save";
+      setEdit((current) => (current ? { ...current, saving: false, error } : current));
+      return;
+    }
+    setValue("paragraph");
+    setStatus({ kind: "saved" });
+    closeEditorAfterRefresh.current = true;
+    refresh();
+  }
+
+  // The editor in the CV calls Save and Cancel through the shared context.
+  useEffect(() => {
+    editActions.current = {
+      save: () => {
+        if (edit && !edit.saving) void saveEdit(edit.draft);
+      },
+      cancel: cancelEdit,
+    };
+  });
+
   function retry(attempt: Attempt) {
     if (attempt.kind === "rewrite") void rewrite();
     else void change(attempt.layout);
@@ -137,17 +228,27 @@ export function SkillsLayoutPicker({
 
   // One polite live region, always rendered, so every change is announced.
   let message: string;
-  if (writing) {
+  if (editing) {
+    message = t(
+      edit.saving ? "resumatch.preview.skillsEdit.savingStatus" : "resumatch.preview.skillsEdit.editing",
+    );
+  } else if (writing) {
     message = t(slow ? "resumatch.preview.skillsLayout.writingSlow" : "resumatch.preview.skillsLayout.writing");
   } else if (status.kind === "done") {
     message = status.removed
       ? t("resumatch.preview.skillsLayout.removed", { count: status.removed })
       : t("resumatch.preview.skillsLayout.done");
+  } else if (status.kind === "saved") {
+    message = t("resumatch.preview.skillsEdit.saved");
   } else if (status.kind === "error") {
     message = "";
+  } else if (value === "paragraph" && edited) {
+    message = t("resumatch.preview.skillsEdit.hint");
   } else {
     message = t(`resumatch.preview.skillsLayout.hint.${value}`);
   }
+
+  const showAdvice = value === "paragraph" && edited && advice.length > 0 && !editing && !busy;
 
   // "Try again" makes sense when writing or saving failed, not when the
   // budget is spent or the CV has no skills to describe.
@@ -161,7 +262,7 @@ export function SkillsLayoutPicker({
           ref={selectRef}
           className="ui-select rm-skills-layout__select"
           value={value}
-          disabled={busy}
+          disabled={busy || editing}
           aria-describedby="cv-skills-status"
           onChange={(event) => void change(event.target.value as SkillsLayout)}
           data-testid="cv-skills-layout"
@@ -175,11 +276,23 @@ export function SkillsLayoutPicker({
       </label>
       {value === "paragraph" && hasParagraph ? (
         <button
+          ref={editRef}
+          type="button"
+          className="ui-btn ui-btn--ghost rm-skills-layout__rewrite"
+          disabled={busy || editing}
+          onClick={startEdit}
+          data-testid="cv-skills-edit"
+        >
+          {t("resumatch.preview.skillsEdit.edit")}
+        </button>
+      ) : null}
+      {value === "paragraph" && hasParagraph ? (
+        <button
           ref={rewriteRef}
           type="button"
           className="ui-btn ui-btn--ghost rm-skills-layout__rewrite"
-          disabled={busy}
-          onClick={() => void rewrite()}
+          disabled={busy || editing}
+          onClick={requestRewrite}
           data-testid="cv-skills-rewrite"
         >
           {writing ? (
@@ -204,6 +317,22 @@ export function SkillsLayoutPicker({
           {writing ? <span className="rm-skills-layout__wait"> {t("resumatch.preview.skillsLayout.downloadsWait")}</span> : null}
         </span>
       </span>
+      {showAdvice ? (
+        <div className="rm-skills-advice" data-testid="cv-skills-advice">
+          <p className="rm-skills-advice__title">{t("resumatch.preview.skillsEdit.advice.title")}</p>
+          <p className="rm-skills-advice__intro">{t("resumatch.preview.skillsEdit.advice.intro")}</p>
+          <ul className="rm-skills-advice__list">
+            {advice.map((item, index) => (
+              <li key={index}>
+                <q>{item.sentence}</q>
+                <span className="rm-skills-advice__why">
+                  {item.concerns.map((concern) => t(`resumatch.preview.skillsEdit.advice.${concern}`)).join(" · ")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {status.kind === "error" ? (
         <div role="alert" className="rm-skills-layout__error" data-testid="cv-skills-error">
           <span>
@@ -229,6 +358,21 @@ export function SkillsLayoutPicker({
           ) : null}
         </div>
       ) : null}
+      <ConfirmDialog
+        open={confirmRewrite}
+        title={t("resumatch.preview.skillsEdit.confirm.title")}
+        message={t("resumatch.preview.skillsEdit.confirm.message")}
+        confirmLabel={t("resumatch.preview.skillsEdit.confirm.confirm")}
+        cancelLabel={t("resumatch.preview.skillsEdit.confirm.cancel")}
+        onConfirm={() => {
+          setConfirmRewrite(false);
+          void rewrite();
+        }}
+        onCancel={() => {
+          setConfirmRewrite(false);
+          rewriteRef.current?.focus();
+        }}
+      />
     </div>
   );
 }
