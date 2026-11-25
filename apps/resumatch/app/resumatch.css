@@ -954,6 +954,53 @@
   margin-top: 0.4rem !important;
 }
 
+/* Tailor drafts: the resume / reused-fetch note and the save status under
+   the job, and the "Unfinished jobs" list. */
+.rm-draft-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.rm-draft-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.rm-drafts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+.rm-drafts__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: var(--surface);
+}
+.rm-drafts__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.rm-drafts__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 /* ─── Tailor flow: modern intake tabs, review, bullet checklist ────────── */
 
 /* A single, reset, app-wide checkbox look — the unstyled native box

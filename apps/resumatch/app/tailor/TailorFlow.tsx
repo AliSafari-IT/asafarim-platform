@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
-import { Alert, Button, Card, Input } from "@asafarim/ui";
+import { Alert, Button, Card, ConfirmDialog, Input } from "@asafarim/ui";
 import { ManualJobForm, type ManualJobFormValues } from "./ManualJobForm";
 import { computeCoverLetterQuality } from "../../lib/tailoring/coverLetterQuality";
 import { CoverLetterQualityChecklist } from "../../components/tailoring/CoverLetterQualityChecklist";
@@ -43,6 +43,7 @@ import type { WritingPreferences, WritingPreferencesView } from "../../lib/writi
 import { deriveFeedback, type FeedbackItem, type FeedbackReason, type OriginalSuggestions } from "../../lib/tailoring/feedback";
 import { preferencePromotionPayload } from "../../lib/tailoring/feedbackScope";
 import { FeedbackPanel, type BackgroundDraft, type OwnBulletChoice, type PreferenceDraft } from "../../components/tailoring/FeedbackPanel";
+import type { DraftOptions, TailorDraftView } from "../../lib/tailoring/drafts/contract";
 
 const MIN_PASTE_CHARS = 120;
 
@@ -87,6 +88,10 @@ export interface TailorFlowProps {
    *  (null: none). Choices on the card apply to this run only, unless the
    *  candidate presses "Remember". */
   writingPreferences?: WritingPreferencesView | null;
+  /** An unfinished run to resume (lib/tailoring/drafts): the flow opens on
+   *  its job, with its choices, or on its review exactly as it was left.
+   *  The job is never refetched and no AI call runs to resume. */
+  draft?: TailorDraftView | null;
 }
 
 interface ReviewExperienceItem {
@@ -369,16 +374,48 @@ function reviewFromSaved(saved: SavedReviewSeed, nextKey: () => string): ReviewS
   };
 }
 
-export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, writingPreferences = null }: TailorFlowProps) {
+function jobOfDraft(draft: TailorDraftView): FetchedJob {
+  return { targetJobId: draft.targetJobId, title: draft.title, employer: draft.employer, snippet: draft.snippet };
+}
+
+/** A saved review draft, if it still has the shape this page renders. */
+function resumableReview(draft: TailorDraftView | null): ReviewState | null {
+  if (!draft || draft.step !== "review" || !draft.review) return null;
+  const review = draft.review;
+  if (review.targetJobId !== draft.targetJobId || review.previewId !== draft.previewId) return null;
+  if (typeof review.headline !== "string" || typeof review.summary !== "string") return null;
+  if (!Array.isArray(review.experience) || !Array.isArray(review.suggestedSkillsOrder)) return null;
+  return { ...(review as unknown as ReviewState), editOf: null };
+}
+
+/** The highest `b<n>` bullet key in a review, so new keys never collide. */
+function maxBulletKey(review: ReviewState | null): number {
+  let max = 0;
+  for (const entry of review?.experience ?? []) {
+    for (const bullet of entry.bullets ?? []) {
+      const n = /^b(\d+)$/.exec(String(bullet.key))?.[1];
+      if (n) max = Math.max(max, Number(n));
+    }
+  }
+  return max;
+}
+
+const DRAFT_SAVE_DELAY_MS = 800;
+/** fetch keepalive bodies are capped (64 KB in browsers); a larger review
+ *  is saved by the regular debounced save instead. */
+const KEEPALIVE_MAX_CHARS = 60_000;
+
+export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, writingPreferences = null, draft = null }: TailorFlowProps) {
   const router = useRouter();
   const { t, locale: pageLocale } = useTranslation();
-  const [url, setUrl] = useState("");
+  const draftOptions: DraftOptions | null = draft?.options ?? null;
+  const [url, setUrl] = useState(draft?.sourceUrl ?? "");
   const [pastedText, setPastedText] = useState("");
   const [emailText, setEmailText] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [mode, setMode] = useState<Mode>("url");
-  const [instructions, setInstructions] = useState(seed?.instructions ?? "");
+  const [instructions, setInstructions] = useState(draftOptions?.instructions ?? seed?.instructions ?? "");
   // #931: the saved writing preferences, kept current after "Remember".
   const [savedWriting, setSavedWriting] = useState<WritingPreferencesView | null>(writingPreferences);
   const savedPrefs = savedWriting?.preferences ?? null;
@@ -386,26 +423,28 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
   // the candidate can pick another for this run. #931: a regenerate seed
   // first, then the saved preference, then that default.
   const [cvLanguage, setCvLanguage] = useState<OutputLanguage>(
-    () => seed?.cvLanguage ?? writingPreferences?.preferences.cv.outputLanguage ?? outputLanguageFromLocale(pageLocale),
+    () => draftOptions?.cvLanguage ?? seed?.cvLanguage ?? writingPreferences?.preferences.cv.outputLanguage ?? outputLanguageFromLocale(pageLocale),
   );
-  const [includeCoverLetter, setIncludeCoverLetter] = useState(seed?.includeCoverLetter ?? false);
+  const [includeCoverLetter, setIncludeCoverLetter] = useState(draftOptions?.includeCoverLetter ?? seed?.includeCoverLetter ?? false);
   const [coverLetterTone, setCoverLetterTone] = useState<"formal" | "warm" | "confident">(
-    seed?.coverLetterTone ?? writingPreferences?.preferences.coverLetter.tone ?? "formal",
+    draftOptions?.coverLetterTone ?? seed?.coverLetterTone ?? writingPreferences?.preferences.coverLetter.tone ?? "formal",
   );
   const [coverLetterLength, setCoverLetterLength] = useState<"short" | "standard" | "detailed">(
-    seed?.coverLetterLength ?? writingPreferences?.preferences.coverLetter.length ?? "standard",
+    draftOptions?.coverLetterLength ?? seed?.coverLetterLength ?? writingPreferences?.preferences.coverLetter.length ?? "standard",
   );
   // #642: null means "same as the CV", so the letter keeps following the CV
   // language until the candidate picks a different one on purpose.
   const [coverLetterLanguage, setCoverLetterLanguage] = useState<OutputLanguage | null>(
-    seed && seed.hadCoverLetter !== false
+    draftOptions
+      ? draftOptions.coverLetterLanguage
+      : seed && seed.hadCoverLetter !== false
       ? seed.coverLetterLanguage
       : (writingPreferences?.preferences.coverLetter.outputLanguage ?? null),
   );
   const hasSavedNotes = Boolean(savedPrefs?.cv.styleNote || savedPrefs?.coverLetter.styleNote);
   // A per-run opt-out, kept only for the job it was made on: another job
   // starts with the saved notes on again.
-  const [notesOffFor, setNotesOffFor] = useState<string | null>(null);
+  const [notesOffFor, setNotesOffFor] = useState<string | null>(draftOptions?.savedNotesOff ? draft!.targetJobId : null);
   const [writingNote, setWritingNote] = useState<{ tone: "info" | "error"; text: string } | null>(null);
   const [rememberBusy, setRememberBusy] = useState(false);
   // What "Remember" would save: the card's choices, the saved notes kept.
@@ -442,28 +481,98 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
       setWritingNote({ tone: "error", text: t("resumatch.writing.error.save") });
     }
   }
-  const bulletKeyRef = useRef(0);
+  const [resumedReview] = useState(() => resumableReview(draft));
+  const bulletKeyRef = useRef(maxBulletKey(resumedReview));
   const nextBulletKey = useCallback(() => `b${++bulletKeyRef.current}`, []);
   const [state, setState] = useState<FetchState>(() =>
     editSeed
       ? { kind: "reviewing", review: reviewFromSaved(editSeed, nextBulletKey) }
       : seed
         ? { kind: "fetched", ...seed.job }
-        : { kind: "idle" },
+        : resumedReview
+          ? { kind: "reviewing", review: resumedReview }
+          : draft
+            ? { kind: "fetched", ...jobOfDraft(draft) }
+            : { kind: "idle" },
   );
   // The fit check for the job on the card (lib/tailoring/jobFit.ts): null
   // while loading or when it couldn't run, which never blocks tailoring.
   const [fit, setFit] = useState<{ targetJobId: string; fit: JobFit } | null>(null);
   // The candidate's explicit "yes, tailor anyway" for a low-fit job.
-  const [lowFitConfirmedFor, setLowFitConfirmedFor] = useState<string | null>(null);
+  const [lowFitConfirmedFor, setLowFitConfirmedFor] = useState<string | null>(
+    draftOptions?.lowFitConfirmed ? draft!.targetJobId : null,
+  );
   // #930: requirement ids the candidate answered "no" to, for the job on
   // the card; and a counter that refreshes coverage and the evidence list
   // after an answer is saved as evidence.
-  const [unmetRequirements, setUnmetRequirements] = useState<{ targetJobId: string; ids: string[] } | null>(null);
+  const [unmetRequirements, setUnmetRequirements] = useState<{ targetJobId: string; ids: string[] } | null>(
+    draft && draftOptions?.unmetRequirementIds.length ? { targetJobId: draft.targetJobId, ids: draftOptions.unmetRequirementIds } : null,
+  );
   const [evidenceVersion, setEvidenceVersion] = useState(0);
   const [evidenceUsedCount, setEvidenceUsedCount] = useState<number | null>(null);
   const [evidenceRevisionsKey, setEvidenceRevisionsKey] = useState("");
-  const [lastFetched, setLastFetched] = useState<FetchedJob | null>(editSeed?.job ?? seed?.job ?? null);
+  const [lastFetched, setLastFetched] = useState<FetchedJob | null>(
+    editSeed?.job ?? seed?.job ?? (draft ? jobOfDraft(draft) : null),
+  );
+
+  // ─── Tailor drafts (lib/tailoring/drafts) ──────────────────────────────
+  // Every run on a job is kept server-side until its CV is saved or it is
+  // discarded: the options card and the review are saved as the candidate
+  // works, and once more when the page is hidden or left. Not when editing
+  // a saved CV, which has its own record.
+  const draftsEnabled = !editSeed;
+  /** What the note under the job says: a resumed draft, or a fetch that
+   *  reused an earlier one (with "Fetch again"). */
+  const [draftNote, setDraftNote] = useState<{ kind: "resumed" | "reused"; date: string; targetJobId: string } | null>(
+    draft ? { kind: "resumed", date: draft.fetchedAt.slice(0, 10), targetJobId: draft.targetJobId } : null,
+  );
+  const [reviewExpired, setReviewExpired] = useState(Boolean(draft?.reviewExpired));
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
+  /** Jobs whose draft is gone (saved or discarded): never saved again. */
+  const closedDraftsRef = useRef(new Set<string>());
+  const pendingDraftRef = useRef<{ targetJobId: string; body: string } | null>(null);
+  const lastSavedDraftRef = useRef(new Map<string, string>());
+  const inflightDraftRef = useRef<Promise<void> | null>(null);
+
+  const flushDraft = useCallback(async (onLeave = false) => {
+    const pending = pendingDraftRef.current;
+    if (!pending) return;
+    pendingDraftRef.current = null;
+    if (closedDraftsRef.current.has(pending.targetJobId)) return;
+    if (!onLeave) setSaveStatus("saving");
+    const run = (async () => {
+      try {
+        const res = await fetch(`/api/tailor/drafts/${encodeURIComponent(pending.targetJobId)}`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: pending.body,
+          keepalive: onLeave && pending.body.length < KEEPALIVE_MAX_CHARS,
+        });
+        if (res.ok) {
+          lastSavedDraftRef.current.set(pending.targetJobId, pending.body);
+          if (!onLeave) setSaveStatus("saved");
+        } else if (!onLeave) {
+          // 409: the review's preview was used or is gone, so there is no
+          // review left to keep. Anything else is a failed save.
+          setSaveStatus(res.status === 409 ? "idle" : "failed");
+        }
+      } catch {
+        if (!onLeave) setSaveStatus("failed");
+      }
+    })();
+    inflightDraftRef.current = run;
+    await run;
+  }, []);
+
+  /** Stops saving a job's draft (saved or discarded), after any save in
+   *  flight has landed, so nothing recreates it afterwards. */
+  const closeDraftLocally = useCallback(async (targetJobId: string) => {
+    closedDraftsRef.current.add(targetJobId);
+    if (pendingDraftRef.current?.targetJobId === targetJobId) pendingDraftRef.current = null;
+    await inflightDraftRef.current;
+  }, []);
 
   const showFetched = useCallback((body: Record<string, any>) => {
     const job: FetchedJob = { targetJobId: body.id, title: body.title, employer: body.employer, snippet: body.snippet };
@@ -471,8 +580,21 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
     setLowFitConfirmedFor(null);
     setUnmetRequirements(null);
     setLastFetched(job);
+    setReviewExpired(false);
+    setSaveStatus("idle");
+    closedDraftsRef.current.delete(job.targetJobId);
+    setDraftNote(
+      body.reused === true && typeof body.fetchedAt === "string"
+        ? { kind: "reused", date: body.fetchedAt.slice(0, 10), targetJobId: job.targetJobId }
+        : null,
+    );
     setState({ kind: "fetched", ...job });
-  }, []);
+    // A reload or a return to /tailor reopens this job, whatever the URL
+    // said before (?new=1, ?draft=<another job>).
+    if (!editSeed && typeof window !== "undefined") {
+      window.history.replaceState(window.history.state, "", `/tailor?draft=${encodeURIComponent(job.targetJobId)}`);
+    }
+  }, [editSeed]);
 
   /** Back from the review (or a failed tailoring run) to the options card
    *  of the same job, with every choice kept, so the candidate can change
@@ -503,14 +625,16 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
     };
   }, [fetchedJobId, fit?.targetJobId, confirmedVersionId]);
 
-  const fetchJob = useCallback(async () => {
+  /** `refresh`: "Fetch again" on a link fetched before, for a posting
+   *  that changed. Otherwise a recent fetch of the same link is reused. */
+  const fetchJob = useCallback(async (refresh = false) => {
     if (!url.trim()) return;
     setState({ kind: "fetching" });
     try {
       const res = await fetch("/api/tailor/fetch-job", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify(refresh ? { url: url.trim(), refresh: true } : { url: url.trim() }),
       });
       const body = await readJsonBody(res);
       if (!res.ok || !body) {
@@ -909,6 +1033,9 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
     async (review: ReviewState) => {
       setState({ kind: "confirming", review });
       const editOf = review.editOf;
+      // The save closes this job's draft on the server: stop saving it
+      // first, so a late draft save can't bring it back.
+      await closeDraftLocally(review.targetJobId);
       try {
         const res = await fetch(editOf ? `/api/tailor/${encodeURIComponent(editOf.resumeId)}/edit` : "/api/tailor/generate-confirm", {
           method: "POST",
@@ -969,6 +1096,8 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
         });
         const body = await readJsonBody(res);
         if (!res.ok || !body) {
+          // Not saved: the draft is still this job's, keep saving it.
+          closedDraftsRef.current.delete(review.targetJobId);
           const message =
             body?.error ?? `${t("resumatch.flow.error.save")} ${t("resumatch.flow.error.server", { status: res.status })}`;
           // Keep the review (and every hand edit) open so the candidate can
@@ -1005,10 +1134,11 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
         const qs = query.toString();
         router.push(qs ? `/tailor/${body.id}/preview?${qs}` : `/tailor/${body.id}/preview`);
       } catch {
+        closedDraftsRef.current.delete(review.targetJobId);
         setState({ kind: "reviewing", review, saveError: t("resumatch.flow.error.network") });
       }
     },
-    [confirmedVersionId, router, savedWriting, t],
+    [confirmedVersionId, router, savedWriting, t, closeDraftLocally],
   );
 
   /** A language's name for use inside a sentence, in the UI language. */
@@ -1046,6 +1176,102 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
 
   const busy = state.kind === "fetching" || state.kind === "loading_review" || state.kind === "confirming";
 
+  // The draft body for where the flow is now: the options card, or the
+  // review (with the options it was made with). Nothing while a request
+  // runs, on an error, or when editing a saved CV.
+  const draftJobId =
+    !draftsEnabled
+      ? null
+      : state.kind === "fetched"
+        ? state.targetJobId
+        : state.kind === "reviewing" && !state.review.editOf
+          ? state.review.targetJobId
+          : null;
+  const draftBody = draftJobId
+    ? JSON.stringify({
+        step: state.kind === "reviewing" ? "review" : "options",
+        options: {
+          cvLanguage,
+          instructions,
+          includeCoverLetter,
+          coverLetterTone,
+          coverLetterLength,
+          coverLetterLanguage,
+          savedNotesOff: notesOffFor === draftJobId,
+          lowFitConfirmed: lowFitConfirmedFor === draftJobId,
+          unmetRequirementIds: unmetRequirements?.targetJobId === draftJobId ? unmetRequirements.ids : [],
+        } satisfies DraftOptions,
+        previewId: state.kind === "reviewing" ? state.review.previewId : null,
+        review: state.kind === "reviewing" ? state.review : null,
+      })
+    : null;
+
+  // A resumed draft is already saved as it opens: don't save it again
+  // (and move it to the top of "Unfinished jobs") until something changes.
+  const seededDraftRef = useRef(false);
+  if (!seededDraftRef.current) {
+    seededDraftRef.current = true;
+    if (draft && !draft.reviewExpired && draftJobId === draft.targetJobId && draftBody) {
+      lastSavedDraftRef.current.set(draftJobId, draftBody);
+    }
+  }
+
+  useEffect(() => {
+    if (!draftJobId || !draftBody) return;
+    if (closedDraftsRef.current.has(draftJobId)) return;
+    if (lastSavedDraftRef.current.get(draftJobId) === draftBody) return;
+    pendingDraftRef.current = { targetJobId: draftJobId, body: draftBody };
+    const timer = window.setTimeout(() => void flushDraft(), DRAFT_SAVE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [draftJobId, draftBody, flushDraft]);
+
+  // Leaving: the tab is hidden or closed, or the candidate navigates to
+  // another page of the app (this component unmounts). The last change is
+  // sent right away instead of waiting for the debounce.
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") void flushDraft(true);
+    };
+    const onPageHide = () => void flushDraft(true);
+    document.addEventListener("visibilitychange", onHidden);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onHidden);
+      window.removeEventListener("pagehide", onPageHide);
+      void flushDraft(true);
+    };
+  }, [flushDraft]);
+
+  /** "Discard this job": the draft goes (the job row stays) and the flow
+   *  starts empty. */
+  const discardCurrent = useCallback(async () => {
+    const targetJobId = draftJobId;
+    if (!targetJobId) return;
+    setDiscarding(true);
+    await closeDraftLocally(targetJobId);
+    try {
+      const res = await fetch(`/api/tailor/drafts/${encodeURIComponent(targetJobId)}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(String(res.status));
+    } catch {
+      closedDraftsRef.current.delete(targetJobId);
+      setDiscarding(false);
+      setConfirmDiscard(false);
+      setSaveStatus("failed");
+      return;
+    }
+    setDiscarding(false);
+    setConfirmDiscard(false);
+    setDraftNote(null);
+    setReviewExpired(false);
+    setSaveStatus("idle");
+    setLastFetched(null);
+    setFit(null);
+    setUrl("");
+    setState({ kind: "idle" });
+    window.history.replaceState(window.history.state, "", "/tailor?new=1");
+    router.refresh();
+  }, [draftJobId, closeDraftLocally, router]);
+
   return (
     <Card title={t("resumatch.flow.cardTitle")}>
       <p style={{ color: "var(--muted)" }}>
@@ -1080,7 +1306,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
             disabled={busy}
             style={{ flex: 1 }}
           />
-          <Button onClick={fetchJob} disabled={!url.trim() || busy}>
+          <Button onClick={() => fetchJob()} disabled={!url.trim() || busy}>
             {state.kind === "fetching" ? t("resumatch.flow.fetching") : t("resumatch.flow.fetch")}
           </Button>
         </div>
@@ -1154,6 +1380,53 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
           <ManualJobForm busy={busy} onSubmit={submitManualJob} />
         </div>
       )}
+
+      {draftJobId ? (
+        <div className="rm-draft-bar" data-testid="draft-bar">
+          <span role="status" data-testid="draft-status">
+            {saveStatus === "saving"
+              ? t("resumatch.flow.draft.saving")
+              : saveStatus === "saved"
+                ? t("resumatch.flow.draft.saved")
+                : saveStatus === "failed"
+                  ? t("resumatch.flow.draft.saveFailed")
+                  : draftNote?.targetJobId === draftJobId
+                    ? t(draftNote.kind === "reused" ? "resumatch.flow.reused" : "resumatch.flow.draft.resumed", { date: draftNote.date })
+                    : null}
+          </span>
+          <span className="rm-draft-bar__actions">
+            {draftNote?.kind === "reused" && draftNote.targetJobId === draftJobId && state.kind === "fetched" && url.trim() ? (
+              <Button variant="ghost" size="sm" onClick={() => fetchJob(true)}>
+                {t("resumatch.flow.fetchAgain")}
+              </Button>
+            ) : null}
+            <Link href="/tailor?new=1" className="ui-btn ui-btn--ghost ui-btn--sm" data-testid="draft-start-new">
+              {t("resumatch.flow.draft.startNew")}
+            </Link>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmDiscard(true)} data-testid="draft-discard">
+              {t("resumatch.flow.draft.discard")}
+            </Button>
+          </span>
+        </div>
+      ) : null}
+
+      {reviewExpired && state.kind === "fetched" ? (
+        <div style={{ marginTop: "0.75rem" }}>
+          <Alert tone="info">{t("resumatch.flow.draft.reviewExpired")}</Alert>
+        </div>
+      ) : null}
+
+      <ConfirmDialog
+        open={confirmDiscard}
+        title={t("resumatch.drafts.discardTitle")}
+        message={t("resumatch.drafts.discardBody")}
+        confirmLabel={t("resumatch.drafts.discard")}
+        cancelLabel={t("resumatch.drafts.keep")}
+        tone="danger"
+        confirmDisabled={discarding}
+        onConfirm={() => void discardCurrent()}
+        onCancel={() => setConfirmDiscard(false)}
+      />
 
       {state.kind === "fetch_failed" ? (
         <div style={{ marginTop: "1rem" }}>

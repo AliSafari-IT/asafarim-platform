@@ -23,6 +23,9 @@ import { logError } from "../../lib/observability/logger";
 import { budgetStatus, type BudgetStatus } from "../../lib/tailoring/ai/quota";
 import { BudgetLine } from "../ai-usage/BudgetLine";
 import { getWritingPreferences } from "../../lib/writingPreferences/store";
+import { listDrafts, loadDraft } from "../../lib/tailoring/drafts/store";
+import type { TailorDraftSummary, TailorDraftView } from "../../lib/tailoring/drafts/contract";
+import { DraftList } from "./DraftList";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getTranslator();
@@ -35,9 +38,9 @@ const ACTIVITY_DAYS = 14;
 export default async function TailorPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; letter?: string; edit?: string }>;
+  searchParams: Promise<{ from?: string; letter?: string; edit?: string; draft?: string; new?: string }>;
 }) {
-  const { from, letter, edit } = await searchParams;
+  const { from, letter, edit, draft: draftParam, new: startNew } = await searchParams;
   const { t, locale } = await getTranslator();
   const workspace = await getCurrentWorkspace();
   if (!workspace) {
@@ -130,6 +133,22 @@ export default async function TailorPage({
       } catch (error) {
         logError("tailoring.edit.seed_failed", error, { tailoringId: source.id });
       }
+    }
+  }
+  // An unfinished Tailor run (lib/tailoring/drafts): the one named in the
+  // URL, else the latest, so leaving /tailor never loses a fetched job.
+  // Not when regenerating or editing a saved CV, and not after "Start a
+  // new job" (?new=1). Workspace-scoped; an unknown id opens the latest.
+  let draft: TailorDraftView | null = null;
+  let otherDrafts: TailorDraftSummary[] = [];
+  if (!seed && !editSeed) {
+    try {
+      const wanted = typeof draftParam === "string" && draftParam ? draftParam : null;
+      if (startNew !== "1") draft = (wanted ? await loadDraft(workspace.id, wanted) : null) ?? (await loadDraft(workspace.id));
+      otherDrafts = (await listDrafts(workspace.id)).filter((d) => d.targetJobId !== draft?.targetJobId);
+    } catch (error) {
+      // A failed read opens the normal empty flow rather than failing the page.
+      logError("tailoring.draft.load_failed", error, {});
     }
   }
   // Issue #756: "AI this month: $X of $Y. Resets on <date>." A failed
@@ -241,13 +260,18 @@ export default async function TailorPage({
       {budget ? <BudgetLine budget={budget} t={t} locale={locale} compact /> : null}
 
       <section id="tailor-flow" className="rx-flow" aria-label={t("resumatch.tailor.flowAria")}>
+        {/* A different draft, seed or "Start a new job" is a fresh flow. */}
         <TailorFlow
           confirmedVersionId={confirmed.id}
+          key={editSeed ? `edit:${editSeed.resumeId}` : seed ? `from:${seed.fromResumeId}` : draft ? `draft:${draft.targetJobId}` : `new:${startNew ?? ""}`}
+          draft={draft}
           seed={editSeed ? null : seed}
           editSeed={editSeed}
           writingPreferences={writingPreferences}
         />
       </section>
+
+      {otherDrafts.length > 0 ? <DraftList drafts={otherDrafts} /> : null}
 
       {journey.tailoredCount > 0 ? (
         <StatRow label={t("resumatch.tailor.stats.aria")}>

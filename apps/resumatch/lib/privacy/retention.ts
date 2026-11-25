@@ -2,6 +2,7 @@ import "server-only";
 import { getJobmatchDb } from "../db/client";
 import { log, logError } from "../observability/logger";
 import { recordAuditEvent } from "../workspace";
+import { DRAFT_RETENTION_DAYS } from "../tailoring/drafts/contract";
 
 /**
  * Retention for personalization records (#933).
@@ -22,6 +23,11 @@ import { recordAuditEvent } from "../workspace";
  *   context stay: they are the candidate's document, removed only by the
  *   candidate (delete or erasure).
  *
+ * - **Tailor drafts** (`tailor_drafts`): an unfinished Tailor run, with the
+ *   candidate's note and, on the review step, a copy of the suggestions
+ *   with their edits. Deleted `DRAFT_RETENTION_DAYS` after its last change
+ *   (saving the CV or "Discard" deletes it sooner). The job row stays.
+ *
  * What survives is metadata without content: the audit events
  * (`tailoring.feedback.recorded` holds counts only) and the AI cost and
  * outcome rows (provider, model, tokens, cost, error code).
@@ -41,6 +47,7 @@ const MAX_BATCHES = 10;
 export interface PersonalizationSweepResult {
   previewsDeleted: number;
   feedbackDeleted: number;
+  draftsDeleted: number;
 }
 
 export function previewCutoff(now: Date): Date {
@@ -51,7 +58,11 @@ export function feedbackCutoff(now: Date): Date {
   return new Date(now.getTime() - FEEDBACK_RETENTION_DAYS * DAY_MS);
 }
 
-type Table = "preview" | "feedback";
+export function draftCutoff(now: Date): Date {
+  return new Date(now.getTime() - DRAFT_RETENTION_DAYS * DAY_MS);
+}
+
+type Table = "preview" | "feedback" | "draft";
 
 async function sweepTable(table: Table, cutoff: Date, perWorkspace: Map<string, PersonalizationSweepResult>): Promise<number> {
   const db = getJobmatchDb();
@@ -62,20 +73,27 @@ async function sweepTable(table: Table, cutoff: Date, perWorkspace: Map<string, 
     const rows =
       table === "preview"
         ? await db.tailorPreview.findMany({ where, select, orderBy: { createdAt: "asc" }, take: SWEEP_BATCH })
-        : await db.tailoringFeedback.findMany({ where, select, orderBy: { createdAt: "asc" }, take: SWEEP_BATCH });
+        : table === "feedback"
+          ? await db.tailoringFeedback.findMany({ where, select, orderBy: { createdAt: "asc" }, take: SWEEP_BATCH })
+          : // A draft ages from its last change, not from when it opened.
+            await db.tailorDraft.findMany({ where: { updatedAt: { lt: cutoff } }, select, orderBy: { updatedAt: "asc" }, take: SWEEP_BATCH });
     if (rows.length === 0) break;
     const ids = rows.map((r) => r.id);
     // The age condition is repeated so a row can never be deleted early,
     // whatever happened between the read and the delete.
+    // A draft saved again meanwhile is newer than the cutoff and stays.
     const result =
       table === "preview"
         ? await db.tailorPreview.deleteMany({ where: { id: { in: ids }, createdAt: { lt: cutoff } } })
-        : await db.tailoringFeedback.deleteMany({ where: { id: { in: ids }, createdAt: { lt: cutoff } } });
+        : table === "feedback"
+          ? await db.tailoringFeedback.deleteMany({ where: { id: { in: ids }, createdAt: { lt: cutoff } } })
+          : await db.tailorDraft.deleteMany({ where: { id: { in: ids }, updatedAt: { lt: cutoff } } });
     deleted += result.count;
     for (const row of rows) {
-      const counts = perWorkspace.get(row.workspaceId) ?? { previewsDeleted: 0, feedbackDeleted: 0 };
+      const counts = perWorkspace.get(row.workspaceId) ?? { previewsDeleted: 0, feedbackDeleted: 0, draftsDeleted: 0 };
       if (table === "preview") counts.previewsDeleted += 1;
-      else counts.feedbackDeleted += 1;
+      else if (table === "feedback") counts.feedbackDeleted += 1;
+      else counts.draftsDeleted += 1;
       perWorkspace.set(row.workspaceId, counts);
     }
     if (rows.length < SWEEP_BATCH) break;
@@ -83,23 +101,26 @@ async function sweepTable(table: Table, cutoff: Date, perWorkspace: Map<string, 
   return deleted;
 }
 
-/** Deletes previews and review feedback past their retention window. */
+/** Deletes previews, review feedback and Tailor drafts past their
+ *  retention window. */
 export async function sweepExpiredPersonalization(now: Date = new Date()): Promise<PersonalizationSweepResult> {
   const perWorkspace = new Map<string, PersonalizationSweepResult>();
   const previewsDeleted = await sweepTable("preview", previewCutoff(now), perWorkspace);
   const feedbackDeleted = await sweepTable("feedback", feedbackCutoff(now), perWorkspace);
+  const draftsDeleted = await sweepTable("draft", draftCutoff(now), perWorkspace);
 
   // One audit event per workspace touched: counts only, never content.
   for (const [workspaceId, counts] of perWorkspace) {
     await recordAuditEvent(workspaceId, "personalization.retention.expired", {
-      count: counts.previewsDeleted + counts.feedbackDeleted,
-      outcome: `previews:${counts.previewsDeleted},feedback:${counts.feedbackDeleted}`,
+      count: counts.previewsDeleted + counts.feedbackDeleted + counts.draftsDeleted,
+      outcome: `previews:${counts.previewsDeleted},feedback:${counts.feedbackDeleted},drafts:${counts.draftsDeleted}`,
     });
   }
-  if (previewsDeleted + feedbackDeleted > 0) {
-    log.info("retention.personalization", { count: previewsDeleted + feedbackDeleted, outcome: `${previewsDeleted}/${feedbackDeleted}` });
+  const total = previewsDeleted + feedbackDeleted + draftsDeleted;
+  if (total > 0) {
+    log.info("retention.personalization", { count: total, outcome: `${previewsDeleted}/${feedbackDeleted}/${draftsDeleted}` });
   }
-  return { previewsDeleted, feedbackDeleted };
+  return { previewsDeleted, feedbackDeleted, draftsDeleted };
 }
 
 /** How often the opportunistic sweep may run in one server process. */

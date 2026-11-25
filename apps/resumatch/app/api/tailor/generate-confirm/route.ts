@@ -38,6 +38,7 @@ import { experienceRefOf, EVIDENCE_INPUT_MESSAGES, MAX_EVIDENCE_ITEMS } from "..
 import { createEvidence } from "../../../../lib/evidence/store";
 import { getWritingPreferences, saveWritingPreferences } from "../../../../lib/writingPreferences/store";
 import { EMPTY_WRITING_PREFERENCES } from "../../../../lib/writingPreferences/contract";
+import { closeDraft } from "../../../../lib/tailoring/drafts/store";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TEMPLATE_KEY = "classic";
@@ -632,6 +633,9 @@ async function confirmTailoring(request: Request): Promise<Response> {
       background: outcome.background.filter((b) => b.status === "saved").length,
     }).catch((error: unknown) => logError("tailoring.confirm.audit_failed", error, { tailoringId: row.id }));
   }
+
+  // The CV is saved: this job is no longer an unfinished Tailor run.
+  await closeDraft(workspace.id, targetJobId);
 
   return NextResponse.json({ id: row.id, coverLetterId, coverLetterError, feedbackRecorded: recordFeedback, promotionFailed: failedPromotion });
 }

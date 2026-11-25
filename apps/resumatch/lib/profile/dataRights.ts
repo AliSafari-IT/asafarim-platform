@@ -5,6 +5,7 @@ import { logError } from "../observability/logger";
 import { recordAuditEvent } from "../workspace";
 import { forgetWorkspaceDedupResults } from "../shared/aiDedupCache";
 import { FEEDBACK_RETENTION_DAYS, PREVIEW_RETENTION_DAYS } from "../privacy/retention";
+import { DRAFT_RETENTION_DAYS } from "../tailoring/drafts/contract";
 import { parseTailoredResumeContent } from "../tailoring/ai/schema";
 import { parseStoredTailoringContext, type TailoringContext } from "../tailoring/context";
 import { parseProfileContent } from "./contract";
@@ -181,8 +182,21 @@ export interface DataExport {
     createdAt: string;
     updatedAt: string;
   }[];
+  /** Unfinished Tailor runs: the job, the options card's choices and, on
+   *  the review step, the review as you left it. Deleted when the CV is
+   *  saved, when you discard it, or `retention.draftDays` after its last
+   *  change. */
+  tailorDrafts: {
+    targetJobId: string;
+    step: string;
+    options: unknown;
+    previewId: string | null;
+    review: unknown;
+    createdAt: string;
+    updatedAt: string;
+  }[];
   /** How long personalization records are kept (#933). */
-  retention: { previewDays: number; feedbackDays: number };
+  retention: { previewDays: number; feedbackDays: number; draftDays: number };
   /** Review feedback per saved CV (#932): the AI's original suggestions,
    *  what you did with each, and anything you chose to remember. */
   tailoringFeedback: {
@@ -211,7 +225,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
   });
   if (!workspace) return null;
 
-  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence, contactPreferences, emailDraftContacts, writingPreferences, tailoringFeedback, tailorPreviews, coverLetters, applications] = await Promise.all([
+  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence, contactPreferences, emailDraftContacts, writingPreferences, tailoringFeedback, tailorPreviews, coverLetters, applications, tailorDrafts] = await Promise.all([
     db.candidateDocument.findMany({
       where: { workspaceId, deletedAt: null },
       orderBy: { uploadedAt: "asc" },
@@ -270,6 +284,11 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
     }),
     db.coverLetter.findMany({ where: { workspaceId }, orderBy: { createdAt: "asc" } }),
     db.application.findMany({ where: { workspaceId }, orderBy: { createdAt: "asc" } }),
+    db.tailorDraft.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "asc" },
+      select: { targetJobId: true, step: true, options: true, previewId: true, review: true, createdAt: true, updatedAt: true },
+    }),
   ]);
 
   await recordAuditEvent(workspaceId, "datarights.export", { count: documents.length });
@@ -429,7 +448,16 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       createdAt: a.createdAt.toISOString(),
       updatedAt: a.updatedAt.toISOString(),
     })),
-    retention: { previewDays: PREVIEW_RETENTION_DAYS, feedbackDays: FEEDBACK_RETENTION_DAYS },
+    tailorDrafts: tailorDrafts.map((d) => ({
+      targetJobId: d.targetJobId,
+      step: d.step,
+      options: d.options,
+      previewId: d.previewId,
+      review: d.review,
+      createdAt: d.createdAt.toISOString(),
+      updatedAt: d.updatedAt.toISOString(),
+    })),
+    retention: { previewDays: PREVIEW_RETENTION_DAYS, feedbackDays: FEEDBACK_RETENTION_DAYS, draftDays: DRAFT_RETENTION_DAYS },
     tailoringFeedback: tailoringFeedback.map((f) => ({
       tailoredResumeId: f.tailoredResumeId,
       previewId: f.previewId,
@@ -448,7 +476,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       "Original uploaded files are not included in this JSON. Download them individually from the profile page while they are still within their retention window.",
       "Your name, email address, and platform account details are held by the ASafariM platform, not by ResuMatch. ResuMatch stores only an opaque account identifier.",
       "Audit events record what happened and when. They never contain CV content.",
-      `Previews (the AI suggestions before you saved, with the request they were made for) are deleted ${PREVIEW_RETENTION_DAYS} days after they were made. Review feedback (what you kept, edited or left out) is deleted ${FEEDBACK_RETENTION_DAYS} days after it was recorded. Your saved CVs and letters stay until you delete them.`,
+      `Previews (the AI suggestions before you saved, with the request they were made for) are deleted ${PREVIEW_RETENTION_DAYS} days after they were made. Review feedback (what you kept, edited or left out) is deleted ${FEEDBACK_RETENTION_DAYS} days after it was recorded. Unfinished Tailor runs are deleted ${DRAFT_RETENTION_DAYS} days after their last change, or as soon as you save the CV or discard them. Your saved CVs and letters stay until you delete them.`,
       "Your feedback, preferences and evidence are used only for your own applications. They are never shared with other candidates, never exported as training data, and never used to train an AI model.",
       "To restore your confirmed profile in ResuMatch, upload this file on the profile page. Only the profile is imported; jobs, CVs, emails and history are not.",
     ],
@@ -466,6 +494,7 @@ export interface ErasureResult {
   /** #933: personalization records, counted as deleted. */
   previewsDeleted: number;
   feedbackDeleted: number;
+  draftsDeleted: number;
   evidenceDeleted: number;
   writingPreferenceRevisionsDeleted: number;
   /** In-memory AI dedup results dropped for this workspace. */
@@ -586,6 +615,9 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     // copy of the job text, even when nothing was saved. The workspace row
     // stays, so they would not cascade; they go with the rest.
     const previews = await tx.tailorPreview.deleteMany({ where: { workspaceId } });
+    // Tailor drafts hold the note and review edits. They cascade with their
+    // job; deleted explicitly so nothing depends on that.
+    const drafts = await tx.tailorDraft.deleteMany({ where: { workspaceId } });
     // Background evidence (#929) is the candidate's own text; its
     // revisions cascade with each item.
     const evidence = await tx.candidateEvidence.deleteMany({ where: { workspaceId } });
@@ -627,6 +659,7 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
       tailoredResumes: tailoredResumes.count,
       previews: previews.count,
       feedback: feedback.count,
+      drafts: drafts.count,
       evidence: evidence.count,
       preferences: preferences.count,
     };
@@ -653,6 +686,7 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     photoDeleted,
     previewsDeleted: deleted.previews,
     feedbackDeleted: deleted.feedback,
+    draftsDeleted: deleted.drafts,
     evidenceDeleted: deleted.evidence,
     writingPreferenceRevisionsDeleted: deleted.preferences,
     cacheEntriesDeleted,
@@ -668,7 +702,7 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
 export async function remainingWorkspaceRows(workspaceId: string): Promise<Record<string, number>> {
   const db = getJobmatchDb();
   const where = { workspaceId };
-  const [documents, profiles, targetJobs, tailoredResumes, coverLetters, applications, previews, feedback, evidence, evidenceRevisions, writingPreferences, contactPreferences, sentEmails, emailDrafts] = await Promise.all([
+  const [documents, profiles, targetJobs, tailoredResumes, coverLetters, applications, previews, feedback, evidence, evidenceRevisions, writingPreferences, contactPreferences, sentEmails, emailDrafts, tailorDrafts] = await Promise.all([
     db.candidateDocument.count({ where }),
     db.candidateProfile.count({ where }),
     db.targetJob.count({ where }),
@@ -683,6 +717,7 @@ export async function remainingWorkspaceRows(workspaceId: string): Promise<Recor
     db.contactPreferences.count({ where }),
     db.sentApplicationEmail.count({ where }),
     db.applicationEmailDraft.count({ where }),
+    db.tailorDraft.count({ where }),
   ]);
-  return { documents, profiles, targetJobs, tailoredResumes, coverLetters, applications, previews, feedback, evidence, evidenceRevisions, writingPreferences, contactPreferences, sentEmails, emailDrafts };
+  return { documents, profiles, targetJobs, tailoredResumes, coverLetters, applications, previews, feedback, evidence, evidenceRevisions, writingPreferences, contactPreferences, sentEmails, emailDrafts, tailorDrafts };
 }

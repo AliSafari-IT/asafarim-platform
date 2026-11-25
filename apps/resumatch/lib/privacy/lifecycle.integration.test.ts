@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
  * #933 against a real database: two workspaces, each with every kind of
  * personalization record (profile, job, evidence, writing preferences,
  * preview with context and suggestions, saved CV with review feedback,
- * cover letter, application). Covers the negative paths across workspaces
+ * cover letter, application, Tailor draft). Covers the negative paths across workspaces
  * (list, read, write, generate, confirm, export, delete, cache reuse),
  * retention expiry, evidence deletion and erasure with verified counts.
  * Synthetic fixtures only. Guarded behind RESUMATCH_TEST_DATABASE_URL.
@@ -35,6 +35,18 @@ vi.mock("../tailoring/ai/coverLetter/generate", () => ({
     throw new Error("provider must not be called");
   },
 }));
+
+const DRAFT_OPTIONS = {
+  cvLanguage: "en",
+  instructions: "",
+  includeCoverLetter: false,
+  coverLetterTone: "formal",
+  coverLetterLength: "standard",
+  coverLetterLanguage: null,
+  savedNotesOff: false,
+  lowFitConfirmed: false,
+  unmetRequirementIds: [],
+};
 
 /** Distinctive text per workspace, so a leak is a string match. */
 const SECRET = { a: "ALPHA-ONLY-led the Zephyr migration", b: "BRAVO-ONLY-ran the Quasar rollout" };
@@ -131,6 +143,19 @@ describe.skipIf(!TEST_DB)("personalization lifecycle and isolation (#933)", () =
       select: { id: true },
     });
     await db.tailorPreview.update({ where: { id: preview.id }, data: { consumedAt: new Date() } });
+    // An unfinished Tailor run on the same job, last changed at `createdAt`.
+    const draft = await db.tailorDraft.create({
+      data: {
+        workspaceId: ws.id,
+        targetJobId: job.id,
+        step: "review",
+        previewId: preview.id,
+        options: { ...DRAFT_OPTIONS, instructions: SECRET[label] } as never,
+        review: { targetJobId: job.id, previewId: preview.id, summary: SECRET[label] } as never,
+      },
+      select: { id: true },
+    });
+    await db.$executeRaw`UPDATE "tailor_drafts" SET "updatedAt" = ${createdAt} WHERE "id" = ${draft.id}`;
     const letter = await db.coverLetter.create({
       data: { workspaceId: ws.id, profileVersionId: version.id, targetJobId: job.id, tailoredResumeId: cv.id, content: { paragraphs: [SECRET[label]] }, promptVersion: "cover_letter@7", modelVersion: "fixture" },
       select: { id: true },
@@ -149,6 +174,7 @@ describe.skipIf(!TEST_DB)("personalization lifecycle and isolation (#933)", () =
       cvId: cv.id,
       letterId: letter.id,
       applicationId: application.id,
+      draftId: draft.id,
     };
   }
 
@@ -278,17 +304,19 @@ describe.skipIf(!TEST_DB)("personalization lifecycle and isolation (#933)", () =
       expect(data?.tailoringFeedback.map((f) => f.previewId)).toEqual([A.previewId]);
       expect(data?.coverLetters.map((l) => l.id)).toEqual([A.letterId]);
       expect(data?.applications.map((a) => a.notes)).toEqual(["a notes"]);
-      expect(data?.retention).toEqual({ previewDays: 30, feedbackDays: 180 });
+      expect(data?.tailorDrafts.map((d) => d.targetJobId)).toEqual([A.targetJobId]);
+      expect(JSON.stringify(data?.tailorDrafts)).toContain(SECRET.a);
+      expect(data?.retention).toEqual({ previewDays: 30, feedbackDays: 180, draftDays: 30 });
       expect(data?.notes.join(" ")).toMatch(/never used to train/);
     });
 
     it("erasure removes snapshots, feedback and caches with verified counts, and is idempotent", async () => {
       const { eraseWorkspaceData } = await import("../profile/dataRights");
       const first = await eraseWorkspaceData(A.workspaceId);
-      expect(first).toMatchObject({ previewsDeleted: 1, feedbackDeleted: 1, evidenceDeleted: 1, writingPreferenceRevisionsDeleted: 1, tailoredResumesDeleted: 1, verified: true });
+      expect(first).toMatchObject({ previewsDeleted: 1, feedbackDeleted: 1, draftsDeleted: 1, evidenceDeleted: 1, writingPreferenceRevisionsDeleted: 1, tailoredResumesDeleted: 1, verified: true });
       expect(Object.values(first.remaining).every((n) => n === 0)).toBe(true);
       const second = await eraseWorkspaceData(A.workspaceId);
-      expect(second).toMatchObject({ previewsDeleted: 0, feedbackDeleted: 0, evidenceDeleted: 0, tailoredResumesDeleted: 0, verified: true });
+      expect(second).toMatchObject({ previewsDeleted: 0, feedbackDeleted: 0, draftsDeleted: 0, evidenceDeleted: 0, tailoredResumesDeleted: 0, verified: true });
       const audits = await db.auditEvent.findMany({ where: { workspaceId: A.workspaceId }, select: { metadata: true } });
       expect(JSON.stringify(audits)).not.toContain(SECRET.a);
     });
@@ -312,6 +340,9 @@ describe.skipIf(!TEST_DB)("personalization lifecycle and isolation (#933)", () =
       expect(exported.evidence).toEqual([]);
       expect(exported.tailorPreviews).toEqual([]);
       expect(exported.tailoringFeedback).toEqual([]);
+      // The draft on that preview keeps its job and choices, not its review.
+      const draft = await db.tailorDraft.findUnique({ where: { id: A.draftId }, select: { step: true, previewId: true, review: true } });
+      expect(draft).toEqual({ step: "options", previewId: null, review: null });
       expect(text).not.toContain(A.previewId);
       expect(await deleteEvidence(A.workspaceId, A.evidenceId)).toBeNull();
       // B is untouched.
@@ -319,6 +350,78 @@ describe.skipIf(!TEST_DB)("personalization lifecycle and isolation (#933)", () =
       const audits = await db.auditEvent.findMany({ where: { workspaceId: A.workspaceId, action: "evidence.deleted" }, select: { metadata: true } });
       expect(audits).toHaveLength(1);
       expect(JSON.stringify(audits)).not.toContain(SECRET.a);
+    });
+  });
+
+  describe("Tailor drafts", () => {
+    const put = (body: unknown) =>
+      new Request("http://localhost/api/tailor/drafts/x", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+    it("B can neither save, discard nor resume A's draft", async () => {
+      const { saveDraft, discardDraft, loadDraft, listDrafts } = await import("../tailoring/drafts/store");
+      const update = { step: "options" as const, options: { ...DRAFT_OPTIONS, instructions: "hijack" } as never, previewId: null, review: null };
+      expect(await saveDraft(B.workspaceId, A.targetJobId, update)).toMatchObject({ ok: false, status: 404 });
+      expect(await discardDraft(B.workspaceId, A.targetJobId)).toBe(false);
+      expect(await loadDraft(B.workspaceId, A.targetJobId)).toBeNull();
+      expect((await listDrafts(B.workspaceId)).map((d) => d.targetJobId)).toEqual([B.targetJobId]);
+      const draft = await db.tailorDraft.findUnique({ where: { id: A.draftId }, select: { options: true } });
+      expect(JSON.stringify(draft?.options)).toContain(SECRET.a);
+
+      state.workspaceId = B.workspaceId;
+      const route = await import("../../app/api/tailor/drafts/[targetJobId]/route");
+      const res = await route.PUT(put(update), { params: Promise.resolve({ targetJobId: A.targetJobId }) });
+      expect(res.status).toBe(404);
+      await route.DELETE(new Request("http://localhost"), { params: Promise.resolve({ targetJobId: A.targetJobId }) });
+      expect(await db.tailorDraft.count({ where: { id: A.draftId } })).toBe(1);
+    });
+
+    it("a review whose preview was used resumes on the options card", async () => {
+      const { loadDraft } = await import("../tailoring/drafts/store");
+      const draft = await loadDraft(A.workspaceId);
+      expect(draft).toMatchObject({ targetJobId: A.targetJobId, step: "options", review: null, previewId: null, reviewExpired: true });
+      expect(draft?.options?.instructions).toBe(SECRET.a);
+    });
+
+    it("saves and resumes a review on an unused preview, and refuses a used one", async () => {
+      const { saveDraft, loadDraft } = await import("../tailoring/drafts/store");
+      const review = { targetJobId: A.targetJobId, previewId: A.previewId, headline: "H", summary: "S", experience: [], suggestedSkillsOrder: [] };
+      const update = { step: "review" as const, options: DRAFT_OPTIONS as never, previewId: A.previewId, review };
+      expect(await saveDraft(A.workspaceId, A.targetJobId, update)).toMatchObject({ ok: false, status: 409 });
+      await db.tailorPreview.update({ where: { id: A.previewId }, data: { consumedAt: null } });
+      expect((await saveDraft(A.workspaceId, A.targetJobId, update)).ok).toBe(true);
+      expect(await loadDraft(A.workspaceId, A.targetJobId)).toMatchObject({ step: "review", previewId: A.previewId, review, reviewExpired: false });
+      // Back to the options card: the stored review is cleared.
+      expect((await saveDraft(A.workspaceId, A.targetJobId, { step: "options", options: null, previewId: null, review: null })).ok).toBe(true);
+      const row = await db.tailorDraft.findUnique({ where: { id: A.draftId }, select: { step: true, review: true, options: true } });
+      expect(row).toEqual({ step: "options", review: null, options: null });
+    });
+
+    it("Fetch again moves the old job's choices onto the new job and closes the old draft", async () => {
+      const { openDraft, listDrafts } = await import("../tailoring/drafts/store");
+      const fresh = await db.targetJob.create({
+        data: { workspaceId: A.workspaceId, sourceUrl: "https://example.test/a", rawText: "Updated posting text.", status: "FETCHED" },
+        select: { id: true },
+      });
+      await openDraft(A.workspaceId, fresh.id, A.targetJobId);
+      expect(await db.tailorDraft.count({ where: { id: A.draftId } })).toBe(0);
+      const moved = await db.tailorDraft.findUnique({ where: { targetJobId: fresh.id }, select: { options: true, review: true, step: true } });
+      expect(moved).toMatchObject({ step: "options", review: null });
+      expect(JSON.stringify(moved?.options)).toContain(SECRET.a);
+      expect((await listDrafts(A.workspaceId)).map((d) => d.targetJobId)).toEqual([fresh.id]);
+      // A job of another workspace is never carried from.
+      const other = await db.targetJob.create({
+        data: { workspaceId: A.workspaceId, sourceUrl: "https://example.test/a2", rawText: "x", status: "FETCHED" },
+        select: { id: true },
+      });
+      await openDraft(A.workspaceId, other.id, B.targetJobId);
+      expect(await db.tailorDraft.count({ where: { id: B.draftId } })).toBe(1);
+    });
+
+    it("pasting a URL fetched recently reuses that job; an old fetch or another workspace's does not", async () => {
+      const { findRecentFetch } = await import("../tailoring/drafts/store");
+      expect((await findRecentFetch(A.workspaceId, "https://example.test/a"))?.id).toBe(A.targetJobId);
+      expect(await findRecentFetch(B.workspaceId, "https://example.test/a")).toBeNull();
+      expect(await findRecentFetch(A.workspaceId, "https://example.test/a", new Date(Date.now() + 8 * 24 * 60 * 60 * 1000))).toBeNull();
     });
   });
 
@@ -331,6 +434,10 @@ describe.skipIf(!TEST_DB)("personalization lifecycle and isolation (#933)", () =
 
       const first = await sweepExpiredPersonalization(now);
       expect(first.previewsDeleted).toBeGreaterThanOrEqual(2);
+      // Drafts untouched for 30 days go; fresh ones stay.
+      expect(first.draftsDeleted).toBeGreaterThanOrEqual(2);
+      expect(await db.tailorDraft.count({ where: { id: { in: [old.draftId, midAge.draftId] } } })).toBe(0);
+      expect(await db.tailorDraft.count({ where: { id: { in: [A.draftId, B.draftId] } } })).toBe(2);
       expect(first.feedbackDeleted).toBeGreaterThanOrEqual(1);
       expect(await db.tailorPreview.count({ where: { id: { in: [old.previewId, midAge.previewId] } } })).toBe(0);
       expect(await db.tailoringFeedback.count({ where: { tailoredResumeId: old.cvId } })).toBe(0);
@@ -341,7 +448,7 @@ describe.skipIf(!TEST_DB)("personalization lifecycle and isolation (#933)", () =
       expect(await db.tailoredResume.count({ where: { id: { in: [old.cvId, midAge.cvId] } } })).toBe(2);
 
       const second = await sweepExpiredPersonalization(now);
-      expect(second).toEqual({ previewsDeleted: 0, feedbackDeleted: 0 });
+      expect(second).toEqual({ previewsDeleted: 0, feedbackDeleted: 0, draftsDeleted: 0 });
 
       const audits = await db.auditEvent.findMany({ where: { workspaceId: old.workspaceId, action: "personalization.retention.expired" }, select: { metadata: true } });
       expect(audits).toHaveLength(1);
