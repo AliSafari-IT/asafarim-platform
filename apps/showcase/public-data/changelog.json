@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-11-25",
+    "title": "Resumatch: record review feedback and explicit feedback scope (0.6.10) (#932)",
+    "sha": "2e937b84",
+    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/2e937b84"
+  },
+  {
     "date": "2026-11-24",
     "title": "Resumatch: editable writing preferences with request-level overrides (0.6.8)",
     "sha": "2503c77b",
@@ -112,11 +118,5 @@
     "title": "Resumatch: search, filter and page the application tracker (#897)",
     "sha": "f1a06f5f",
     "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/f1a06f5f"
-  },
-  {
-    "date": "2026-11-19",
-    "title": "Resumatch: edit follow-up dates and show overdue/today/upcoming (#896)",
-    "sha": "5d271bf1",
-    "url": "https://github.com/AliSafari-IT/asafarim-platform/commit/5d271bf1"
   }
 ]
