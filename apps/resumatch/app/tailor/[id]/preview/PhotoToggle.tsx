@@ -27,13 +27,14 @@ export function PhotoToggle({
 
   if (!hasPhoto) {
     return (
-      <p className="rm-preview-photo">
-        <Link href="/profile#cv-photo">{t("resumatch.photo.toggle.add")}</Link>
-        <span className="rm-preview-photo__hint">
-          {" "}
-          · {t("resumatch.photo.toggle.hint")}
-        </span>
-      </p>
+      <div className="rm-appearance__setting">
+        <p className="rm-appearance__control">
+          <Link href="/profile#cv-photo" className="rm-preview-link">
+            {t("resumatch.photo.toggle.add")}
+          </Link>
+        </p>
+        <p className="rm-appearance__hint">{t("resumatch.photo.toggle.hint")}</p>
+      </div>
     );
   }
 
@@ -58,8 +59,8 @@ export function PhotoToggle({
   }
 
   return (
-    <div className="rm-preview-photo">
-      <label className="rm-photo-toggle">
+    <div className="rm-appearance__setting">
+      <label className="rm-photo-toggle rm-appearance__control">
         <input
           type="checkbox"
           checked={shown}
@@ -75,9 +76,7 @@ export function PhotoToggle({
           </span>
         ) : null}
       </label>
-      <span className="rm-preview-photo__hint">
-        {t("resumatch.photo.toggle.hint")}
-      </span>
+      <p className="rm-appearance__hint">{t("resumatch.photo.toggle.hint")}</p>
     </div>
   );
 }

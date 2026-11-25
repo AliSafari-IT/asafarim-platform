@@ -169,19 +169,6 @@ test("a cover letter reopens its job with the letter ticked and its own language
   await expect(flow.locator("select").last()).toHaveValue("fr");
 });
 
-test("the CV's next-step links are the same size as its download buttons", async ({ page }) => {
-  await page.goto(`/tailor/${CV_WITH_LETTER_ID}/preview`);
-  const toolbar = page.locator(".rm-preview-toolbar");
-  const height = async (name: string) => (await toolbar.getByRole(name === "Download PDF" ? "button" : "link", { name }).boundingBox())?.height;
-  const pdf = await height("Download PDF");
-  expect(pdf).toBeGreaterThan(0);
-  expect(await height("View cover letter")).toBe(pdf);
-  expect(await height("Regenerate")).toBe(pdf);
-  // The skills "Rewrite paragraph" button uses the same size too.
-  const rewrite = await page.getByTestId("cv-skills-rewrite").boundingBox();
-  expect(rewrite?.height).toBe(pdf);
-});
-
 test("an unknown id opens the normal empty flow", async ({ page }) => {
   await page.goto("/tailor?from=not-a-real-cv");
   await expect(page.locator("#tailor-flow")).toBeVisible();

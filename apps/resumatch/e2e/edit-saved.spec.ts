@@ -112,9 +112,9 @@ const ROLE = "Full-stack developer · Example Software";
 
 async function openEdit(page: Page) {
   await page.goto(`/tailor/${CV_ID}/preview`);
-  const toolbar = page.locator(".rm-preview-toolbar");
-  await expect(toolbar.getByRole("link", { name: "Regenerate", exact: true })).toBeVisible();
-  await toolbar.getByRole("link", { name: "Edit", exact: true }).click();
+  const toolbar = page.getByTestId("cv-actions");
+  await expect(toolbar.getByRole("link", { name: "Regenerate CV", exact: true })).toBeVisible();
+  await toolbar.getByRole("link", { name: "Edit CV", exact: true }).click();
   await page.waitForURL(/\/tailor\?edit=/);
   const flow = page.locator("#tailor-flow");
   await expect(flow.locator(".rm-review")).toBeVisible();
@@ -220,7 +220,7 @@ test("Regenerate keeps the candidate's own summary and saves a new CV", async ({
     },
   });
   await page.goto(`/tailor/${CV_ID}/preview`);
-  await page.locator(".rm-preview-toolbar").getByRole("link", { name: "Regenerate", exact: true }).click();
+  await page.getByTestId("cv-actions").getByRole("link", { name: "Regenerate CV", exact: true }).click();
   const flow = page.locator("#tailor-flow");
   await flow.getByRole("button", { name: "Regenerate for this job" }).click();
   await expect(flow.locator(".rm-review")).toBeVisible({ timeout: 30_000 });

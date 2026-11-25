@@ -255,59 +255,61 @@ export function SkillsLayoutPicker({
   const canRetry = status.kind === "error" && status.code !== "budget" && status.code !== "no_skills";
 
   return (
-    <div className="rm-preview-photo rm-skills-layout" data-busy={busy ? "true" : undefined}>
-      <label className="rm-skills-layout__label">
-        {t("resumatch.preview.skillsLayout.label")}{" "}
-        <select
-          ref={selectRef}
-          className="ui-select rm-skills-layout__select"
-          value={value}
-          disabled={busy || editing}
-          aria-describedby="cv-skills-status"
-          onChange={(event) => void change(event.target.value as SkillsLayout)}
-          data-testid="cv-skills-layout"
-        >
-          {SKILLS_LAYOUTS.map((option) => (
-            <option key={option} value={option}>
-              {t(`resumatch.preview.skillsLayout.${option}`)}
-            </option>
-          ))}
-        </select>
-      </label>
-      {value === "paragraph" && hasParagraph ? (
-        <button
-          ref={editRef}
-          type="button"
-          className="ui-btn ui-btn--ghost rm-skills-layout__rewrite"
-          disabled={busy || editing}
-          onClick={startEdit}
-          data-testid="cv-skills-edit"
-        >
-          {t("resumatch.preview.skillsEdit.edit")}
-        </button>
-      ) : null}
-      {value === "paragraph" && hasParagraph ? (
-        <button
-          ref={rewriteRef}
-          type="button"
-          className="ui-btn ui-btn--ghost rm-skills-layout__rewrite"
-          disabled={busy || editing}
-          onClick={requestRewrite}
-          data-testid="cv-skills-rewrite"
-        >
-          {writing ? (
-            <>
-              <Spinner />
-              {t("resumatch.preview.skillsLayout.rewriting")}
-            </>
-          ) : (
-            t("resumatch.preview.skillsLayout.rewrite")
-          )}
-        </button>
-      ) : null}
+    <div className="rm-appearance__setting rm-skills-layout" data-busy={busy ? "true" : undefined}>
+      <div className="rm-appearance__control rm-skills-layout__controls">
+        <label className="rm-skills-layout__label">
+          {t("resumatch.preview.skillsLayout.label")}{" "}
+          <select
+            ref={selectRef}
+            className="ui-select rm-skills-layout__select"
+            value={value}
+            disabled={busy || editing}
+            aria-describedby="cv-skills-status"
+            onChange={(event) => void change(event.target.value as SkillsLayout)}
+            data-testid="cv-skills-layout"
+          >
+            {SKILLS_LAYOUTS.map((option) => (
+              <option key={option} value={option}>
+                {t(`resumatch.preview.skillsLayout.${option}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {value === "paragraph" && hasParagraph ? (
+          <button
+            ref={editRef}
+            type="button"
+            className="ui-btn ui-btn--ghost rm-skills-layout__rewrite"
+            disabled={busy || editing}
+            onClick={startEdit}
+            data-testid="cv-skills-edit"
+          >
+            {t("resumatch.preview.skillsEdit.edit")}
+          </button>
+        ) : null}
+        {value === "paragraph" && hasParagraph ? (
+          <button
+            ref={rewriteRef}
+            type="button"
+            className="ui-btn ui-btn--ghost rm-skills-layout__rewrite"
+            disabled={busy || editing}
+            onClick={requestRewrite}
+            data-testid="cv-skills-rewrite"
+          >
+            {writing ? (
+              <>
+                <Spinner />
+                {t("resumatch.preview.skillsLayout.rewriting")}
+              </>
+            ) : (
+              t("resumatch.preview.skillsLayout.rewrite")
+            )}
+          </button>
+        ) : null}
+      </div>
       <span
         id="cv-skills-status"
-        className={writing ? "rm-preview-photo__hint rm-skills-layout__status is-writing" : "rm-preview-photo__hint rm-skills-layout__status"}
+        className={writing ? "rm-appearance__hint rm-skills-layout__status is-writing" : "rm-appearance__hint rm-skills-layout__status"}
         role="status"
         data-testid="cv-skills-status"
       >

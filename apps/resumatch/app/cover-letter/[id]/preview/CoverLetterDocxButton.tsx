@@ -5,7 +5,7 @@ import { Button } from "@asafarim/ui";
 
 /** Links to the cover-letter DOCX download route (issue #457) — a plain
  *  navigation, the browser handles the `content-disposition: attachment`
- *  response. Mirrors the tailored-CV preview page's DocxButton. */
+ *  response. Mirrors the Word item of the tailored-CV preview's Download menu. */
 export function CoverLetterDocxButton({ id }: { id: string }) {
   const { t } = useTranslation();
   return (

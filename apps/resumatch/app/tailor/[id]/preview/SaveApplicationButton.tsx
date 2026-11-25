@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
-import { Button } from "@asafarim/ui";
 
 /**
  * Ties a tailored resume to the application tracker (#432) — POSTs
@@ -62,32 +61,49 @@ export function SaveApplicationButton({
     router.refresh();
   }
 
-  if (state === "saved" || state === "pdfs") {
-    return (
-      <span className="rm-preview-toolbar__item rm-save-application" data-testid="save-application-status">
-        <span className="rm-save-status" role="status" aria-live="polite">
-          {state === "pdfs"
-            ? t("resumatch.preview.savedApplicationPreparing")
-            : ready
-              ? t("resumatch.preview.savedApplicationReady")
-              : t("resumatch.preview.savedApplication")}
-        </span>
-        {state === "saved" ? (
-          <Link href="/applications" className="ui-btn ui-btn--ghost">
-            {t("resumatch.preview.viewApplications")}
-          </Link>
-        ) : null}
-      </span>
-    );
-  }
-
+  // A small status line, apart from the action buttons: saved (with a
+  // text link to the tracker), saving, or not saved yet (with the action).
+  const saved = state === "saved" || state === "pdfs";
   return (
-    <Button variant="ghost" onClick={save} disabled={state === "saving"} data-testid="save-application">
-      {state === "saving"
-        ? t("resumatch.saving")
-        : state === "error"
-          ? t("resumatch.preview.saveApplicationError")
-          : t("resumatch.preview.saveApplication")}
-    </Button>
+    <div className="rm-preview-status" data-testid="save-application-status">
+      <span className="rm-preview-status__text" role="status" aria-live="polite">
+        {saved ? (
+          <>
+            {state === "saved" ? (
+              <span className="rm-preview-status__check" aria-hidden="true">
+                ✓
+              </span>
+            ) : null}
+            {state === "pdfs"
+              ? t("resumatch.preview.savedApplicationPreparing")
+              : ready
+                ? t("resumatch.preview.savedApplicationReady")
+                : t("resumatch.preview.savedApplication")}
+          </>
+        ) : state === "error" ? (
+          <span className="rm-preview-status__error">{t("resumatch.preview.saveApplicationError")}</span>
+        ) : (
+          t("resumatch.preview.notSavedApplication")
+        )}
+      </span>
+      {saved ? (
+        state === "saved" ? (
+          <Link href="/applications" className="rm-preview-link">
+            {t("resumatch.preview.viewApplications")}
+            <span aria-hidden="true"> →</span>
+          </Link>
+        ) : null
+      ) : (
+        <button
+          type="button"
+          className="rm-preview-link"
+          onClick={save}
+          disabled={state === "saving"}
+          data-testid="save-application"
+        >
+          {state === "saving" ? t("resumatch.saving") : t("resumatch.preview.saveApplication")}
+        </button>
+      )}
+    </div>
   );
 }
