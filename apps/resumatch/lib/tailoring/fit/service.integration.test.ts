@@ -233,4 +233,57 @@ describe.skipIf(!TEST_DB)("job fit assessment service (#971)", () => {
     expect(exported?.jobFit.assessments).toHaveLength(1);
     expect(exported?.jobFit.corrections).toHaveLength(1);
   });
+  // #972 review fixes.
+  it("deleting evidence an assessment read deletes that assessment and withdraws a yes resting on it", async () => {
+    const s = await seed("delete-evidence");
+    const { createEvidence, deleteEvidence } = await import("../../evidence/store");
+    const ev = await createEvidence(s.workspaceId, { kind: "PROJECT", title: "Incident response", detail: "Led incident response for the Postgres cluster.", experienceRef: null }, { scope: "BACKGROUND", targetJobId: null, confirm: true });
+    if (!ev.ok) throw new Error("evidence");
+    await svc.analyzeFit(await context(s), { language: "en" });
+    const row = await db.jobFitAssessment.findFirstOrThrow({ where: { workspaceId: s.workspaceId } });
+    expect(row.evidenceRevisionIds).toContain(ev.revisionId);
+    await db.jobFitAnswer.create({ data: { workspaceId: s.workspaceId, targetJobId: s.jobId, requirementId: "req_x", answer: "yes", evidenceRevisionId: ev.revisionId } });
+    expect(await deleteEvidence(s.workspaceId, ev.id)).not.toBeNull();
+    expect(await db.jobFitAssessment.count({ where: { workspaceId: s.workspaceId } })).toBe(0);
+    expect(await db.jobFitAnswer.count({ where: { workspaceId: s.workspaceId, revokedAt: null } })).toBe(0);
+    const { exportWorkspaceData } = await import("../../profile/dataRights");
+    expect(JSON.stringify(await exportWorkspaceData(s.workspaceId))).not.toContain("Led incident response");
+  });
+
+  it("a saved no keeps reaching tailoring when the assessment is stale; a removed requirement restricts nothing", async () => {
+    const s = await seed("denials");
+    await svc.analyzeFit(await context(s), { language: "en" });
+    const k8s = (await svc.fitState(await context(s))).assessment!.rows.find((r) => r.quote.includes("Kubernetes"))!;
+    const dutch = (await svc.fitState(await context(s))).assessment!.rows.find((r) => r.quote.includes("Dutch"))!;
+    await db.jobFitAnswer.create({ data: { workspaceId: s.workspaceId, targetJobId: s.jobId, requirementId: k8s.id, requirementQuote: k8s.quote, answer: "no" } });
+    // An AI-only requirement id the keyword check never extracts.
+    await db.jobFitAnswer.create({ data: { workspaceId: s.workspaceId, targetJobId: s.jobId, requirementId: "req_ai_only", requirementQuote: "Willing to travel abroad", answer: "no" } });
+    await db.jobFitAnswer.create({ data: { workspaceId: s.workspaceId, targetJobId: s.jobId, requirementId: dutch.id, requirementQuote: dutch.quote, answer: "no" } });
+    await db.jobFitCorrection.create({ data: { workspaceId: s.workspaceId, targetJobId: s.jobId, requirementId: dutch.id, action: "not_requirement" } });
+    // Unrelated new evidence: the assessment is now stale, the keyword view decides.
+    const { createEvidence } = await import("../../evidence/store");
+    await createEvidence(s.workspaceId, { kind: "PROJECT", title: "Docs", detail: "Wrote the onboarding guide.", experienceRef: null }, { scope: "BACKGROUND", targetJobId: null, confirm: true });
+    const fit = await svc.fitForTailoring(await context(s));
+    expect(fit.source).toBe("keyword");
+    expect(fit.gaps).toEqual(expect.arrayContaining(["Experience with Kubernetes in production", "Willing to travel abroad"]));
+    expect(fit.gaps).not.toContain("Fluent in Dutch");
+    expect(fit.unmetRequirementIds).not.toContain(dutch.id);
+  });
+
+  it("a yes counts even when its evidence does not fit the prompt's evidence budget", async () => {
+    const s = await seed("budget");
+    const { createEvidence } = await import("../../evidence/store");
+    for (let i = 0; i < 6; i++) {
+      await createEvidence(s.workspaceId, { kind: "PROJECT", title: `Postgres project ${i}`, detail: `Ran PostgreSQL clusters with TypeScript services for project ${i}. ${"Tuned queries and indexes. ".repeat(25)}`, experienceRef: null }, { scope: "BACKGROUND", targetJobId: null, confirm: true });
+    }
+    await svc.analyzeFit(await context(s), { language: "en" });
+    const k8s = (await svc.fitState(await context(s))).assessment!.rows.find((r) => r.quote.includes("Kubernetes"))!;
+    const ev = await createEvidence(s.workspaceId, { kind: "RESPONSIBILITY", title: "Cluster operations", detail: "I operated our container platform in production.", experienceRef: null }, { scope: "APPLICATION", targetJobId: s.jobId, confirm: true });
+    if (!ev.ok) throw new Error("evidence");
+    await db.jobFitAnswer.create({ data: { workspaceId: s.workspaceId, targetJobId: s.jobId, requirementId: k8s.id, answer: "yes", evidenceRevisionId: ev.revisionId } });
+    const ctx = await context(s);
+    expect(ctx.answers.map((a) => a.evidenceRevisionId)).toContain(ev.revisionId);
+    const row = (await svc.fitState(ctx)).assessment!.rows.find((r) => r.id === k8s.id)!;
+    expect(row).toMatchObject({ judgment: "direct", answeredBy: "yes" });
+  });
 });

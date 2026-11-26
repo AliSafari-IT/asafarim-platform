@@ -171,8 +171,9 @@ test("screenshots and contrast of the job fit panel", async ({ page }, testInfo)
   const panel = page.getByTestId("fit-assessment");
   await expect(panel).toHaveAttribute("data-method", "keyword", { timeout: 30_000 });
   const project = testInfo.project.name.replace(/\s+/g, "-");
-  // The sticky app header would cover a tall element screenshot.
-  await page.addStyleTag({ content: "header { position: static !important; }" });
+  // The sticky app header would cover a tall element screenshot, and a
+  // theme switch must not be measured mid-transition.
+  await page.addStyleTag({ content: "header { position: static !important; } *, *::before, *::after { transition: none !important; }" });
   const capture = async (name: string) => {
     for (const theme of ["light", "dark"] as const) {
       await page.evaluate((value) => document.documentElement.setAttribute("data-theme", value), theme);

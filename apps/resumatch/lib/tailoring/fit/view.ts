@@ -97,11 +97,22 @@ export function buildFitView(input: { analysis: FitAnalysis; context: FitContext
   });
 
   // At most three optional questions: requirements nothing answers either
-  // way, not answered or removed, never a protected trait. Constraints
-  // first (they decide suitability), then by weight, then posting order.
+  // way, and essential conditions only partly supported (they still need
+  // the candidate's confirmation); never answered, removed, a protected
+  // trait, or an alternative of a group another member already meets.
+  // Constraints first (they decide suitability), then by weight, then
+  // posting order.
+  const metGroups = new Set(rows.filter((r) => r.groupId && !r.removed && r.judgment === "direct").map((r) => r.groupId!));
   const questions = rows
     .map((row, index) => ({ row, index }))
-    .filter(({ row }) => row.judgment === "unknown" && !row.removed && !row.protectedTrait && row.answeredBy === null)
+    .filter(
+      ({ row }) =>
+        (row.judgment === "unknown" || (row.judgment === "partial" && row.constraint)) &&
+        !row.removed &&
+        !row.protectedTrait &&
+        row.answeredBy === null &&
+        !(row.groupId && metGroups.has(row.groupId)),
+    )
     .sort(
       (a, b) =>
         Number(b.row.constraint) - Number(a.row.constraint) ||

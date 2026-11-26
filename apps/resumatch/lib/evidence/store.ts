@@ -343,7 +343,17 @@ export async function deleteEvidence(workspaceId: string, id: string): Promise<E
   const result = await getJobmatchDb().$transaction(async (tx): Promise<EvidenceDeletionResult | null> => {
     const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM candidate_evidence WHERE id = ${id} AND "workspaceId" = ${workspaceId} FOR UPDATE`;
     if (locked.length === 0) return null;
-    const { cvIds, previewIds } = await linkedHistory(tx, workspaceId, await revisionIdsOf(tx, workspaceId, id));
+    const revisionIds = await revisionIdsOf(tx, workspaceId, id);
+    const { cvIds, previewIds } = await linkedHistory(tx, workspaceId, revisionIds);
+    // #971: a job fit assessment that read this evidence holds quotes of
+    // it; it goes, and a "yes" answer that rested on it is withdrawn.
+    if (revisionIds.length > 0) {
+      await tx.jobFitAssessment.deleteMany({ where: { workspaceId, evidenceRevisionIds: { hasSome: revisionIds } } });
+      await tx.jobFitAnswer.updateMany({
+        where: { workspaceId, evidenceRevisionId: { in: revisionIds }, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
     const previews = previewIds.length > 0 ? await tx.tailorPreview.deleteMany({ where: { workspaceId, id: { in: previewIds } } }) : { count: 0 };
     // A Tailor draft on one of those previews holds a copy of its
     // suggestions in its review: the review goes, the draft goes back to

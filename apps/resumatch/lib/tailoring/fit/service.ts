@@ -18,7 +18,7 @@ import {
 } from "./contract";
 import { buildFitInputs, fitInputFingerprint, type FitInputs } from "./inputs";
 import { keywordFitOutput } from "./keyword";
-import { applyOverlay } from "./overlay";
+import { applyOverlay, latestAnswers, latestCorrections } from "./overlay";
 import { scoreFit, type FitScore, type LowFitReason } from "./rubric";
 import { assessJobFit } from "../jobFit";
 import { validateFitOutput } from "./validate";
@@ -74,16 +74,20 @@ export async function loadFitContext(
     db.jobFitAnswer.findMany({ where: { workspaceId, targetJobId, revokedAt: null }, orderBy: { createdAt: "asc" } }),
     db.jobFitCorrection.findMany({ where: { workspaceId, targetJobId }, orderBy: { createdAt: "asc" } }),
   ]);
-  // A "yes" whose evidence is no longer usable (deleted, or no longer
-  // confirmed) no longer counts.
-  const usableEvidence = new Map(
-    evidence.professional.map((e) => [e.revisionId, `${e.title}. ${e.detail}`] as const),
+  // A "yes" counts only while its evidence is the latest, confirmed
+  // revision in scope for this job. Checked on its own, not through the
+  // prompt's evidence selection, whose budget may leave it out.
+  const usableEvidence = await usableAnswerEvidence(
+    workspaceId,
+    targetJobId,
+    answerRows.flatMap((a) => (a.answer === "yes" && a.evidenceRevisionId ? [a.evidenceRevisionId] : [])),
   );
   const answers: FitAnswer[] = answerRows
     .filter((a) => a.answer === "no" || (a.evidenceRevisionId !== null && usableEvidence.has(a.evidenceRevisionId)))
     .map((a) => ({
       id: a.id,
       requirementId: a.requirementId,
+      requirementQuote: a.requirementQuote,
       answer: a.answer === "yes" ? "yes" : "no",
       evidenceRevisionId: a.evidenceRevisionId,
       evidenceText: a.evidenceRevisionId ? (usableEvidence.get(a.evidenceRevisionId) ?? null) : null,
@@ -98,6 +102,30 @@ export async function loadFitContext(
   }));
   const answerEvidenceIds = new Set(answers.filter((a) => a.answer === "yes" && a.evidenceRevisionId).map((a) => a.evidenceRevisionId!));
   return { ok: true, context: { workspaceId, targetJobId, version, inputs, answers, corrections, answerEvidenceIds } };
+}
+
+/** Confirmed evidence revisions an answer may rest on: still the latest
+ *  revision of an item of this workspace, for this job or background. */
+export async function usableAnswerEvidence(workspaceId: string, targetJobId: string, revisionIds: string[]): Promise<Map<string, string>> {
+  if (revisionIds.length === 0) return new Map();
+  const rows = await getJobmatchDb().candidateEvidenceRevision.findMany({
+    where: { id: { in: revisionIds }, workspaceId, status: "CONFIRMED" },
+    select: {
+      id: true,
+      title: true,
+      detail: true,
+      evidence: {
+        select: { scope: true, targetJobId: true, revisions: { orderBy: { revisionNumber: "desc" }, take: 1, select: { id: true } } },
+      },
+    },
+  });
+  const usable = new Map<string, string>();
+  for (const r of rows) {
+    if (r.evidence.revisions[0]?.id !== r.id) continue;
+    if (r.evidence.scope === "APPLICATION" && r.evidence.targetJobId !== targetJobId) continue;
+    usable.set(r.id, `${r.title}. ${r.detail}`);
+  }
+  return usable;
 }
 
 function providerName(): ResuMatchAiProvider {
@@ -413,10 +441,10 @@ export async function refreshStoredScore(context: FitContext): Promise<void> {
 
 /** The requirement ids a candidate may answer or correct: those of the
  *  shown AI assessment, or of the keyword check. */
-export async function knownRequirementIds(context: FitContext): Promise<Set<string>> {
+export async function knownRequirementIds(context: FitContext): Promise<Map<string, string>> {
   const found = await findAiRow(context);
-  const ids = new Set(keywordAnalysis(context).requirements.map((r) => r.id));
-  if (found) for (const r of found.analysis.requirements) ids.add(r.id);
+  const ids = new Map(keywordAnalysis(context).requirements.map((r) => [r.id, r.quote] as const));
+  if (found) for (const r of found.analysis.requirements) ids.set(r.id, r.quote);
   return ids;
 }
 
@@ -431,12 +459,23 @@ export async function fitForTailoring(context: FitContext): Promise<{
 }> {
   const state = await fitState(context);
   const view = state.gate.source === "ai" ? state.assessment! : state.keyword;
-  const gaps = view.rows.filter((r) => !r.removed && (r.judgment === "unmet" || r.judgment === "conflict")).map((r) => r.quote);
+  // The candidate's own "no" answers hold whatever analysis is shown, so a
+  // stale assessment or a keyword-only view does not lose them; a
+  // requirement they marked "not a requirement" restricts nothing.
+  const corrections = latestCorrections(context.corrections);
+  const removed = (id: string) => corrections.get(id)?.action === "not_requirement";
+  const denials = [...latestAnswers(context.answers).values()].filter((a) => a.answer === "no" && !removed(a.requirementId));
+  const quoteById = new Map(view.rows.map((r) => [r.id, r.quote] as const));
+  const gaps = new Set(view.rows.filter((r) => !r.removed && (r.judgment === "unmet" || r.judgment === "conflict")).map((r) => r.quote));
+  for (const a of denials) {
+    const quote = quoteById.get(a.requirementId) ?? a.requirementQuote ?? null;
+    if (quote) gaps.add(quote);
+  }
   return {
     lowFit: state.gate.lowFit,
     source: state.gate.source,
     assessmentId: state.gate.source === "ai" ? (state.assessment?.meta?.id ?? null) : null,
-    gaps,
-    unmetRequirementIds: context.answers.filter((a) => a.answer === "no").map((a) => a.requirementId),
+    gaps: [...gaps],
+    unmetRequirementIds: denials.map((a) => a.requirementId),
   };
 }

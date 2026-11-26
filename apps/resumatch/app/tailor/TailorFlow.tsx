@@ -614,12 +614,11 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
   const [lowFitConfirmedFor, setLowFitConfirmedFor] = useState<string | null>(
     draftOptions?.lowFitConfirmed ? draft!.targetJobId : null,
   );
-  // #930: requirement ids the candidate answered "no" to, for the job on
-  // the card; and a counter that refreshes coverage and the evidence list
-  // after an answer is saved as evidence.
-  const [unmetRequirements, setUnmetRequirements] = useState<{ targetJobId: string; ids: string[] } | null>(
-    draft && draftOptions?.unmetRequirementIds.length ? { targetJobId: draft.targetJobId, ids: draftOptions.unmetRequirementIds } : null,
-  );
+  // #971: "no" answers are saved server-side with the job fit and read by
+  // generate-preview; a draft's older `unmetRequirementIds` are no longer
+  // sent, so an answer the panel cannot show or undo never restricts a run.
+  // A counter refreshes the evidence list after an answer is saved as
+  // evidence.
   const [evidenceVersion, setEvidenceVersion] = useState(0);
   const [evidenceUsedCount, setEvidenceUsedCount] = useState<number | null>(null);
   const [evidenceRevisionsKey, setEvidenceRevisionsKey] = useState("");
@@ -693,7 +692,6 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
     const job: FetchedJob = { targetJobId: body.id, title: body.title, employer: body.employer, snippet: body.snippet, sourceFiles };
     setFitGate(null);
     setLowFitConfirmedFor(null);
-    setUnmetRequirements(null);
     setLastFetched(job);
     setReviewExpired(false);
     setSaveStatus("idle");
@@ -885,7 +883,6 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
             instructions: instructions.trim() || undefined,
             outputLanguage: cvLanguage,
             proceedDespiteLowFit: lowFitConfirmedFor === targetJobId ? true : undefined,
-            unmetRequirementIds: unmetRequirements?.targetJobId === targetJobId && unmetRequirements.ids.length > 0 ? unmetRequirements.ids : undefined,
           }),
         });
         const body = await readJsonBody(res);
@@ -1103,7 +1100,6 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
       instructions,
       cvLanguage,
       lowFitConfirmedFor,
-      unmetRequirements,
       lastFetched,
       seed,
       nextBulletKey,
@@ -1660,7 +1656,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
           coverLetterLanguage,
           savedNotesOff: notesOffFor === draftJobId,
           lowFitConfirmed: lowFitConfirmedFor === draftJobId,
-          unmetRequirementIds: unmetRequirements?.targetJobId === draftJobId ? unmetRequirements.ids : [],
+          unmetRequirementIds: [],
         } satisfies DraftOptions,
         previewId: state.kind === "reviewing" ? state.review.previewId : null,
         review: state.kind === "reviewing" ? state.review : null,
