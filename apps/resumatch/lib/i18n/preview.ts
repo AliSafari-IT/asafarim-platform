@@ -98,12 +98,6 @@ export const previewDictionaries: Dictionaries = {
       "Written in {language}. Names, numbers and dates are kept exactly as in your profile and the job.",
     "resumatch.letter.degraded": "This letter could not be AI-drafted right now (budget or provider issue).",
 
-    "resumatch.coverage.title": "Coverage of this posting",
-    "resumatch.coverage.percent": "{percent}% of your skills matched",
-    "resumatch.coverage.matched": "Matched",
-    "resumatch.coverage.missing": "Not covered",
-    "resumatch.coverage.note":
-      "A rough, deterministic read of this posting's own wording against your resume — not an ATS score, and never a reason to add a skill you don't have. Some \"not covered\" terms are simply irrelevant to you.",
 
     "resumatch.quality.title": "Document hygiene",
     "resumatch.quality.metric": "Bullets include a metric",
@@ -236,12 +230,6 @@ export const previewDictionaries: Dictionaries = {
       "Geschreven in het {language}. Namen, cijfers en datums blijven exact zoals in je profiel en de vacature.",
     "resumatch.letter.degraded": "Deze brief kon nu niet door AI worden opgesteld (budget- of providerprobleem).",
 
-    "resumatch.coverage.title": "Dekking van deze vacature",
-    "resumatch.coverage.percent": "{percent}% van je vaardigheden komt overeen",
-    "resumatch.coverage.matched": "Overeenkomend",
-    "resumatch.coverage.missing": "Niet gedekt",
-    "resumatch.coverage.note":
-      "Een ruwe, deterministische vergelijking van de eigen formulering van deze vacature met je cv — geen ATS-score, en nooit een reden om een vaardigheid toe te voegen die je niet hebt. Sommige ‘niet gedekte’ termen zijn gewoon niet relevant voor jou.",
 
     "resumatch.quality.title": "Documentcontrole",
     "resumatch.quality.metric": "Punten bevatten een meetbaar resultaat",
@@ -375,12 +363,6 @@ export const previewDictionaries: Dictionaries = {
     "resumatch.letter.degraded":
       "Cette lettre n’a pas pu être rédigée par l’IA pour le moment (problème de budget ou de fournisseur).",
 
-    "resumatch.coverage.title": "Couverture de cette offre",
-    "resumatch.coverage.percent": "{percent} % de vos compétences correspondent",
-    "resumatch.coverage.matched": "Correspondances",
-    "resumatch.coverage.missing": "Non couverts",
-    "resumatch.coverage.note":
-      "Une lecture approximative et déterministe du vocabulaire de l’offre face à votre CV — pas un score ATS, et jamais une raison d’ajouter une compétence que vous n’avez pas. Certains termes « non couverts » ne vous concernent tout simplement pas.",
 
     "resumatch.quality.title": "Contrôle du document",
     "resumatch.quality.metric": "Les points contiennent un chiffre",
@@ -514,12 +496,6 @@ export const previewDictionaries: Dictionaries = {
     "resumatch.letter.degraded":
       "Dieses Anschreiben konnte gerade nicht per KI entworfen werden (Budget- oder Anbieterproblem).",
 
-    "resumatch.coverage.title": "Abdeckung dieser Stellenanzeige",
-    "resumatch.coverage.percent": "{percent} % deiner Fähigkeiten passen",
-    "resumatch.coverage.matched": "Treffer",
-    "resumatch.coverage.missing": "Nicht abgedeckt",
-    "resumatch.coverage.note":
-      "Ein grober, deterministischer Abgleich der Formulierungen dieser Anzeige mit deinem Lebenslauf — kein ATS-Score und nie ein Grund, eine Fähigkeit hinzuzufügen, die du nicht hast. Manche „nicht abgedeckten“ Begriffe sind für dich einfach irrelevant.",
 
     "resumatch.quality.title": "Dokumentprüfung",
     "resumatch.quality.metric": "Punkte enthalten eine Kennzahl",

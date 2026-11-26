@@ -10,7 +10,7 @@ import { z } from "zod";
  *
  * `buildManualJobText` turns this into the same kind of `rawText` block
  * `fetch-job`/`paste-job`/`paste-email` already produce, in a consistent
- * order, so `computeCoverage` (#428) and the tailoring prompt see one
+ * order, so the job fit check and the tailoring prompt see one
  * coherent block regardless of which intake path a `TargetJob` came from.
  * The structured fields themselves are also persisted on
  * `TargetJob.structuredFields` for anything downstream that wants them

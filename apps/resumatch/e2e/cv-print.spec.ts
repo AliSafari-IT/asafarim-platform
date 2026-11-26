@@ -3,7 +3,7 @@ import { expect, seedTailoredResume, test } from "./fixtures";
 
 /**
  * Tailored CV PDF: the print output is the CV alone (no page header,
- * language note, toolbar, coverage or quality cards, no site chrome) and
+ * language note, toolbar, job fit or quality cards, no site chrome) and
  * the browser's own header and footer get no room on the page. The CV and
  * the paired cover letter carry the profile's links as real anchors.
  */

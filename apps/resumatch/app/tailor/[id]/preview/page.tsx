@@ -6,7 +6,8 @@ import { ClassicTemplate } from "../../../../components/tailoring/templates/Clas
 import { getJobmatchDb } from "../../../../lib/db/client";
 import { getTranslator } from "../../../../lib/i18n-server";
 import { parseTailoredResumeContent } from "../../../../lib/tailoring/ai/schema";
-import { computeCoverage } from "../../../../lib/tailoring/coverage";
+import { savedCvFit } from "../../../../lib/tailoring/fit/savedCv";
+import { parseStoredTailoringContext } from "../../../../lib/tailoring/context";
 import { computeQuality } from "../../../../lib/tailoring/quality";
 import { LANGUAGE_LABELS, isOutputLanguage } from "../../../../lib/tailoring/language";
 import { LanguageBadge } from "../../../components/app/LanguageBadge";
@@ -20,7 +21,7 @@ import { candidateProfileSchema } from "../../../../lib/profile/contract";
 import { SkillsPendingProvider } from "../../../../components/tailoring/SkillsPending";
 import { effectiveSkillsLayout, profileSkillCategories, resolveSkillsDisplay } from "../../../../lib/tailoring/skillsLayout";
 import { FooterDate } from "../../../components/app/FooterMeta";
-import { CoverageReport } from "./CoverageReport";
+import { SavedCvFit } from "./SavedCvFit";
 import { DownloadMenu } from "./DownloadMenu";
 import { CvAppearance } from "./CvAppearance";
 import { QualityChecklist } from "./QualityChecklist";
@@ -76,9 +77,11 @@ export default async function TailoredResumePreviewPage({
       skillsParagraph: true,
       skillsParagraphEditedAt: true,
       createdAt: true,
+      tailoringContext: true,
+      profileVersionId: true,
       profileVersion: { select: { content: true } },
       targetJobId: true,
-      targetJob: { select: { rawText: true, title: true, employer: true } },
+      targetJob: { select: { title: true, employer: true } },
       // The persisted pairing (see schema's CoverLetter.tailoredResumeId
       // comment) — read this instead of relying only on the query param,
       // so "View cover letter" still shows up on a later visit, not just
@@ -97,18 +100,20 @@ export default async function TailoredResumePreviewPage({
 
   const content = parseTailoredResumeContent(row.content);
 
-  // Derived at render, never stored: the same "coverage describes the
-  // document, it never becomes part of it" boundary the rest of tailoring
-  // enforces. See lib/tailoring/coverage.ts.
-  const resumeText = [
-    content.headline,
-    content.summary,
-    content.skills.join(" "),
-    ...content.experience.flatMap((entry) => [entry.title, entry.employer, ...entry.bullets]),
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const coverage = row.targetJob.rawText ? computeCoverage(content.skills, row.targetJob.rawText, resumeText) : null;
+  // #973: this CV's own job fit assessment, as recorded by its run and
+  // scored as of the CV's save time; never a provider call, never a
+  // substitute number (lib/tailoring/fit/savedCv.ts).
+  const [fit, confirmedProfile] = await Promise.all([
+    savedCvFit({
+      workspaceId: workspace.id,
+      profileVersionId: row.profileVersionId,
+      targetJobId: row.targetJobId,
+      createdAt: row.createdAt,
+      context: parseStoredTailoringContext(row.tailoringContext),
+    }),
+    db.candidateProfile.findUnique({ where: { workspaceId: workspace.id }, select: { confirmedVersionId: true } }),
+  ]);
+  const fitAnalyzeHref = fit.kind === "none" && fit.reason === "unavailable" ? null : `/tailor?from=${id}#tailor-flow`;
   const quality = computeQuality(content, row.outputLanguage);
 
   // One resolution for the preview and the printed PDF; the DOCX route
@@ -258,7 +263,7 @@ export default async function TailoredResumePreviewPage({
         </CvAppearance>
       </section>
 
-      {coverage ? <CoverageReport coverage={coverage} /> : null}
+      <SavedCvFit fit={fit} analyzeHref={fitAnalyzeHref} profileChanged={confirmedProfile?.confirmedVersionId !== row.profileVersionId} />
       <QualityChecklist quality={quality} />
       </div>
 

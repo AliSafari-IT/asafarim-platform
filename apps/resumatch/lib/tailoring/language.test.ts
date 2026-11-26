@@ -15,7 +15,7 @@ import {
 } from "./language";
 import { renderTailorPrompt, TAILOR_PROMPT_VERSION } from "./ai/prompts";
 import { computeQuality } from "./quality";
-import { computeCoverage } from "./coverage";
+import { fold, STOPWORDS, words } from "./coverage";
 import { ClassicTemplate, telHref } from "../../components/tailoring/templates/Classic";
 import type { TailoredResumeContent } from "./ai/schema";
 
@@ -270,12 +270,12 @@ describe("language-aware checks", () => {
 
   it("drops German stopwords and keeps accented keywords whole", () => {
     const job = "Wir suchen für unser Team Erfahrung mit Datenbanken und Kubernetes. Kubernetes und Développement für die Entwicklung.";
-    const report = computeCoverage([], job, "");
-    expect(report.missingKeywords).toContain("kubernetes");
-    expect(report.missingKeywords).toContain("développement");
-    expect(report.missingKeywords).not.toContain("für");
-    expect(report.missingKeywords).not.toContain("und");
-    expect(report.missingKeywords.some((k) => k === "veloppement" || k === "r")).toBe(false);
+    const kept = words(job).filter((w) => !STOPWORDS.has(fold(w)));
+    expect(kept).toContain("kubernetes");
+    expect(kept).toContain("développement");
+    expect(kept).not.toContain("für");
+    expect(kept).not.toContain("und");
+    expect(kept.some((k) => k === "veloppement" || k === "r")).toBe(false);
   });
 });
 

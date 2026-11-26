@@ -1,14 +1,12 @@
-import { withoutFileHeaders } from "./jobFiles";
 /**
- * Deterministic keyword/skill coverage report (issue #428). No provider
- * call, no persistence — computed at render time from the target job's own
- * text and the tailored resume's already-persisted content, the same
- * "derived, not stored" option the issue itself allows for.
+ * Word helpers for the key-term scope check (lib/tailoring/jobFit.ts).
  *
- * Fits the no-fabrication boundary the rest of tailoring enforces: this
- * describes the profile's real coverage of the posting — matched and
- * missing — and adds nothing to the document itself. A gap the profile
- * genuinely has stays a gap; nothing here silently patches it.
+ * Until 0.7.5 this module also built the CV preview's "Coverage of this
+ * posting" report (#428): a share of the CV's skills whose words appeared
+ * in the posting, and the posting's frequent words as "not covered". It
+ * read as a fit score while measuring neither fit nor the job's actual
+ * requirements, so #973 removed it; the preview shows the CV's recorded
+ * job fit assessment (lib/tailoring/fit/savedCv.ts) instead.
  */
 
 // English, Dutch, and French function words — this app fetches job postings
@@ -67,59 +65,4 @@ export function words(text: string): string[] {
     .split(/[^\p{L}\p{N}+#.]+/u)
     .map((t) => t.replace(/^[.+#]+|[.+#]+$/g, ""))
     .filter((t) => t.length >= 3);
-}
-
-function tokenize(text: string): string[] {
-  return words(text).map(fold);
-}
-
-/** Folded key → how often it appears and the first spelling seen, so the
- *  gap list shows "développement", not a folded "developpement". */
-function significantJobTokens(jobText: string): Map<string, { count: number; display: string }> {
-  const counts = new Map<string, { count: number; display: string }>();
-  for (const word of words(jobText)) {
-    const key = fold(word);
-    if (STOPWORDS.has(key)) continue;
-    if (/^\d+$/.test(key)) continue;
-    const entry = counts.get(key);
-    if (entry) entry.count += 1;
-    else counts.set(key, { count: 1, display: word });
-  }
-  return counts;
-}
-
-export interface CoverageReport {
-  /** The candidate's own skills that the posting's text also mentions. */
-  matchedSkills: string[];
-  /** The posting's own frequent, non-generic terms that neither the
-   *  candidate's skills nor the rest of the resume text mention anywhere —
-   *  an honest gap list, capped so it reads as "what to consider
-   *  addressing" rather than a raw keyword dump. */
-  missingKeywords: string[];
-  /** matchedSkills.length / total profile skills, 0 when there are none —
-   *  a rough coverage signal, not a calibrated "ATS score". */
-  matchPercent: number;
-}
-
-const MAX_MISSING_KEYWORDS = 12;
-
-export function computeCoverage(profileSkills: string[], jobText: string, resumeText: string): CoverageReport {
-  // An uploaded set's file headers are names, not posting words.
-  const jobTokenCounts = significantJobTokens(withoutFileHeaders(jobText));
-  const jobTokens = new Set(jobTokenCounts.keys());
-  const resumeTokens = new Set(tokenize(resumeText));
-
-  const matchedSkills = profileSkills.filter((skill) => tokenize(skill).some((t) => jobTokens.has(t)));
-
-  const missingKeywords = [...jobTokenCounts.entries()]
-    .filter(([token]) => !resumeTokens.has(token))
-    .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, MAX_MISSING_KEYWORDS)
-    .map(([, { display }]) => display);
-
-  return {
-    matchedSkills,
-    missingKeywords,
-    matchPercent: profileSkills.length > 0 ? Math.round((matchedSkills.length / profileSkills.length) * 100) : 0,
-  };
 }
