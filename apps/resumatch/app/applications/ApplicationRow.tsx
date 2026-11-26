@@ -169,6 +169,7 @@ export function ApplicationRow({
       </div>
 
       <FollowUpDateField
+        applicationId={application.id}
         status={statusState.persisted}
         saveState={followUpState}
         saver={followUpSaver}

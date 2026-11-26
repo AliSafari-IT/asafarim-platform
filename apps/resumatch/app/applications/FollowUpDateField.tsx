@@ -14,6 +14,7 @@ import {
   type FollowUpDueState,
 } from "../../lib/applications/followUp";
 import type { FieldSaveState, FieldSaver, SaveErrorKind } from "../../lib/applications/fieldSaver";
+import { CalendarExportLink } from "../../components/calendarExport/CalendarExportLink";
 
 const DUE_TONE: Record<FollowUpDueState, BadgeTone> = {
   overdue: "danger",
@@ -52,12 +53,14 @@ function useLocalToday(): string | null {
  *  notes draft (#895): a failed save leaves the attempted date in the
  *  field with an error and a Retry button. */
 export function FollowUpDateField({
+  applicationId,
   status,
   saveState,
   saver,
   draft,
   setDraft,
 }: {
+  applicationId: string;
   status: ApplicationStatusName;
   saveState: FieldSaveState<string>;
   saver: FieldSaver<string>;
@@ -148,6 +151,9 @@ export function FollowUpDateField({
   // state the server doesn't have.
   const savedDay = saveState.persisted === "" ? null : saveState.persisted;
   const due = today ? followUpDueState(savedDay, today, status) : null;
+  // The calendar export is the saved day only: while a different date is
+  // being typed or saved, the download would not match the field.
+  const exportable = savedDay !== null && !dirty && !incomplete && saveState.phase !== "saving";
 
   return (
     <div className="rm-followup">
@@ -182,6 +188,13 @@ export function FollowUpDateField({
           </span>
         ) : null}
       </div>
+      {exportable ? (
+        <CalendarExportLink href={`/api/applications/${encodeURIComponent(applicationId)}/follow-up/calendar`} testId="follow-up-calendar" />
+      ) : savedDay !== null || (draft !== "" && dirty) ? (
+        <p className="rm-save-status" data-testid="follow-up-calendar-pending">
+          {t("resumatch.cal.saveFirst")}
+        </p>
+      ) : null}
       <div id={describedById}>
         {incomplete ? <p className="rm-save-status">{t("resumatch.app.followUp.incomplete")}</p> : null}
         <p className="rm-save-status" role="status" aria-live="polite">

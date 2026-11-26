@@ -8039,3 +8039,25 @@
   font-size: 0.9rem;
   line-height: 1.5;
 }
+
+/* "Add to calendar" (#969, calendar-export.md): a download link with the
+   one-time-export note under it, on the follow-up date and on interview
+   entries. */
+[data-app="resumatch"] .rm-cal {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  max-width: 40rem;
+}
+[data-app="resumatch"] .rm-cal__note {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+[data-app="resumatch"] .rm-tl__entry .rm-cal {
+  margin-top: 0.6rem;
+}

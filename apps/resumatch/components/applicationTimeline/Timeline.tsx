@@ -12,6 +12,7 @@ import { AttachmentPicker } from "./AttachmentPicker";
 import { formatBytes, sendTimelineRequest } from "./client";
 import { EventForm } from "./EventForm";
 import { ZonedTimeText } from "./ZonedTimeText";
+import { CalendarExportLink } from "../calendarExport/CalendarExportLink";
 
 /**
  * The application's history, oldest first (application-timeline.md).
@@ -266,6 +267,10 @@ function EventEntry({
           </Button>
         ) : null}
       </div>
+
+      {entry.kind === "INTERVIEW" ? (
+        <CalendarExportLink href={`${base}/calendar`} testId="interview-calendar" />
+      ) : null}
 
       <ConfirmDialog
         open={confirmDelete}
