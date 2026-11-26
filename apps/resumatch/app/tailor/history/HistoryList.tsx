@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useTranslation } from "@asafarim/shared-i18n";
 import { Button } from "@asafarim/ui";
 import { LanguageBadge } from "../../components/app/LanguageBadge";
+import { JobSourceLine } from "../../../components/jobSource/JobSourceLine";
+import { describeJobSource } from "../../../lib/jobs/source";
 
 /** Deterministic, locale-independent formatting — `toLocaleString()` here
  *  produced a server/client hydration mismatch (server and browser locales
@@ -27,7 +29,7 @@ interface HistoryRow {
   promptVersion: string;
   modelVersion: string;
   targetJobId: string;
-  targetJob: { title: string | null; employer: string | null; sourceUrl: string };
+  targetJob: { title: string | null; employer: string | null; sourceUrl: string; sourceFiles?: unknown };
   coverLetter: { id: string; outputLanguage: string | null } | null;
 }
 
@@ -137,6 +139,13 @@ export function HistoryList({ resumes }: { resumes: HistoryRow[] }) {
                           <span className="rx-pill rx-pill--warm">{t("resumatch.degraded")}</span>
                         ) : null}
                       </span>
+                      <JobSourceLine
+                        as="span"
+                        className="rm-job-source rx-hl__source"
+                        source={describeJobSource(resume.targetJob)}
+                        targetJobId={resume.targetJobId}
+                        from="history"
+                      />
                     </span>
                   </label>
                   <span className="rx-hl__actions">

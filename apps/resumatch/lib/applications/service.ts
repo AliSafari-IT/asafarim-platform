@@ -140,7 +140,7 @@ export async function updateApplication(workspaceId: string, id: string, input: 
 /** The row shape the list page and `GET /api/applications` return. Notes
  *  are included because the row edits them; they are never searched. */
 const LIST_INCLUDE = {
-  targetJob: { select: { title: true, employer: true, sourceUrl: true } },
+  targetJob: { select: { title: true, employer: true, sourceUrl: true, sourceFiles: true } },
   tailoredResume: { select: { id: true, createdAt: true, coverLetter: { select: { id: true } } } },
   // The newest accepted (or unresolved) email, for the card's "Sent" line
   // and its link to that exact message.

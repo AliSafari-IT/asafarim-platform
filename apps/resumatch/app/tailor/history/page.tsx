@@ -55,7 +55,7 @@ export default async function TailoringHistoryPage() {
         profileVersionId: true,
         targetJobId: true,
         targetJob: {
-          select: { id: true, title: true, employer: true, sourceUrl: true },
+          select: { id: true, title: true, employer: true, sourceUrl: true, sourceFiles: true },
         },
         coverLetter: { select: { id: true, outputLanguage: true } },
       },

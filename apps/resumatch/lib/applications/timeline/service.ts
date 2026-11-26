@@ -20,6 +20,7 @@ import type { CreateEventInput, EditSubmissionInput, EventKindName, RecordSubmis
 import { parseEml, readEmailPreview } from "./eml";
 import { mergeTimeline, type AttachmentView, type EmailEntryView, type EventEntryView, type TimelineEntryView } from "./view";
 import { recipientSummary } from "../../applicationEmail/normalize";
+import { describeJobSource, type JobSourceView } from "../../jobs/source";
 
 /**
  * External submissions and the application timeline
@@ -711,6 +712,9 @@ export interface TimelinePage {
     status: ApplicationStatusName;
     jobTitle: string | null;
     employer: string | null;
+    /** The job it came from and where that job came from (job-source.md). */
+    targetJobId: string;
+    jobSource: JobSourceView;
     appliedAt: string | null;
     appliedTimeZone: string | null;
     followUpDay: string | null;
@@ -730,7 +734,7 @@ export async function loadTimeline(workspaceId: string, applicationId: string): 
   const app = await db.application.findFirst({
     where: { id: applicationId, workspaceId },
     include: {
-      targetJob: { select: { title: true, employer: true } },
+      targetJob: { select: { title: true, employer: true, sourceUrl: true, sourceFiles: true } },
       events: {
         orderBy: [{ occurredAt: "asc" }, { createdAt: "asc" }],
         include: { attachments: { orderBy: { createdAt: "asc" } } },
@@ -788,6 +792,8 @@ export async function loadTimeline(workspaceId: string, applicationId: string): 
       status: app.status as ApplicationStatusName,
       jobTitle: app.targetJob.title,
       employer: app.targetJob.employer,
+      targetJobId: app.targetJobId,
+      jobSource: describeJobSource(app.targetJob),
       appliedAt: app.appliedAt?.toISOString() ?? null,
       appliedTimeZone: app.appliedTimeZone,
       followUpDay: followUpDateToDay(app.followUpDate),
