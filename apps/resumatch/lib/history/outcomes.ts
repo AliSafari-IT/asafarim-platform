@@ -1,6 +1,7 @@
 import { jobKey } from "../journey";
 import type { ApplicationStatusName } from "../applications/constants";
 import { OUTCOME_STAGES, type OutcomeStage } from "./stages";
+import { utcToZonedLocal } from "../applications/zonedTime";
 
 /**
  * Ties the tailoring history to the application tracker, so /tailor/history
@@ -33,9 +34,18 @@ export interface OutcomeApplication {
   targetJobId: string;
   tailoredResumeId: string | null;
   appliedAt: Date | string | null;
+  /** The zone the candidate named for `appliedAt`; null shows the UTC day. */
+  appliedTimeZone?: string | null;
+  /** A logged answer on the timeline (recruiter reply, interview, offer or
+   *  rejection) even if the status was left on Applied. See REPLY_EVENT_KINDS. */
+  replied?: boolean;
   updatedAt: Date | string;
   targetJob: JobRef;
 }
+
+/** Timeline entries that mean the employer answered. A confirmation receipt
+ *  or the candidate's own follow-up does not. */
+export const REPLY_EVENT_KINDS = ["RECRUITER_REPLY", "INTERVIEW", "OFFER", "REJECTION"] as const;
 
 
 export { OUTCOME_STAGES, type OutcomeStage };
@@ -67,7 +77,11 @@ export interface JobOutcome {
   latestResumeId: string;
   applicationId: string | null;
   appliedAt: Date | null;
-  /** Applied more than QUIET_AFTER_DAYS ago and still on "Applied". */
+  /** `appliedAt` as a calendar day in the zone the candidate recorded it in. */
+  appliedDay: string | null;
+  /** The employer answered: a status past Applied, or a logged reply. */
+  answered: boolean;
+  /** Applied more than QUIET_AFTER_DAYS ago, still on "Applied", no logged reply. */
   quiet: boolean;
 }
 
@@ -90,9 +104,13 @@ export interface OutcomeSummary {
 const time = (value: Date | string) => new Date(value).getTime();
 const asDate = (value: Date | string | null) => (value ? new Date(value) : null);
 
-/** When several applications point at the same thing, the one touched last wins. */
+/** When several applications point at the same thing, a sent one beats an
+ *  unsent "Saved" one (saving another CV for a job already applied to must
+ *  not hide that application); otherwise the one touched last wins. */
 function newer(a: OutcomeApplication | undefined, b: OutcomeApplication): OutcomeApplication {
   if (!a) return b;
+  const sentA = SENT.has(a.status);
+  if (sentA !== SENT.has(b.status)) return sentA ? a : b;
   const diff = time(b.updatedAt) - time(a.updatedAt);
   if (diff !== 0) return diff > 0 ? b : a;
   return b.id > a.id ? b : a;
@@ -139,6 +157,7 @@ export function summarizeOutcomes(
     }
     const app = byKey.get(key) ?? byJobId.get(resume.targetJobId);
     const appliedAt = app ? asDate(app.appliedAt) : null;
+    const answered = Boolean(app && (ANSWERED.has(app.status) || (SENT.has(app.status) && app.replied)));
     jobsByKey.set(key, {
       key,
       title: resume.targetJob.title,
@@ -148,7 +167,9 @@ export function summarizeOutcomes(
       latestResumeId: resume.id,
       applicationId: app?.id ?? null,
       appliedAt,
-      quiet: app?.status === "APPLIED" && appliedAt !== null && appliedAt.getTime() < quietBefore,
+      appliedDay: appliedAt ? utcToZonedLocal(appliedAt, app?.appliedTimeZone ?? "UTC").slice(0, 10) : null,
+      answered,
+      quiet: app?.status === "APPLIED" && !answered && appliedAt !== null && appliedAt.getTime() < quietBefore,
     });
   }
 
@@ -157,7 +178,6 @@ export function summarizeOutcomes(
   for (const job of jobs) byStage[job.stage] += 1;
 
   const sentStatus = (s: OutcomeStage) => s !== "UNTRACKED" && SENT.has(s);
-  const answeredStatus = (s: OutcomeStage) => s !== "UNTRACKED" && ANSWERED.has(s);
 
   const otherKeys = new Set<string>();
   for (const app of applications) {
@@ -169,7 +189,7 @@ export function summarizeOutcomes(
     jobs,
     byStage,
     applied: jobs.filter((j) => sentStatus(j.stage)).length,
-    answered: jobs.filter((j) => answeredStatus(j.stage)).length,
+    answered: jobs.filter((j) => j.answered).length,
     interviews: jobs.filter((j) => j.stage === "INTERVIEWING" || j.stage === "OFFER").length,
     quiet: jobs.filter((j) => j.quiet).length,
     otherApplications: otherKeys.size,

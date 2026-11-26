@@ -5,8 +5,6 @@ import { OUTCOME_STAGES, QUIET_AFTER_DAYS, percent, type OutcomeSummary } from "
 /** How many jobs show before the rest fold into "Show all". */
 const VISIBLE_JOBS = 8;
 
-const day = (d: Date) => d.toISOString().slice(0, 10);
-
 /**
  * "Where your applications stand": every job the candidate tailored a CV
  * for, with the status it has on /applications — a stacked bar by stage,
@@ -37,8 +35,8 @@ export async function OutcomesPanel({ summary }: { summary: OutcomeSummary }) {
         </span>
         <span className="rx-oc__job-meta">
           <span>{t("resumatch.history.outcomes.versions", { count: job.versions })}</span>
-          {job.appliedAt ? (
-            <span>{t("resumatch.history.outcomes.appliedOn", { date: day(job.appliedAt) })}</span>
+          {job.appliedDay ? (
+            <span>{t("resumatch.history.outcomes.appliedOn", { date: job.appliedDay })}</span>
           ) : null}
           {job.quiet ? (
             <span className="rx-oc__quiet">{t("resumatch.history.outcomes.noAnswer", { days: QUIET_AFTER_DAYS })}</span>

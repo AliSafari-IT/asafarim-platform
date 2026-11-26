@@ -10,7 +10,7 @@ import { JourneyTracker } from "../../components/app/JourneyTracker";
 import { PageHero } from "../../components/app/PageHero";
 import { StatRow, StatTile } from "../../components/app/Stats";
 import { BriefcaseIcon, MailIcon, SparkIcon, WarningIcon } from "../../profile/icons";
-import { summarizeOutcomes } from "../../../lib/history/outcomes";
+import { REPLY_EVENT_KINDS, summarizeOutcomes } from "../../../lib/history/outcomes";
 import { HistoryList } from "./HistoryList";
 import { OutcomesPanel } from "./OutcomesPanel";
 
@@ -72,13 +72,19 @@ export default async function TailoringHistoryPage() {
         targetJobId: true,
         tailoredResumeId: true,
         appliedAt: true,
+        appliedTimeZone: true,
         updatedAt: true,
         targetJob: { select: { id: true, title: true, employer: true } },
+        // Any logged answer counts, even with the status left on Applied.
+        events: { where: { kind: { in: [...REPLY_EVENT_KINDS] } }, select: { id: true }, take: 1 },
       },
     }),
     getJourneyCounts(workspace.id),
   ]);
-  const outcomes = summarizeOutcomes(resumes, applications);
+  const outcomes = summarizeOutcomes(
+    resumes,
+    applications.map(({ events, ...a }) => ({ ...a, replied: events.length > 0 })),
+  );
   // Plain object: the client list can't take a Map across the boundary.
   const versionOutcomes = Object.fromEntries(
     [...outcomes.versionOutcomes].map(([id, o]) => [id, { applicationId: o.applicationId, status: o.status, via: o.via }]),
