@@ -76,6 +76,41 @@ describe("summarizeOutcomes", () => {
     expect(s.versionOutcomes.get("r1")?.applicationId).toBe("new");
   });
 
+  it("a newer unsent Saved row never hides an application already sent", () => {
+    const resumes = [resume("r2", "2026-11-25T00:00:00Z", kingfisher), resume("r1", "2026-11-20T00:00:00Z", kingfisher)];
+    const apps = [
+      app({ id: "sent", targetJob: kingfisher, tailoredResumeId: "r1", status: "INTERVIEWING", appliedAt: "2026-11-21T00:00:00Z", updatedAt: "2026-11-22T00:00:00Z" }),
+      app({ id: "draft", targetJob: kingfisher, tailoredResumeId: "r2", status: "SAVED", updatedAt: "2026-11-25T00:00:00Z" }),
+    ];
+    const s = summarizeOutcomes(resumes, apps, now);
+    expect(s.jobs[0]).toMatchObject({ stage: "INTERVIEWING", applicationId: "sent" });
+    expect(s.applied).toBe(1);
+    expect(s.answered).toBe(1);
+    // Each version still points at its own application.
+    expect(s.versionOutcomes.get("r2")).toMatchObject({ applicationId: "draft", via: "version" });
+  });
+
+  it("a logged reply counts as an answer and stops the follow-up nudge", () => {
+    const resumes = [resume("r1", "2026-10-30T00:00:00Z", sweco)];
+    const apps = [app({ id: "a1", targetJob: sweco, status: "APPLIED", appliedAt: "2026-11-01T00:00:00Z", replied: true })];
+    const s = summarizeOutcomes(resumes, apps, now);
+    expect(s.answered).toBe(1);
+    expect(s.quiet).toBe(0);
+    expect(s.jobs[0]).toMatchObject({ stage: "APPLIED", answered: true, quiet: false });
+  });
+
+  it("shows the applied day in the zone it was recorded in", () => {
+    const resumes = [resume("r1", "2026-11-20T00:00:00Z", sweco), resume("r2", "2026-11-20T00:00:00Z", clovr)];
+    const apps = [
+      // 00:30 on Nov 26 in Brussels is still Nov 25 in UTC.
+      app({ id: "a1", targetJob: sweco, status: "APPLIED", appliedAt: "2026-11-25T23:30:00Z", appliedTimeZone: "Europe/Brussels" }),
+      app({ id: "a2", targetJob: clovr, status: "APPLIED", appliedAt: "2026-11-25T23:30:00Z" }),
+    ];
+    const s = summarizeOutcomes(resumes, apps, now);
+    expect(s.jobs.find((j) => j.key.includes("sweco"))?.appliedDay).toBe("2026-11-26");
+    expect(s.jobs.find((j) => j.key.includes("clovr"))?.appliedDay).toBe("2026-11-25");
+  });
+
   it("is empty-safe", () => {
     const s = summarizeOutcomes([], [], now);
     expect(s.jobs).toEqual([]);
