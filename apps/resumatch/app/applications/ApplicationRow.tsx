@@ -23,6 +23,8 @@ import type { EventKindName, SubmissionChannelName } from "../../lib/application
 import { ApplicationStatusStepper } from "./ApplicationStatusStepper";
 import { FollowUpDateField } from "./FollowUpDateField";
 import { LocalTime } from "../ai-usage/LocalTime";
+import { JobSourceLine } from "../../components/jobSource/JobSourceLine";
+import { describeJobSource } from "../../lib/jobs/source";
 
 type ApplicationWithRelations = ApplicationListRow;
 
@@ -127,6 +129,7 @@ export function ApplicationRow({
   return (
     <Card title={application.targetJob.title ?? application.targetJob.employer ?? t("resumatch.untitledJob")}>
       {application.targetJob.employer ? <p style={{ color: "var(--muted)" }}>{application.targetJob.employer}</p> : null}
+      <JobSourceLine source={describeJobSource(application.targetJob)} targetJobId={application.targetJobId} from="applications" />
 
       <div style={{ marginTop: "0.6rem" }}>
         <ApplicationStatusStepper

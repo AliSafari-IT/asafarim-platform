@@ -7068,7 +7068,9 @@
 /* Links inside running text are underlined, so they don't rely on colour
    alone (WCAG 1.4.1). */
 [data-app="resumatch"] .rm-composer__note a,
-[data-app="resumatch"] .rm-app-send__last a {
+[data-app="resumatch"] .rm-app-send__last a,
+[data-app="resumatch"] .rm-job-source a,
+[data-app="resumatch"] .rm-job-page__note a {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -7965,4 +7967,75 @@
 }
 .rm-tl__add-files {
   margin-top: 0.5rem;
+}
+
+/* ── Job source (job-source.md): card/history line and the saved-job page ── */
+.rm-job-source {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.rm-job-source__label {
+  font-weight: 600;
+}
+.rm-job-source__files {
+  color: var(--ink, inherit);
+}
+[data-app="resumatch"] .rx-hl__source {
+  display: block;
+  margin: 0;
+  font-size: 0.75rem;
+}
+.rm-job-page__url {
+  overflow-wrap: anywhere;
+}
+.rm-job-page__subhead {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.95rem;
+}
+.rm-job-page__files {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.25rem;
+}
+.rm-job-page__file-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.rm-job-page__file-meta {
+  margin-left: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.rm-job-page__note {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.rm-job-page__text {
+  max-width: 48rem;
+}
+.rm-job-page__text h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.5rem;
+}
+.rm-job-page__section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.rm-job-page__file-head {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+.rm-job-page__body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }

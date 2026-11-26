@@ -6,6 +6,7 @@ import { getTranslator } from "../../../../lib/i18n-server";
 import { getCurrentWorkspace } from "../../../../lib/workspace";
 import { Timeline } from "../../../../components/applicationTimeline/Timeline";
 import { SubmissionSummary } from "../../../../components/applicationTimeline/SubmissionSummary";
+import { JobSourceLine } from "../../../../components/jobSource/JobSourceLine";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getTranslator();
@@ -43,6 +44,7 @@ export default async function TimelinePage({
       <p className="rm-sent-nav">
         <a href="/applications">{t("resumatch.tl.back")}</a>
       </p>
+      <JobSourceLine source={data.application.jobSource} targetJobId={data.application.targetJobId} from="applications" />
       <SubmissionSummary application={data.application} />
       <Timeline applicationId={data.application.id} status={data.application.status} entries={data.entries} openAdd={query.add === "1"} />
     </>

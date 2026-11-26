@@ -19,6 +19,7 @@ import { shellDictionaries } from "./i18n/shell";
 import { tailorDictionaries } from "./i18n/tailor";
 import { trackingDictionaries } from "./i18n/tracking";
 import { timelineDictionaries } from "./i18n/timeline";
+import { jobSourceDictionaries } from "./i18n/jobSource";
 
 /**
  * ResuMatch's own strings for the shared i18n layer (#640), one module per
@@ -49,6 +50,7 @@ export const resumatchDictionaryAreas: Record<string, Dictionaries> = {
   photo: photoDictionaries,
   tracking: trackingDictionaries,
   timeline: timelineDictionaries,
+  jobSource: jobSourceDictionaries,
   send: sendDictionaries,
   landing: landingDictionaries,
 };
