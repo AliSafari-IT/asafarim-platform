@@ -10,7 +10,9 @@ import { JourneyTracker } from "../../components/app/JourneyTracker";
 import { PageHero } from "../../components/app/PageHero";
 import { StatRow, StatTile } from "../../components/app/Stats";
 import { BriefcaseIcon, MailIcon, SparkIcon, WarningIcon } from "../../profile/icons";
+import { summarizeOutcomes } from "../../../lib/history/outcomes";
 import { HistoryList } from "./HistoryList";
+import { OutcomesPanel } from "./OutcomesPanel";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getTranslator();
@@ -23,7 +25,8 @@ export const dynamic = "force-dynamic";
  * newest first, with the target job, `templateKey`, `degraded` flag, and
  * prompt/model provenance. All the data already exists (see
  * generate-confirm's write) — this is read-only UI plus a picker for the
- * compare page.
+ * compare page. Since 0.7.2 it also reads the tracked applications
+ * and shows what happened to each job: lib/history/outcomes.ts.
  */
 export default async function TailoringHistoryPage() {
   const { t } = await getTranslator();
@@ -40,7 +43,7 @@ export default async function TailoringHistoryPage() {
   }
 
   const db = getJobmatchDb();
-  const [resumes, journey] = await Promise.all([
+  const [resumes, applications, journey] = await Promise.all([
     db.tailoredResume.findMany({
       where: { workspaceId: workspace.id },
       orderBy: { createdAt: "desc" },
@@ -60,8 +63,26 @@ export default async function TailoringHistoryPage() {
         coverLetter: { select: { id: true, outputLanguage: true } },
       },
     }),
+    // Every tracked application, to say what happened to each job (0.7.2).
+    db.application.findMany({
+      where: { workspaceId: workspace.id },
+      select: {
+        id: true,
+        status: true,
+        targetJobId: true,
+        tailoredResumeId: true,
+        appliedAt: true,
+        updatedAt: true,
+        targetJob: { select: { id: true, title: true, employer: true } },
+      },
+    }),
     getJourneyCounts(workspace.id),
   ]);
+  const outcomes = summarizeOutcomes(resumes, applications);
+  // Plain object: the client list can't take a Map across the boundary.
+  const versionOutcomes = Object.fromEntries(
+    [...outcomes.versionOutcomes].map(([id, o]) => [id, { applicationId: o.applicationId, status: o.status, via: o.via }]),
+  );
 
   // Most-tailored jobs: versions per distinct job (see jobKey), top six.
   const perJob = new Map<string, { label: string; hint?: string; count: number }>();
@@ -117,6 +138,8 @@ export default async function TailoringHistoryPage() {
             />
           </StatRow>
 
+          <OutcomesPanel summary={outcomes} />
+
           {topJobs.length > 1 ? (
             <section className="rx-panel">
               <h2 className="rx-panel__title">{t("resumatch.history.topJobs.title")}</h2>
@@ -125,7 +148,7 @@ export default async function TailoringHistoryPage() {
             </section>
           ) : null}
 
-          <HistoryList resumes={resumes} />
+          <HistoryList resumes={resumes} outcomes={versionOutcomes} />
         </>
       )}
     </div>
