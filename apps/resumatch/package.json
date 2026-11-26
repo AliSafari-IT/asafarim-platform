@@ -1,6 +1,6 @@
 {
   "name": "@asafarim/resumatch",
-  "version": "0.6.22",
+  "version": "0.7.0",
   "private": true,
   "description": "ResuMatch - AI-powered CV tailoring: paste a job URL, tailor your resume to it (resumatch.asafarim.com)",
   "type": "module",
@@ -20,6 +20,7 @@
     "db:migrate:deploy": "dotenv -e ../../.env.local -e ../../.env -- prisma migrate deploy --schema prisma/schema.prisma",
     "report:stale-extractions": "dotenv -e ../../.env.local -e ../../.env -- tsx scripts/report-stale-extractions.ts",
     "eval:personalization": "dotenv -e ../../.env.local -e ../../.env -- tsx scripts/eval-personalization.ts",
+    "eval:job-fit": "dotenv -e ../../.env.local -e ../../.env -- tsx scripts/eval-job-fit.ts",
     "report:ai-outcomes": "dotenv -e ../../.env.local -e ../../.env -- tsx scripts/report-ai-outcomes.ts",
     "db:studio": "dotenv -e ../../.env.local -e ../../.env -- prisma studio --schema prisma/schema.prisma --port 5557 --browser none",
     "e2e": "playwright test"

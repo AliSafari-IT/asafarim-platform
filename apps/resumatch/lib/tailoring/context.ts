@@ -66,6 +66,19 @@ export interface TailoringContext {
   /** #931: provenance of the style settings and the saved style notes
    *  used. Null on a snapshot from before #931 (no saved preferences). */
   writing: TailoringWritingContext | null;
+  /** #971: the job fit assessment the run's low-fit gate and gaps came
+   *  from. Null on a snapshot from before #971. */
+  fit?: TailoringFitContext | null;
+}
+
+export interface TailoringFitContext {
+  /** "ai": a current, saved AI assessment; "keyword": the basic check. */
+  source: "ai" | "keyword";
+  /** The saved assessment's id ("ai" only). */
+  assessmentId: string | null;
+  rubricVersion: string;
+  /** Requirements the CV must not claim, from the assessment, sorted. */
+  gaps: string[];
 }
 
 export interface TailoringWritingContext {
@@ -116,6 +129,8 @@ export interface ResolveTailoringContextInput {
   /** #931: the saved revision read (null: none) and the resolution. */
   preferenceRevisionId?: string | null;
   writing?: ResolvedWriting | null;
+  /** #971: the fit assessment behind the gate and gaps. */
+  fit?: TailoringFitContext | null;
 }
 
 export function fingerprintJobText(rawText: string): string {
@@ -152,6 +167,7 @@ export function resolveTailoringContext(input: ResolveTailoringContextInput): Ta
       ? { ...input.selection, unmetRequirementIds: [...input.selection.unmetRequirementIds].sort() }
       : null,
     writing: input.writing ? writingContext(input.writing, input.coverLetter !== null) : null,
+    fit: input.fit ? { ...input.fit, gaps: [...input.fit.gaps].sort() } : null,
   };
 }
 
@@ -198,6 +214,8 @@ export function tailoringContextFingerprint(context: TailoringContext): string {
     // #931, same rule: the saved style notes the prompts got. Sources are
     // provenance only (the values they explain are already above).
     ...(context.writing ? ["writing", context.writing.cvStyleNote ?? "", context.writing.letterStyleNote ?? ""] : []),
+    // #971, same rule: the assessment behind the gate and the gaps.
+    ...(context.fit ? ["fit", context.fit.source, context.fit.assessmentId ?? "-", context.fit.rubricVersion, context.fit.gaps.join("\n")] : []),
   ];
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 }
@@ -253,6 +271,7 @@ export function parseStoredTailoringContext(value: unknown): TailoringContext | 
       : [],
     selection: parseSelection(raw.selection),
     writing: parseWriting(raw.writing),
+    fit: parseFit(raw.fit),
   };
 }
 
@@ -338,4 +357,16 @@ export function staleContextReason(
     return "evidence";
   }
   return null;
+}
+
+function parseFit(value: unknown): TailoringFitContext | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  if ((raw.source !== "ai" && raw.source !== "keyword") || typeof raw.rubricVersion !== "string") return null;
+  return {
+    source: raw.source,
+    assessmentId: stringOrNull(raw.assessmentId),
+    rubricVersion: raw.rubricVersion,
+    gaps: Array.isArray(raw.gaps) ? raw.gaps.filter((g): g is string => typeof g === "string") : [],
+  };
 }

@@ -150,7 +150,20 @@ describe("parseStoredTailoringContext", () => {
       evidenceRevisionIds: [],
       selection: null,
       writing: null,
+      fit: null,
     });
+  });
+
+  it("#971: keeps the fit assessment and puts it in the fingerprint only when present", () => {
+    const without = resolveTailoringContext(base);
+    const withFit = resolveTailoringContext({ ...base, fit: { source: "ai", assessmentId: "fa_1", rubricVersion: "fit_rubric@1", gaps: ["b", "a"] } });
+    expect(withFit.fit).toEqual({ source: "ai", assessmentId: "fa_1", rubricVersion: "fit_rubric@1", gaps: ["a", "b"] });
+    expect(tailoringContextFingerprint(withFit)).not.toBe(tailoringContextFingerprint(without));
+    expect(parseStoredTailoringContext(JSON.parse(JSON.stringify(withFit)))?.fit).toEqual(withFit.fit);
+    // A snapshot written before #971 keeps its fingerprint.
+    const legacy = { ...without } as Record<string, unknown>;
+    delete legacy.fit;
+    expect(tailoringContextFingerprint(legacy as never)).toBe(tailoringContextFingerprint(without));
   });
 });
 

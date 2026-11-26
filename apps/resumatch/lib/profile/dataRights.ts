@@ -39,7 +39,7 @@ export const ERASURE_SLA_DAYS = 30;
 export interface DataExport {
   exportedAt: string;
   format: "resumatch-candidate-export";
-  formatVersion: "1.1.0";
+  formatVersion: "1.2.0";
   workspace: { id: string; createdAt: string };
   documents: {
     id: string;
@@ -229,6 +229,28 @@ export interface DataExport {
     createdAt: string;
     updatedAt: string;
   }[];
+  /** Job fit assessments (#971): each analysis with its input provenance,
+   *  your clarification answers and your corrections of misread
+   *  requirements. Deleted with their job. */
+  jobFit: {
+    assessments: {
+      id: string;
+      targetJobId: string;
+      profileVersionId: string;
+      method: string;
+      provider: string;
+      model: string;
+      promptVersion: string;
+      contractVersion: string;
+      status: string;
+      evidenceRevisionIds: string[];
+      analysis: unknown;
+      score: unknown;
+      createdAt: string;
+    }[];
+    answers: { targetJobId: string; requirementId: string; answer: string; evidenceRevisionId: string | null; revokedAt: string | null; createdAt: string }[];
+    corrections: { targetJobId: string; requirementId: string; action: string; priority: string | null; createdAt: string }[];
+  };
   /** How long personalization records are kept (#933). */
   retention: { previewDays: number; feedbackDays: number; draftDays: number };
   /** Review feedback per saved CV (#932): the AI's original suggestions,
@@ -259,6 +281,11 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
   });
   if (!workspace) return null;
 
+  const [fitAssessments, fitAnswers, fitCorrections] = await Promise.all([
+    db.jobFitAssessment.findMany({ where: { workspaceId }, orderBy: { createdAt: "asc" } }),
+    db.jobFitAnswer.findMany({ where: { workspaceId }, orderBy: { createdAt: "asc" } }),
+    db.jobFitCorrection.findMany({ where: { workspaceId }, orderBy: { createdAt: "asc" } }),
+  ]);
   const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence, contactPreferences, emailDraftContacts, writingPreferences, tailoringFeedback, tailorPreviews, coverLetters, applications, tailorDrafts, applicationEvents] = await Promise.all([
     db.candidateDocument.findMany({
       where: { workspaceId, deletedAt: null },
@@ -335,7 +362,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
   return {
     exportedAt: new Date().toISOString(),
     format: "resumatch-candidate-export",
-    formatVersion: "1.1.0",
+    formatVersion: "1.2.0",
     workspace: { id: workspace.id, createdAt: workspace.createdAt.toISOString() },
     documents: documents.map((document) => ({
       id: document.id,
@@ -530,6 +557,38 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       createdAt: d.createdAt.toISOString(),
       updatedAt: d.updatedAt.toISOString(),
     })),
+    jobFit: {
+      assessments: fitAssessments.map((a) => ({
+        id: a.id,
+        targetJobId: a.targetJobId,
+        profileVersionId: a.profileVersionId,
+        method: a.method,
+        provider: a.provider,
+        model: a.model,
+        promptVersion: a.promptVersion,
+        contractVersion: a.contractVersion,
+        status: a.status,
+        evidenceRevisionIds: a.evidenceRevisionIds,
+        analysis: a.analysis,
+        score: a.score,
+        createdAt: a.createdAt.toISOString(),
+      })),
+      answers: fitAnswers.map((a) => ({
+        targetJobId: a.targetJobId,
+        requirementId: a.requirementId,
+        answer: a.answer,
+        evidenceRevisionId: a.evidenceRevisionId,
+        revokedAt: a.revokedAt?.toISOString() ?? null,
+        createdAt: a.createdAt.toISOString(),
+      })),
+      corrections: fitCorrections.map((c) => ({
+        targetJobId: c.targetJobId,
+        requirementId: c.requirementId,
+        action: c.action,
+        priority: c.priority,
+        createdAt: c.createdAt.toISOString(),
+      })),
+    },
     retention: { previewDays: PREVIEW_RETENTION_DAYS, feedbackDays: FEEDBACK_RETENTION_DAYS, draftDays: DRAFT_RETENTION_DAYS },
     tailoringFeedback: tailoringFeedback.map((f) => ({
       tailoredResumeId: f.tailoredResumeId,
@@ -714,6 +773,12 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     // Tailor drafts hold the note and review edits. They cascade with their
     // job; deleted explicitly so nothing depends on that.
     const drafts = await tx.tailorDraft.deleteMany({ where: { workspaceId } });
+    // #971: fit assessments quote the candidate's sources; answers and
+    // corrections are theirs. They cascade with their job; deleted
+    // explicitly so nothing depends on that.
+    await tx.jobFitAnswer.deleteMany({ where: { workspaceId } });
+    await tx.jobFitCorrection.deleteMany({ where: { workspaceId } });
+    await tx.jobFitAssessment.deleteMany({ where: { workspaceId } });
     // Background evidence (#929) is the candidate's own text; its
     // revisions cascade with each item.
     const evidence = await tx.candidateEvidence.deleteMany({ where: { workspaceId } });
@@ -817,5 +882,10 @@ export async function remainingWorkspaceRows(workspaceId: string): Promise<Recor
     db.applicationEvent.count({ where }),
     db.applicationEventAttachment.count({ where }),
   ]);
-  return { documents, profiles, targetJobs, tailoredResumes, coverLetters, applications, previews, feedback, evidence, evidenceRevisions, writingPreferences, contactPreferences, sentEmails, emailDrafts, tailorDrafts, applicationEvents, applicationEventAttachments };
+  const [fitAssessments, fitAnswers, fitCorrections] = await Promise.all([
+    db.jobFitAssessment.count({ where }),
+    db.jobFitAnswer.count({ where }),
+    db.jobFitCorrection.count({ where }),
+  ]);
+  return { documents, profiles, targetJobs, tailoredResumes, coverLetters, applications, previews, feedback, evidence, evidenceRevisions, writingPreferences, contactPreferences, sentEmails, emailDrafts, tailorDrafts, applicationEvents, applicationEventAttachments, fitAssessments, fitAnswers, fitCorrections };
 }

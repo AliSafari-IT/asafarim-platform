@@ -297,7 +297,7 @@ describe.skipIf(!TEST_DB)("personalization lifecycle and isolation (#933)", () =
     it("export contains every retained personalization record", async () => {
       const { exportWorkspaceData } = await import("../profile/dataRights");
       const data = await exportWorkspaceData(A.workspaceId);
-      expect(data?.formatVersion).toBe("1.1.0");
+      expect(data?.formatVersion).toBe("1.2.0");
       expect(data?.evidence.map((e) => e.id)).toEqual([A.evidenceId]);
       expect(data?.writingPreferences).toHaveLength(1);
       expect(data?.tailorPreviews.map((p) => p.id)).toEqual([A.previewId]);

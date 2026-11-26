@@ -71,6 +71,9 @@ model Workspace {
   tailorDrafts    TailorDraft[]
   applicationEvents ApplicationEvent[]
   applicationEventAttachments ApplicationEventAttachment[]
+  fitAssessments  JobFitAssessment[]
+  fitAnswers      JobFitAnswer[]
+  fitCorrections  JobFitCorrection[]
 
   @@map("workspaces")
 }
@@ -371,6 +374,9 @@ model TargetJob {
   coverLetters    CoverLetter[]
   evidence        CandidateEvidence[]
   draft           TailorDraft?
+  fitAssessments  JobFitAssessment[]
+  fitAnswers      JobFitAnswer[]
+  fitCorrections  JobFitCorrection[]
 
   @@index([workspaceId, createdAt])
   @@map("target_jobs")
@@ -1094,7 +1100,7 @@ model AiUsageLedger {
   id          String   @id @default(cuid())
   workspaceId String
   /// One row per provider call — `tailor | extract | rewrite | fetch_job |
-  /// cover_letter | categorize_skills | skills_paragraph | job_meta`. See lib/tailoring/ai/quota.ts.
+  /// cover_letter | categorize_skills | skills_paragraph | job_meta | job_fit`. See lib/tailoring/ai/quota.ts.
   kind        String
   provider    String
   model       String
@@ -1163,7 +1169,7 @@ model AiCostEvent {
   /// Opaque platform user id of the candidate who triggered the call.
   actorId     String?
 
-  /// tailor | extract | rewrite | fetch_job | cover_letter | categorize_skills | skills_paragraph | job_meta
+  /// tailor | extract | rewrite | fetch_job | cover_letter | categorize_skills | skills_paragraph | job_meta | job_fit
   operation String
   /// succeeded | degraded | failed | cancelled
   outcome   String @default("succeeded")
@@ -1435,4 +1441,111 @@ model TailorDraft {
   /// Retention sweep reads by age across workspaces.
   @@index([updatedAt])
   @@map("tailor_drafts")
+}
+
+/// A job fit analysis (#971, lib/tailoring/fit): the job's requirements and,
+/// for each, a judgment with citations into the candidate's sources, as the
+/// AI (validated in code) or the basic keyword check wrote it. Immutable
+/// once written, with its input provenance; the score is computed in code
+/// on read (rubric.ts), after the candidate's answers and corrections.
+///
+/// One row per distinct input set: `inputFingerprint` hashes the workspace,
+/// job text, profile version, evidence revisions, method, provider, model
+/// and prompt version, and is unique per workspace, so reopening unchanged
+/// inputs reuses the row (no new AI call) and no workspace can reuse
+/// another's. Holds quotes of the candidate's text, so it is exported,
+/// erased with the workspace and deleted with its job.
+model JobFitAssessment {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  targetJobId String
+  targetJob   TargetJob @relation(fields: [targetJobId], references: [id], onDelete: Cascade)
+
+  /// The profile version analysed. No FK: a deleted version must not block
+  /// erasure; the assessment is then stale.
+  profileVersionId String
+  inputFingerprint String
+  /// sha256 of the job's full text at analysis time.
+  jobFingerprint String
+  /// Every confirmed evidence revision the analysis read, in input order.
+  evidenceRevisionIds String[] @default([])
+
+  /// "ai" or "keyword".
+  method          String
+  provider        String
+  model           String
+  promptVersion   String
+  contractVersion String
+  /// "complete", or "incomplete" when the job or profile was cut to fit
+  /// or the requirement list was capped.
+  status String
+
+  /// FitAnalysis (lib/tailoring/fit/contract.ts).
+  analysis Json
+  /// The last score computed for it (rubric version included), refreshed
+  /// when an answer or correction changes it. Display reads recompute it.
+  score    Json?
+  scoredAt DateTime?
+
+  inputTokens  Int  @default(0)
+  outputTokens Int  @default(0)
+  latencyMs    Int?
+
+  createdAt DateTime @default(now())
+
+  @@unique([workspaceId, inputFingerprint])
+  @@index([workspaceId, targetJobId, createdAt])
+  @@map("job_fit_assessments")
+}
+
+/// The candidate's answer to a fit clarification question (#971). "yes"
+/// only after the candidate confirmed their own words, saved as confirmed
+/// evidence (`evidenceRevisionId`). Undo sets `revokedAt`; rows are never
+/// edited otherwise.
+model JobFitAnswer {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  targetJobId String
+  targetJob   TargetJob @relation(fields: [targetJobId], references: [id], onDelete: Cascade)
+
+  requirementId      String
+  /// "yes" or "no".
+  answer             String
+  evidenceRevisionId String?
+  revokedAt          DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, targetJobId])
+  @@map("job_fit_answers")
+}
+
+/// The candidate's correction of a misread job requirement (#971): a
+/// different priority, "not a requirement", or "restore". Append-only; the
+/// latest per requirement applies, and the original stays in the analysis.
+model JobFitCorrection {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  targetJobId String
+  targetJob   TargetJob @relation(fields: [targetJobId], references: [id], onDelete: Cascade)
+
+  requirementId String
+  /// "priority", "not_requirement" or "restore".
+  action        String
+  /// For "priority": "required", "preferred" or "unclear".
+  priority      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, targetJobId])
+  @@map("job_fit_corrections")
 }

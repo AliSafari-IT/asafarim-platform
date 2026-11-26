@@ -88,6 +88,7 @@ export type ProviderCallKind =
   | "categorize_skills"
   | "skills_paragraph"
   | "job_meta"
+  | "job_fit"
   | "application_email";
 
 function monthStart(now = new Date()): Date {

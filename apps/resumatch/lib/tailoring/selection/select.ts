@@ -97,6 +97,10 @@ export interface SelectionInput {
   /** Requirement ids the candidate answered "no" to. Ids the job does not
    *  have are ignored. */
   unmetRequirementIds?: readonly string[];
+  /** #971: requirements the job fit assessment found unmet or in
+   *  conflict, in the posting's words. Added to the gaps the CV must never
+   *  claim, after this selection's own. */
+  extraGaps?: readonly string[];
   profileBudget?: number;
   jobBudget?: number;
 }
@@ -391,8 +395,16 @@ export function selectTailoringInputs(input: SelectionInput): TailoringSelection
   const factsBySource = sources.map((source) => ({ id: source.id, facts: sentenceFacts(source.text) }));
   const coverage = requirements.map((requirement) => assess(requirement, factsBySource, unmet.has(requirement.id)));
 
-  const gaps = coverage.filter((c) => c.status === "unmet" || c.status === "conflict");
-  const gapsText = gaps.length > 0 ? gaps.map((g) => `- ${g.text}`).join("\n") : null;
+  const gaps = coverage.filter((c) => c.status === "unmet" || c.status === "conflict").map((g) => g.text);
+  const seenGaps = new Set(gaps.map((g) => g.toLowerCase()));
+  for (const extra of input.extraGaps ?? []) {
+    const text = extra.replace(/<<<|>>>/g, "").replace(/\s+/g, " ").trim().slice(0, 200);
+    if (text && !seenGaps.has(text.toLowerCase())) {
+      seenGaps.add(text.toLowerCase());
+      gaps.push(text);
+    }
+  }
+  const gapsText = gaps.length > 0 ? gaps.map((g) => `- ${g}`).join("\n") : null;
 
   return {
     version: SELECTION_VERSION,
