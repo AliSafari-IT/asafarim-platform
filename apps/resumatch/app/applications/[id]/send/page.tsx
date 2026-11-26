@@ -71,6 +71,12 @@ export default async function SendApplicationPage({ params }: { params: Promise<
         title={t("resumatch.send.title")}
         description={job ? t("resumatch.send.description", { job }) : undefined}
       />
+      {/* Applied elsewhere (application-timeline.md): records it without
+          an email, so nothing below is needed. */}
+      <p className="rm-sent-nav" data-testid="record-external-shortcut">
+        {t("resumatch.tl.ext.shortcut")}{" "}
+        <a href={`/applications/${encodeURIComponent(id)}/external`}>{t("resumatch.tl.ext.shortcutLink")}</a>
+      </p>
       <Composer {...props} />
     </>
   );

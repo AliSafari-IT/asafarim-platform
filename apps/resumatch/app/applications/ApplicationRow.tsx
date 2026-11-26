@@ -18,6 +18,8 @@ import {
 import { followUpDateToDay } from "../../lib/applications/followUp";
 import { recipientSummary } from "../../lib/applicationEmail/normalize";
 import { SendApplicationEntry } from "../../components/applicationEmail/SendApplicationEntry";
+import { CardTracking, MarkExternalLink } from "../../components/applicationTimeline/CardTracking";
+import type { EventKindName, SubmissionChannelName } from "../../lib/applications/timeline/contract";
 import { ApplicationStatusStepper } from "./ApplicationStatusStepper";
 import { FollowUpDateField } from "./FollowUpDateField";
 import { LocalTime } from "../ai-usage/LocalTime";
@@ -132,7 +134,7 @@ export function ApplicationRow({
           disabled={statusState.phase === "saving"}
           onChange={(status) => statusSaver.save(status)}
         />
-        {application.appliedAt ? (
+        {application.appliedAt && !application.submissionChannel ? (
           <p className="rm-app-applied-at" data-testid="applied-at">
             {t("resumatch.app.appliedAt")} <LocalTime iso={new Date(application.appliedAt).toISOString()} />
           </p>
@@ -172,6 +174,7 @@ export function ApplicationRow({
       />
 
       <div className="rm-app-send">
+        <div className="rm-app-send__actions">
         <SendApplicationEntry
           tailoredResumeId={application.tailoredResume?.id ?? null}
           applicationId={application.id}
@@ -187,6 +190,8 @@ export function ApplicationRow({
               : null
           }
         />
+        <MarkExternalLink applicationId={application.id} recorded={Boolean(application.submissionChannel)} />
+        </div>
         {lastSent ? (
           <p className="rm-app-send__last" data-testid="last-sent">
             {t(`resumatch.app.sent.${lastSent.status}`, { to: recipientSummary(lastSent.contactEmail, lastSent.additionalRecipients) })}{" "}
@@ -205,6 +210,40 @@ export function ApplicationRow({
             ) : null}
           </p>
         ) : null}
+        <CardTracking
+          applicationId={application.id}
+          submission={
+            application.submissionChannel
+              ? {
+                  channel: application.submissionChannel as SubmissionChannelName,
+                  channelLabel: application.submissionChannelLabel,
+                  applicationUrl: application.applicationUrl,
+                  reference: application.submissionReference,
+                  appliedAt: application.appliedAt ? new Date(application.appliedAt).toISOString() : null,
+                  appliedTimeZone: application.appliedTimeZone,
+                }
+              : null
+          }
+          latestEvent={
+            application.events[0]
+              ? {
+                  kind: application.events[0].kind as EventKindName,
+                  occurredAt: new Date(application.events[0].occurredAt).toISOString(),
+                  timeZone: application.events[0].timeZone,
+                }
+              : null
+          }
+          latestEmail={
+            lastSent
+              ? {
+                  status: lastSent.status,
+                  sentAt: lastSent.sentAt ? new Date(lastSent.sentAt).toISOString() : null,
+                  attemptedAt: new Date(lastSent.attemptedAt).toISOString(),
+                }
+              : null
+          }
+          entryCount={application._count.events + application._count.sentEmails}
+        />
       </div>
 
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>

@@ -8,6 +8,7 @@ import { todayInTimeZone } from "../../lib/applications/followUp";
 import {
   APPLICATION_DUE_FILTERS,
   APPLICATION_SORTS,
+  APPLICATION_VIA_FILTERS,
   DEFAULT_APPLICATION_LIST_QUERY,
   SEARCH_MAX_LENGTH,
   applicationListHref,
@@ -17,6 +18,7 @@ import {
   type ApplicationDueFilter,
   type ApplicationListQuery,
   type ApplicationSort,
+  type ApplicationViaFilter,
 } from "../../lib/applications/listQuery";
 
 /** The browser's calendar day: the only "today" a due filter may use
@@ -86,6 +88,7 @@ export function ApplicationListControls({ query }: { query: ApplicationListQuery
     const next = withListChange(query, {
       q: normalizeSearch(text("q")).slice(0, SEARCH_MAX_LENGTH),
       status: (text("status") || null) as ApplicationStatusName | null,
+      via: (text("via") || null) as ApplicationViaFilter | null,
       due,
       today: due ? browserToday() : null,
       sort: (text("sort") || DEFAULT_APPLICATION_LIST_QUERY.sort) as ApplicationSort,
@@ -125,6 +128,17 @@ export function ApplicationListControls({ query }: { query: ApplicationListQuery
           {APPLICATION_STATUSES.map((status) => (
             <option key={status} value={status}>
               {t(`resumatch.app.status.${status}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="jm-field">
+        <span>{t("resumatch.app.list.via")}</span>
+        <select name="via" defaultValue={query.via ?? ""} data-testid="filter-via">
+          <option value="">{t("resumatch.app.list.viaAll")}</option>
+          {APPLICATION_VIA_FILTERS.map((via) => (
+            <option key={via} value={via}>
+              {t(`resumatch.app.list.via.${via}`)}
             </option>
           ))}
         </select>

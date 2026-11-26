@@ -176,7 +176,8 @@ export interface DataExport {
     createdAt: string;
     content: unknown;
   }[];
-  /** Application tracker rows, with your own notes (#933). */
+  /** Application tracker rows, with your own notes (#933) and any
+   *  external submission you recorded (application-timeline.md). */
   applications: {
     id: string;
     targetJobId: string;
@@ -185,8 +186,35 @@ export interface DataExport {
     notes: string | null;
     followUpDate: string | null;
     appliedAt: string | null;
+    appliedTimeZone: string | null;
+    submissionChannel: string | null;
+    submissionChannelLabel: string | null;
+    applicationUrl: string | null;
+    submissionReference: string | null;
+    submissionRecordedAt: string | null;
     createdAt: string;
     updatedAt: string;
+  }[];
+  /** Every timeline entry you added, oldest first. Attachments are listed
+   *  by name, type, size and hash, not embedded; a saved email's text is
+   *  included as it was read. */
+  applicationEvents: {
+    id: string;
+    applicationId: string;
+    kind: string;
+    origin: string;
+    occurredAt: string;
+    timeZone: string;
+    summary: string | null;
+    sender: string | null;
+    recipient: string | null;
+    nextAction: string | null;
+    followUpDate: string | null;
+    fromStatus: string | null;
+    toStatus: string | null;
+    createdAt: string;
+    updatedAt: string;
+    attachments: { kind: string; contentType: string; filename: string; byteSize: number; contentHash: string; emailPreview: unknown; createdAt: string }[];
   }[];
   /** Unfinished Tailor runs: the job, the options card's choices and, on
    *  the review step, the review as you left it. Deleted when the CV is
@@ -231,7 +259,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
   });
   if (!workspace) return null;
 
-  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence, contactPreferences, emailDraftContacts, writingPreferences, tailoringFeedback, tailorPreviews, coverLetters, applications, tailorDrafts] = await Promise.all([
+  const [documents, profile, targetJobs, tailoredResumes, auditEvents, profilePhoto, sentEmails, evidence, contactPreferences, emailDraftContacts, writingPreferences, tailoringFeedback, tailorPreviews, coverLetters, applications, tailorDrafts, applicationEvents] = await Promise.all([
     db.candidateDocument.findMany({
       where: { workspaceId, deletedAt: null },
       orderBy: { uploadedAt: "asc" },
@@ -294,6 +322,11 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       where: { workspaceId },
       orderBy: { createdAt: "asc" },
       select: { targetJobId: true, step: true, options: true, previewId: true, review: true, createdAt: true, updatedAt: true },
+    }),
+    db.applicationEvent.findMany({
+      where: { workspaceId },
+      orderBy: [{ occurredAt: "asc" }, { createdAt: "asc" }],
+      include: { attachments: { orderBy: { createdAt: "asc" } } },
     }),
   ]);
 
@@ -453,8 +486,40 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
       notes: a.notes,
       followUpDate: a.followUpDate?.toISOString() ?? null,
       appliedAt: a.appliedAt?.toISOString() ?? null,
+      appliedTimeZone: a.appliedTimeZone,
+      submissionChannel: a.submissionChannel,
+      submissionChannelLabel: a.submissionChannelLabel,
+      applicationUrl: a.applicationUrl,
+      submissionReference: a.submissionReference,
+      submissionRecordedAt: a.submissionRecordedAt?.toISOString() ?? null,
       createdAt: a.createdAt.toISOString(),
       updatedAt: a.updatedAt.toISOString(),
+    })),
+    applicationEvents: applicationEvents.map((e) => ({
+      id: e.id,
+      applicationId: e.applicationId,
+      kind: e.kind,
+      origin: e.origin,
+      occurredAt: e.occurredAt.toISOString(),
+      timeZone: e.timeZone,
+      summary: e.summary,
+      sender: e.sender,
+      recipient: e.recipient,
+      nextAction: e.nextAction,
+      followUpDate: e.followUpDate?.toISOString() ?? null,
+      fromStatus: e.fromStatus,
+      toStatus: e.toStatus,
+      createdAt: e.createdAt.toISOString(),
+      updatedAt: e.updatedAt.toISOString(),
+      attachments: e.attachments.map((a) => ({
+        kind: a.kind,
+        contentType: a.contentType,
+        filename: a.filename,
+        byteSize: a.byteSize,
+        contentHash: a.contentHash,
+        emailPreview: a.emailPreview,
+        createdAt: a.createdAt.toISOString(),
+      })),
     })),
     tailorDrafts: tailorDrafts.map((d) => ({
       targetJobId: d.targetJobId,
@@ -481,6 +546,7 @@ export async function exportWorkspaceData(workspaceId: string): Promise<DataExpo
     })),
     notes: [
       "Your CV photo, if you added one, is not embedded in this JSON. Open it from the photo card on the profile page.",
+      "Files attached to application timeline entries are listed by name and hash, not embedded. Open or download them from each application's timeline.",
       "Original uploaded files are not included in this JSON. Download them individually from the profile page while they are still within their retention window.",
       "Your name, email address, and platform account details are held by the ASafariM platform, not by ResuMatch. ResuMatch stores only an opaque account identifier.",
       "Audit events record what happened and when. They never contain CV content.",
@@ -594,6 +660,23 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     }
   }
 
+  // Timeline attachments (application-timeline.md): bytes first, verified.
+  // Their rows go with their applications below; a failed delete is
+  // counted so the erasure reports "objects_pending" rather than complete.
+  const timelineFiles = await db.applicationEventAttachment.findMany({ where: { workspaceId }, select: { id: true, storageKey: true } });
+  for (const file of timelineFiles) {
+    try {
+      if (await deleteDocumentBytes(file.storageKey)) objectsDeleted += 1;
+      else {
+        objectsFailed += 1;
+        logError("datarights.erase.attachment_failed", new Error("ObjectStillPresent"), { jobId: file.id });
+      }
+    } catch (error) {
+      objectsFailed += 1;
+      logError("datarights.erase.attachment_failed", error, { jobId: file.id });
+    }
+  }
+
   const profile = await db.candidateProfile.findUnique({
     where: { workspaceId },
     select: { id: true, _count: { select: { versions: true } } },
@@ -613,6 +696,11 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
     // erasure removes them too (their attachment rows cascade). They go
     // first: an attachment row holds its PDF row in place.
     await tx.sentApplicationEmail.deleteMany({ where: { workspaceId } });
+    // Timeline entries hold correspondence the candidate pasted. They
+    // cascade with their application; deleted explicitly so nothing
+    // depends on that.
+    await tx.applicationEventAttachment.deleteMany({ where: { workspaceId } });
+    await tx.applicationEvent.deleteMany({ where: { workspaceId } });
     await tx.applicationEmailDraft.deleteMany({ where: { workspaceId } });
     if (removedPdfIds.length > 0) await tx.documentPdf.deleteMany({ where: { workspaceId, id: { in: removedPdfIds } } });
     // Review feedback (#932) holds copies of suggestions and edits. It
@@ -710,7 +798,7 @@ export async function eraseWorkspaceData(workspaceId: string): Promise<ErasureRe
 export async function remainingWorkspaceRows(workspaceId: string): Promise<Record<string, number>> {
   const db = getJobmatchDb();
   const where = { workspaceId };
-  const [documents, profiles, targetJobs, tailoredResumes, coverLetters, applications, previews, feedback, evidence, evidenceRevisions, writingPreferences, contactPreferences, sentEmails, emailDrafts, tailorDrafts] = await Promise.all([
+  const [documents, profiles, targetJobs, tailoredResumes, coverLetters, applications, previews, feedback, evidence, evidenceRevisions, writingPreferences, contactPreferences, sentEmails, emailDrafts, tailorDrafts, applicationEvents, applicationEventAttachments] = await Promise.all([
     db.candidateDocument.count({ where }),
     db.candidateProfile.count({ where }),
     db.targetJob.count({ where }),
@@ -726,6 +814,8 @@ export async function remainingWorkspaceRows(workspaceId: string): Promise<Recor
     db.sentApplicationEmail.count({ where }),
     db.applicationEmailDraft.count({ where }),
     db.tailorDraft.count({ where }),
+    db.applicationEvent.count({ where }),
+    db.applicationEventAttachment.count({ where }),
   ]);
-  return { documents, profiles, targetJobs, tailoredResumes, coverLetters, applications, previews, feedback, evidence, evidenceRevisions, writingPreferences, contactPreferences, sentEmails, emailDrafts, tailorDrafts };
+  return { documents, profiles, targetJobs, tailoredResumes, coverLetters, applications, previews, feedback, evidence, evidenceRevisions, writingPreferences, contactPreferences, sentEmails, emailDrafts, tailorDrafts, applicationEvents, applicationEventAttachments };
 }

@@ -18,8 +18,13 @@ import { parseFollowUpDay } from "./followUp";
  * - `today`    the candidate's own calendar day, `YYYY-MM-DD`, sent by the
  *              browser. Required with `due`: the server never decides what
  *              day it is.
- * - `sort`     `newest` (created, newest first; default) or `followUp`
- *              (next follow-up first; applications without a date last).
+ * - `via`      how the candidate applied (application-timeline.md):
+ *              `email` (an email sent from ResuMatch was accepted),
+ *              `external` (any recorded external submission), or one
+ *              channel: `indeed`, `linkedin`, `company`, `other`.
+ * - `sort`     `newest` (created, newest first; default), `followUp`
+ *              (next follow-up first; applications without a date last)
+ *              or `applied` (applied date, newest first; not applied last).
  *              Both end with the id, so equal dates/timestamps still have
  *              one fixed order and pages never repeat or skip a row.
  * - `page`     1-based page number.
@@ -39,12 +44,16 @@ export const MAX_PAGE = 10_000;
 export const APPLICATION_DUE_FILTERS = ["overdue", "today", "upcoming"] as const;
 export type ApplicationDueFilter = (typeof APPLICATION_DUE_FILTERS)[number];
 
-export const APPLICATION_SORTS = ["newest", "followUp"] as const;
+export const APPLICATION_SORTS = ["newest", "followUp", "applied"] as const;
 export type ApplicationSort = (typeof APPLICATION_SORTS)[number];
+
+export const APPLICATION_VIA_FILTERS = ["email", "external", "indeed", "linkedin", "company", "other"] as const;
+export type ApplicationViaFilter = (typeof APPLICATION_VIA_FILTERS)[number];
 
 export interface ApplicationListQuery {
   q: string;
   status: ApplicationStatusName | null;
+  via: ApplicationViaFilter | null;
   due: ApplicationDueFilter | null;
   /** Present whenever `due` is; may also be carried without it. */
   today: string | null;
@@ -56,6 +65,7 @@ export interface ApplicationListQuery {
 export const DEFAULT_APPLICATION_LIST_QUERY: ApplicationListQuery = {
   q: "",
   status: null,
+  via: null,
   due: null,
   today: null,
   sort: "newest",
@@ -63,7 +73,7 @@ export const DEFAULT_APPLICATION_LIST_QUERY: ApplicationListQuery = {
   pageSize: DEFAULT_PAGE_SIZE,
 };
 
-export type ApplicationListParam = "q" | "status" | "due" | "today" | "sort" | "page" | "pageSize";
+export type ApplicationListParam = "q" | "status" | "via" | "due" | "today" | "sort" | "page" | "pageSize";
 
 export type SearchParamsInput = URLSearchParams | Record<string, string | string[] | undefined>;
 
@@ -126,6 +136,11 @@ export function parseApplicationListQuery(
     query.status = value as ApplicationStatusName;
     return true;
   });
+  field("via", (value) => {
+    if (!(APPLICATION_VIA_FILTERS as readonly string[]).includes(value)) return false;
+    query.via = value as ApplicationViaFilter;
+    return true;
+  });
   field("due", (value) => {
     if (!(APPLICATION_DUE_FILTERS as readonly string[]).includes(value)) return false;
     query.due = value as ApplicationDueFilter;
@@ -165,7 +180,7 @@ export function parseApplicationListQuery(
 
 /** Whether any filter (not sort or paging) narrows the list. */
 export function hasApplicationFilters(query: ApplicationListQuery): boolean {
-  return query.q !== "" || query.status !== null || query.due !== null;
+  return query.q !== "" || query.status !== null || query.via !== null || query.due !== null;
 }
 
 /**
@@ -176,6 +191,7 @@ export function serializeApplicationListQuery(query: ApplicationListQuery): URLS
   const params = new URLSearchParams();
   if (query.q) params.set("q", query.q);
   if (query.status) params.set("status", query.status);
+  if (query.via) params.set("via", query.via);
   if (query.due) {
     params.set("due", query.due);
     if (query.today) params.set("today", query.today);

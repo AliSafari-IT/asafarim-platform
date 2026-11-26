@@ -69,6 +69,8 @@ model Workspace {
   writingPreferenceRevisions WritingPreferenceRevision[]
   tailoringFeedback TailoringFeedback[]
   tailorDrafts    TailorDraft[]
+  applicationEvents ApplicationEvent[]
+  applicationEventAttachments ApplicationEventAttachment[]
 
   @@map("workspaces")
 }
@@ -699,15 +701,156 @@ model Application {
   /// only records when it happened. Null for rows from before it existed.
   appliedAt DateTime?
 
+  /// The time zone the candidate named for `appliedAt` (an IANA zone such
+  /// as "Europe/Brussels"), so it shows as the wall-clock time they typed.
+  /// `appliedAt` itself is UTC. Null: shown in the viewer's own zone.
+  appliedTimeZone String?
+
+  /// An application submitted outside ResuMatch (Indeed, LinkedIn, the
+  /// company's site...), recorded by the candidate. Separate from status
+  /// and from email delivery: recording one never writes a
+  /// SentApplicationEmail. Null: no external submission recorded. See
+  /// lib/applications/timeline/ and internal docs
+  /// ventures/resumatch/engineering/application-timeline.md.
+  submissionChannel      SubmissionChannel?
+  /// The candidate's own name for OTHER ("Jobat", "a recruiter's portal").
+  submissionChannelLabel String?
+  /// Where they applied. Opening it never changes the application.
+  applicationUrl         String?
+  /// Confirmation or reference number the site gave them.
+  submissionReference    String?
+  /// When the external submission was recorded in ResuMatch (record
+  /// creation time), apart from when they applied (`appliedAt`).
+  submissionRecordedAt   DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   emailDraft ApplicationEmailDraft?
   sentEmails SentApplicationEmail[]
+  events     ApplicationEvent[]
 
   @@index([workspaceId, createdAt])
   @@index([workspaceId, status])
   @@map("applications")
+}
+
+enum SubmissionChannel {
+  INDEED
+  LINKEDIN
+  COMPANY_WEBSITE
+  OTHER
+}
+
+/// What one timeline entry records. Status is never implied by the kind:
+/// only an explicit `toStatus` changes the application.
+enum ApplicationEventKind {
+  SUBMITTED
+  CONFIRMATION_RECEIVED
+  RECRUITER_REPLY
+  RESPONSE_SENT
+  INTERVIEW
+  FOLLOW_UP
+  OFFER
+  REJECTION
+  NOTE
+}
+
+enum ApplicationEventOrigin {
+  /// Added with "Add update": editable and deletable on the timeline.
+  MANUAL
+  /// Written by "Mark as applied externally". The SUBMITTED entry is edited
+  /// with the submission and removed only by undoing it; a confirmation
+  /// recorded with it is an ordinary entry otherwise.
+  EXTERNAL_SUBMISSION
+}
+
+/// One entry on an application's timeline (application-timeline.md).
+/// Entries are separate rows in time order: new correspondence never
+/// replaces an earlier message. Emails sent from ResuMatch are not copied
+/// here; the timeline reads them from SentApplicationEmail as they are.
+model ApplicationEvent {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  kind   ApplicationEventKind
+  origin ApplicationEventOrigin @default(MANUAL)
+
+  /// When it happened, in UTC, and the IANA zone the candidate gave it in.
+  occurredAt DateTime
+  timeZone   String
+
+  /// The message text or the candidate's summary. Never sent to a model.
+  summary   String? @db.Text
+  sender    String?
+  recipient String?
+
+  nextAction   String?
+  /// A follow-up day (UTC midnight, follow-up-dates.md). Saving an entry
+  /// with one also sets the application's follow-up date.
+  followUpDate DateTime?
+
+  /// The status change the candidate chose with this entry, as it was
+  /// applied. Both null: the entry changed nothing.
+  fromStatus ApplicationStatus?
+  toStatus   ApplicationStatus?
+
+  /// `<workspaceId>:<client key>`: a repeated Save finds this row instead
+  /// of adding a second one.
+  idempotencyKey String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attachments ApplicationEventAttachment[]
+
+  @@index([applicationId, occurredAt])
+  @@index([workspaceId])
+  @@map("application_events")
+}
+
+enum ApplicationAttachmentKind {
+  IMAGE
+  PDF
+  EMAIL
+}
+
+/// A screenshot, PDF or saved email (.eml) kept with one timeline entry.
+/// Private: the key is derived, the object is private, the bytes are
+/// streamed only to the owning workspace. Rows are deleted only after the
+/// bytes are verified gone.
+model ApplicationEventAttachment {
+  id String @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  eventId String
+  event   ApplicationEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  kind ApplicationAttachmentKind
+  /// Sniffed from the bytes, never the browser's claim.
+  contentType String
+  /// Display only; never part of the storage key.
+  filename    String
+  byteSize    Int
+  contentHash String
+  storageKey  String @unique
+
+  /// For an .eml: headers and plain text read once at upload
+  /// (lib/applications/timeline/eml.ts). Shown as text, never as HTML.
+  emailPreview Json?
+
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, contentHash])
+  @@index([workspaceId])
+  @@map("application_event_attachments")
 }
 
 // ─── Send application by email ────────────────────────────────────────────

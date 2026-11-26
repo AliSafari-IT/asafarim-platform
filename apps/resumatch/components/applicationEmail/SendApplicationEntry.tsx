@@ -7,7 +7,8 @@ import { Button } from "@asafarim/ui";
 import type { PdfStatusView } from "../../lib/documentPdfs/describe";
 
 /**
- * "Send application", or what is missing before it can be offered
+ * "Send application" ("Send by email" on application cards, beside "Mark
+ * as applied externally"), or what is missing before it can be offered
  * (send-application.md). Shown on the CV and cover-letter pages and on each
  * application card. Opening the composer never changes the status.
  *
@@ -127,7 +128,7 @@ export function SendApplicationEntry({
         data-testid="send-application"
         aria-describedby={pdfs?.ready ? undefined : hintId}
       >
-        {phase === "opening" ? t("resumatch.send.entry.opening") : t("resumatch.send.entry.send")}
+        {phase === "opening" ? t("resumatch.send.entry.opening") : layout === "card" ? t("resumatch.send.entry.sendByEmail") : t("resumatch.send.entry.send")}
       </Button>
       {layout === "card" ? (
         <Button
