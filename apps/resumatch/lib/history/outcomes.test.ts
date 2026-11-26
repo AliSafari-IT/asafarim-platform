@@ -90,6 +90,19 @@ describe("summarizeOutcomes", () => {
     expect(s.versionOutcomes.get("r2")).toMatchObject({ applicationId: "draft", via: "version" });
   });
 
+  it("an unlinked version on a duplicate posting points where its job does", () => {
+    // Applied on the first import; a draft saved on the second import of the
+    // same posting; r3 is another CV on the second import, never saved.
+    const resumes = [resume("r3", "2026-11-25T00:00:00Z", kingfisherAgain), resume("r1", "2026-11-20T00:00:00Z", kingfisher)];
+    const apps = [
+      app({ id: "sent", targetJob: kingfisher, tailoredResumeId: "r1", status: "APPLIED", appliedAt: "2026-11-21T00:00:00Z", updatedAt: "2026-11-21T00:00:00Z" }),
+      app({ id: "draft", targetJob: kingfisherAgain, tailoredResumeId: "r2", status: "SAVED", updatedAt: "2026-11-24T00:00:00Z" }),
+    ];
+    const s = summarizeOutcomes(resumes, apps, now);
+    expect(s.jobs[0]).toMatchObject({ stage: "APPLIED", applicationId: "sent" });
+    expect(s.versionOutcomes.get("r3")).toMatchObject({ applicationId: "sent", via: "job" });
+  });
+
   it("a logged reply counts as an answer and stops the follow-up nudge", () => {
     const resumes = [resume("r1", "2026-10-30T00:00:00Z", sweco)];
     const apps = [app({ id: "a1", targetJob: sweco, status: "APPLIED", appliedAt: "2026-11-01T00:00:00Z", replied: true })];

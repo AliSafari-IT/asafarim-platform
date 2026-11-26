@@ -134,7 +134,9 @@ export function summarizeOutcomes(
   const versionOutcomes = new Map<string, VersionOutcome>();
   for (const resume of resumes) {
     const exact = byResume.get(resume.id);
-    const job = exact ?? byJobId.get(resume.targetJobId) ?? byKey.get(jobKey(resume.targetJob));
+    // Without an exact match, the same winner as the job summary, so the
+    // version and its job never point at different applications.
+    const job = exact ?? byKey.get(jobKey(resume.targetJob)) ?? byJobId.get(resume.targetJobId);
     if (!job) continue;
     versionOutcomes.set(resume.id, {
       applicationId: job.id,
