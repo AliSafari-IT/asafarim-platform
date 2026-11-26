@@ -68,7 +68,9 @@ test.beforeEach(async () => {
 
 /** A saved CV on the seeded job; `fit` is its run's recorded fit, or no
  *  context at all for a CV saved before 0.6.0. */
-async function seedCv(id: string, fit: Record<string, unknown> | null | "no-context") {
+type RecordedFit = { source: "ai" | "keyword"; assessmentId: string | null; rubricVersion: string; gaps: string[] };
+
+async function seedCv(id: string, fit: RecordedFit | "no-context") {
   await e2eDb().tailoredResume.create({
     data: {
       id,
