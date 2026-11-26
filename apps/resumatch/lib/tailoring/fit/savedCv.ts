@@ -77,6 +77,7 @@ export interface SavedCvInput {
 const ROW_SELECT = {
   id: true,
   inputFingerprint: true,
+  evidenceRevisionIds: true,
   analysis: true,
   createdAt: true,
   provider: true,
@@ -118,9 +119,16 @@ export async function savedCvFit(cv: SavedCvInput): Promise<SavedCvFit> {
 
   const asOf = cv.createdAt;
   const historical = { ...context, ...(await overlayAsOf(cv.workspaceId, cv.targetJobId, asOf)) };
-  const score = scoreFit(applyOverlay(recordedAnalysis, historical.answers, historical.corrections), {
-    profileTooThin: context.inputs.profileTooThin,
-  });
+  // "Too thin to score" as the analysis saw it: the profile version is
+  // immutable, the evidence is the set the analysis read, plus any "yes"
+  // that applied by the CV's save. Evidence added later changes nothing.
+  const profile = context.version.content;
+  const profileTooThin =
+    profile.experience.length === 0 &&
+    profile.skills.length < 3 &&
+    recorded.evidenceRevisionIds.length === 0 &&
+    !historical.answers.some((a) => a.answer === "yes");
+  const score = scoreFit(applyOverlay(recordedAnalysis, historical.answers, historical.corrections), { profileTooThin });
   const inputsChanged = recorded.inputFingerprint !== fingerprintFor(context, "ai", recorded.provider);
   const view = buildFitView({
     analysis: recordedAnalysis,
@@ -193,11 +201,28 @@ export async function overlayAsOf(
     db.jobFitCorrection.findMany({ where: { workspaceId, targetJobId, createdAt: { lte: asOf } }, orderBy: { createdAt: "asc" } }),
   ]);
   const revisionIds = answerRows.flatMap((a) => (a.answer === "yes" && a.evidenceRevisionId ? [a.evidenceRevisionId] : []));
+  // A "yes" counted only while its revision was, at `asOf`, confirmed and
+  // the latest revision of its item (a newer draft supersedes it, as on
+  // Tailor), and in scope for this job. Revisions are immutable, so this
+  // holds for good; a deleted item's revisions are gone.
   const revisions = revisionIds.length
-    ? await db.candidateEvidenceRevision.findMany({
-        where: { id: { in: revisionIds }, workspaceId, status: "CONFIRMED" },
-        select: { id: true, title: true, detail: true },
-      })
+    ? (
+        await db.candidateEvidenceRevision.findMany({
+          where: { id: { in: revisionIds }, workspaceId, status: "CONFIRMED", createdAt: { lte: asOf }, confirmedAt: { lte: asOf } },
+          select: {
+            id: true,
+            title: true,
+            detail: true,
+            evidence: {
+              select: {
+                scope: true,
+                targetJobId: true,
+                revisions: { where: { createdAt: { lte: asOf } }, orderBy: { revisionNumber: "desc" }, take: 1, select: { id: true } },
+              },
+            },
+          },
+        })
+      ).filter((r) => r.evidence.revisions[0]?.id === r.id && !(r.evidence.scope === "APPLICATION" && r.evidence.targetJobId !== targetJobId))
     : [];
   const text = new Map(revisions.map((r) => [r.id, `${r.title}. ${r.detail}`] as const));
   const answers: FitAnswer[] = answerRows

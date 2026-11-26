@@ -211,6 +211,58 @@ describe.skipIf(!TEST_DB)("saved CV job fit (#973)", () => {
     });
   });
 
+  it("a yes counts only while its evidence revision was the latest confirmed one at the CV's save", async () => {
+    const s = await seed("superseded");
+    const id = await analyze(s);
+    const input = (createdAt: Date) => cv(s, snapshot(s, { source: "ai", assessmentId: id, rubricVersion: "fit_rubric@1", gaps: [] }), createdAt);
+    const k8s = ((await saved.savedCvFit(input(new Date()))) as { view: { rows: { id: string; quote: string }[] } }).view.rows.find((r) => r.quote.includes("Kubernetes"))!;
+    const { createEvidence, reviseEvidence } = await import("../../evidence/store");
+    const ev = await createEvidence(s.workspaceId, { kind: "RESPONSIBILITY", title: "Clusters", detail: "I ran Kubernetes in production.", experienceRef: null }, { scope: "APPLICATION", targetJobId: s.jobId, confirm: true });
+    if (!ev.ok) throw new Error("evidence");
+    await db.jobFitAnswer.create({ data: { workspaceId: s.workspaceId, targetJobId: s.jobId, requirementId: k8s.id, answer: "yes", evidenceRevisionId: ev.revisionId } });
+    await new Promise((r) => setTimeout(r, 5));
+    const beforeDraft = new Date();
+    await new Promise((r) => setTimeout(r, 5));
+    const draft = await reviseEvidence(s.workspaceId, ev.id, ev.revisionId, { kind: "RESPONSIBILITY", title: "Clusters", detail: "I ran Kubernetes clusters.", experienceRef: null }, { scope: "APPLICATION", targetJobId: s.jobId, confirm: false });
+    if (!draft.ok) throw new Error("draft");
+    await new Promise((r) => setTimeout(r, 5));
+
+    const savedBefore = await saved.savedCvFit(input(beforeDraft));
+    if (savedBefore.kind !== "recorded") throw new Error();
+    expect(savedBefore.view.rows.find((r) => r.id === k8s.id)).toMatchObject({ judgment: "direct", answeredBy: "yes" });
+    // Saved after the draft superseded it: the yes no longer counts, as on Tailor.
+    const savedAfter = await saved.savedCvFit(input(new Date()));
+    if (savedAfter.kind !== "recorded") throw new Error();
+    expect(savedAfter.view.rows.find((r) => r.id === k8s.id)?.answeredBy).toBeNull();
+  });
+
+  it("evidence added after the CV does not lift a suppressed percentage", async () => {
+    const ws = await db.workspace.create({ data: { platformUserId: `cvfit-thin-${Date.now()}-${Math.random()}` }, select: { id: true } });
+    workspaces.push(ws.id);
+    const { createVersion, confirmVersion } = await import("../../profile/versions");
+    const v = await createVersion({
+      workspaceId: ws.id,
+      content: { headline: "Engineer", languages: [{ code: "nl", label: "Dutch", proficiency: "native" }], skills: [{ name: "Docker", rawLabel: null, yearsExperience: null }] },
+      origin: "MANUAL",
+      extractorName: "test",
+      extractorVersion: "1",
+    });
+    await confirmVersion(ws.id, v.id);
+    const job = await db.targetJob.create({ data: { workspaceId: ws.id, sourceUrl: "manual:", rawText: JOB, status: "FETCHED" }, select: { id: true } });
+    const s = { workspaceId: ws.id, versionId: v.id, jobId: job.id };
+    const id = await analyze(s);
+    const input = cv(s, snapshot(s, { source: "ai", assessmentId: id, rubricVersion: "fit_rubric@1", gaps: [] }));
+    const first = await saved.savedCvFit(input);
+    if (first.kind !== "recorded") throw new Error();
+    expect(first.view.score.suppressed).toBe("profile_too_thin");
+    const { createEvidence } = await import("../../evidence/store");
+    await createEvidence(ws.id, { kind: "PROJECT", title: "Platform", detail: "Built the Docker platform.", experienceRef: null }, { scope: "BACKGROUND", targetJobId: null, confirm: true });
+    const again = await saved.savedCvFit(input);
+    if (again.kind !== "recorded") throw new Error();
+    expect(again.view.score.suppressed).toBe("profile_too_thin");
+    expect(again.view.score.percent).toBeNull();
+  });
+
   it("a deleted assessment and a job without text are said as they are", async () => {
     const s = await seed("deleted");
     const id = await analyze(s);
