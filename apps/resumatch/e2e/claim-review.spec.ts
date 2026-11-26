@@ -56,7 +56,7 @@ test("highlights the exact words, explains them, and resolves them by edit, conf
   await page.getByRole("button", { name: "Paste the description instead" }).click();
   await page.getByPlaceholder("Paste the full job description here…").fill(JOB_TEXT);
   await page.getByRole("button", { name: "Use this text" }).click();
-  const panel = page.getByTestId("requirements-panel");
+  const panel = page.getByTestId("fit-assessment");
   await expect(panel).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Tailor my CV to this job" }).click();
   await expect(page.locator(".rm-review")).toBeVisible({ timeout: 30_000 });
@@ -156,7 +156,7 @@ test("an unresolved flagged bullet is listed as left out before saving, and stay
   await page.getByRole("button", { name: "Paste the description instead" }).click();
   await page.getByPlaceholder("Paste the full job description here…").fill(JOB_TEXT);
   await page.getByRole("button", { name: "Use this text" }).click();
-  const panel = page.getByTestId("requirements-panel");
+  const panel = page.getByTestId("fit-assessment");
   await expect(panel).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Tailor my CV to this job" }).click();
   await expect(page.locator(".rm-review")).toBeVisible({ timeout: 30_000 });
@@ -187,7 +187,7 @@ test("screenshots and contrast of the claim review", async ({ page }, testInfo) 
   await page.getByRole("button", { name: "Paste the description instead" }).click();
   await page.getByPlaceholder("Paste the full job description here…").fill(JOB_TEXT);
   await page.getByRole("button", { name: "Use this text" }).click();
-  await expect(page.getByTestId("requirements-panel")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("fit-assessment")).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Tailor my CV to this job" }).click();
   await expect(page.locator(".rm-review")).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("claims-review-next").click();

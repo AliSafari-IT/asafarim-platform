@@ -11,9 +11,8 @@ import { fileKey } from "../../lib/tailoring/jobFiles";
 import { computeCoverLetterQuality } from "../../lib/tailoring/coverLetterQuality";
 import { CoverLetterQualityChecklist } from "../../components/tailoring/CoverLetterQualityChecklist";
 import { TailoringLoader } from "../../components/tailoring/TailoringLoader";
-import { JobFitPanel } from "../../components/tailoring/JobFitPanel";
+import { FitAssessmentPanel } from "../../components/tailoring/FitAssessmentPanel";
 import { EvidencePanel } from "../../components/tailoring/EvidencePanel";
-import { RequirementsPanel } from "../../components/tailoring/RequirementsPanel";
 import { ReviewBulletsEditor, ReviewSkillsEditor } from "../../components/tailoring/ReviewEditors";
 import {
   ClaimCard,
@@ -60,7 +59,6 @@ import type { RegenerateSeed } from "../../lib/tailoring/regenerate";
 import type { ReviewBulletMeta } from "../../lib/tailoring/reviewEdits";
 import { degradedMessage, isDegradedReason, type DegradedReason } from "../../lib/tailoring/degradedReason";
 import { ownSummaryOf, type SavedReviewSeed } from "../../lib/tailoring/editSaved";
-import type { JobFit } from "../../lib/tailoring/jobFit";
 import {
   LANGUAGE_LABELS,
   OUTPUT_LANGUAGES,
@@ -606,9 +604,12 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
             ? { kind: "fetched", ...jobOfDraft(draft) }
             : { kind: "idle" },
   );
-  // The fit check for the job on the card (lib/tailoring/jobFit.ts): null
+  // #971: the gate the job fit assessment applies for the job on the card
+  // (lib/tailoring/fit): the current AI assessment, else the keyword check.
+  // Null while loading or when it couldn't load, which never blocks
+  // tailoring: generate-preview applies the same gate before any AI call.
   // while loading or when it couldn't run, which never blocks tailoring.
-  const [fit, setFit] = useState<{ targetJobId: string; fit: JobFit } | null>(null);
+  const [fitGate, setFitGate] = useState<{ targetJobId: string; lowFit: boolean } | null>(null);
   // The candidate's explicit "yes, tailor anyway" for a low-fit job.
   const [lowFitConfirmedFor, setLowFitConfirmedFor] = useState<string | null>(
     draftOptions?.lowFitConfirmed ? draft!.targetJobId : null,
@@ -690,7 +691,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
       ? body.sourceFiles.map((file: { name?: unknown }) => (typeof file?.name === "string" ? file.name : "")).filter(Boolean)
       : null;
     const job: FetchedJob = { targetJobId: body.id, title: body.title, employer: body.employer, snippet: body.snippet, sourceFiles };
-    setFit(null);
+    setFitGate(null);
     setLowFitConfirmedFor(null);
     setUnmetRequirements(null);
     setLastFetched(job);
@@ -717,27 +718,6 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
     if (lastFetched) setState({ kind: "fetched", ...lastFetched });
   }, [lastFetched]);
 
-  const fetchedJobId = state.kind === "fetched" ? state.targetJobId : null;
-  useEffect(() => {
-    if (!fetchedJobId || fit?.targetJobId === fetchedJobId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/tailor/job-fit", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ profileVersionId: confirmedVersionId, targetJobId: fetchedJobId }),
-        });
-        const body = await readJsonBody(res);
-        if (!cancelled && res.ok && body?.fit) setFit({ targetJobId: fetchedJobId, fit: body.fit as JobFit });
-      } catch {
-        // No fit shown; generate-preview still checks it before any AI call.
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchedJobId, fit?.targetJobId, confirmedVersionId]);
 
   /** `refresh`: "Fetch again" on a link fetched before, for a posting
    *  that changed. Otherwise a recent fetch of the same link is reused. */
@@ -911,8 +891,8 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
         const body = await readJsonBody(res);
         // The server's own fit check found a low fit the card hadn't shown
         // (the fit request failed or was still loading): show the warning.
-        if (res.status === 409 && body?.code === "LOW_FIT_UNCONFIRMED" && body.fit && lastFetched?.targetJobId === targetJobId) {
-          setFit({ targetJobId, fit: body.fit as JobFit });
+        if (res.status === 409 && body?.code === "LOW_FIT_UNCONFIRMED" && lastFetched?.targetJobId === targetJobId) {
+          setFitGate({ targetJobId, lowFit: true });
           setState({ kind: "fetched", ...lastFetched });
           return;
         }
@@ -1746,7 +1726,7 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
     setReviewExpired(false);
     setSaveStatus("idle");
     setLastFetched(null);
-    setFit(null);
+    setFitGate(null);
     setUrl("");
     setState({ kind: "idle" });
     window.history.replaceState(window.history.state, "", "/tailor?new=1");
@@ -1954,19 +1934,22 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
               </p>
             ) : null}
             <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>{state.snippet}…</p>
-            {fit && fit.targetJobId === state.targetJobId ? (
-              <JobFitPanel
-                fit={fit.fit}
-                confirmed={lowFitConfirmedFor === state.targetJobId}
-                onConfirm={() => setLowFitConfirmedFor(state.targetJobId)}
-                onDecline={() => {
-                  setFit(null);
-                  setLowFitConfirmedFor(null);
-                  setState({ kind: "idle" });
-                }}
-              />
-            ) : null}
-            {fit?.targetJobId === state.targetJobId && fit.fit.level === "low" && lowFitConfirmedFor !== state.targetJobId ? null : (
+            <FitAssessmentPanel
+              key={`fit-${state.targetJobId}`}
+              targetJobId={state.targetJobId}
+              profileVersionId={confirmedVersionId}
+              acknowledged={lowFitConfirmedFor === state.targetJobId}
+              onAcknowledge={() => setLowFitConfirmedFor(state.targetJobId)}
+              onDecline={() => {
+                setFitGate(null);
+                setLowFitConfirmedFor(null);
+                setState({ kind: "idle" });
+              }}
+              onGateChange={(jobId, gate) => setFitGate(gate ? { targetJobId: jobId, lowFit: gate.lowFit } : null)}
+              onEvidenceAdded={() => setEvidenceVersion((n) => n + 1)}
+              refreshKey={`${evidenceVersion}:${evidenceUsedCount ?? "-"}:${evidenceRevisionsKey}`}
+            />
+            {fitGate?.targetJobId === state.targetJobId && fitGate.lowFit && lowFitConfirmedFor !== state.targetJobId ? null : (
             <>
             <label className="jm-field" style={{ display: "block", margin: "0.5rem 0" }}>
               <span className="rm-review__section-label">{t("resumatch.flow.cvLanguage")}</span>
@@ -2002,15 +1985,6 @@ export function TailorFlow({ confirmedVersionId, seed = null, editSeed = null, w
                 {t("resumatch.flow.instructions.counter", { count: instructions.length, max: INSTRUCTIONS_MAX_CHARS })}
               </span>
             </label>
-            <RequirementsPanel
-              key={`requirements-${state.targetJobId}`}
-              targetJobId={state.targetJobId}
-              profileVersionId={confirmedVersionId}
-              unmet={unmetRequirements?.targetJobId === state.targetJobId ? unmetRequirements.ids : NO_IDS}
-              onUnmetChange={(ids) => setUnmetRequirements({ targetJobId: state.targetJobId, ids })}
-              refreshKey={`${evidenceVersion}:${evidenceUsedCount ?? "-"}:${evidenceRevisionsKey}`}
-              onEvidenceAdded={() => setEvidenceVersion((n) => n + 1)}
-            />
             <EvidencePanel
               key={`${state.targetJobId}:${evidenceVersion}`}
               targetJobId={state.targetJobId}

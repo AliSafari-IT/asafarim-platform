@@ -47,6 +47,7 @@ export type ResumatchCostOperation =
   | "categorize_skills"
   | "skills_paragraph"
   | "job_meta"
+  | "job_fit"
   | "application_email";
 
 export type ResumatchSubjectType =

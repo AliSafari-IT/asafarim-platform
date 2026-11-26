@@ -6,6 +6,8 @@ import { runCoverLetterProviderCall } from "../../../../lib/tailoring/ai/coverLe
 import { nextMonthStart } from "../../../../lib/tailoring/ai/quota";
 import { COVER_LETTER_LENGTHS, COVER_LETTER_TONES, type CoverLetterLength, type CoverLetterTone } from "../../../../lib/tailoring/ai/coverLetter/prompts";
 import { assessJobFit } from "../../../../lib/tailoring/jobFit";
+import { fitForTailoring, loadFitContext } from "../../../../lib/tailoring/fit/service";
+import { FIT_RUBRIC_VERSION } from "../../../../lib/tailoring/fit/rubric";
 import {
   resolveTailoringContext,
   tailoringContextFingerprint,
@@ -44,6 +46,13 @@ export const maxDuration = 60;
  * same monthly budget (lib/tailoring/ai/quota.ts's "cover_letter" kind),
  * and a candidate tailoring a CV toward a job they're still deciding on
  * shouldn't pay for a letter they didn't ask for yet.
+ *
+ * #971: the gate is the job fit assessment (lib/tailoring/fit): the current
+ * saved AI assessment when there is one, else the basic keyword check, so
+ * an old lexical score can never override a newer assessment. Its unmet
+ * and conflicting requirements join the gaps the CV must not claim, and
+ * the candidate's saved "no" answers join `unmetRequirementIds`. With an
+ * unconfirmed profile version the pre-#971 lexical check still applies.
  *
  * A job the fit check rates "low" (lib/tailoring/jobFit.ts) is refused with
  * 409 LOW_FIT_UNCONFIRMED until the request carries
@@ -147,11 +156,16 @@ export async function POST(request: Request) {
   }
 
   const profile = version.content;
-  const fit = assessJobFit(profile, targetJob.rawText);
-  const lowFit = fit.level === "low";
+  const fitContext = await loadFitContext(workspace.id, targetJobId, profileVersionId);
+  const fitGate = fitContext.ok ? await fitForTailoring(fitContext.context) : null;
+  const lowFit = fitGate ? fitGate.lowFit : assessJobFit(profile, targetJob.rawText).level === "low";
   if (lowFit && proceedDespiteLowFit !== true) {
     return NextResponse.json(
-      { error: "This job looks outside your profile. Confirm that you want to tailor anyway.", code: "LOW_FIT_UNCONFIRMED", fit },
+      {
+        error: "This job looks outside your profile. Confirm that you want to tailor anyway.",
+        code: "LOW_FIT_UNCONFIRMED",
+        gate: { source: fitGate?.source ?? "keyword", lowFit: true },
+      },
       { status: 409 },
     );
   }
@@ -171,8 +185,11 @@ export async function POST(request: Request) {
   );
   const cvLanguage = writing.cvLanguage.value;
   const requirements = extractRequirements(targetJob.rawText);
-  const unmet = parseUnmetRequirementIds(unmetRequirementIds, requirements);
-  if (unmet === null) return NextResponse.json({ error: "Invalid unmetRequirementIds." }, { status: 400 });
+  const requestUnmet = parseUnmetRequirementIds(unmetRequirementIds, requirements);
+  if (requestUnmet === null) return NextResponse.json({ error: "Invalid unmetRequirementIds." }, { status: 400 });
+  // #971: the candidate's saved "no" answers count too (ids this job's
+  // requirements have; an AI requirement's gap reaches the prompt as text).
+  const unmet = [...new Set([...requestUnmet, ...(parseUnmetRequirementIds((fitGate?.unmetRequirementIds ?? []).slice(0, 12), requirements) ?? [])])];
   // #929: only confirmed evidence for this workspace, this job or
   // background, and roles the selected profile still has. #930: the most
   // job-relevant items first, so the budget keeps what this job asks about.
@@ -182,7 +199,7 @@ export async function POST(request: Request) {
   const motivationText = renderMotivationEvidence(evidence);
   // #930: relevant profile prose and job requirements instead of a prefix
   // cut, each line tagged with a stable source id the CV's claims cite.
-  const selection = selectTailoringInputs({ profile, jobText: targetJob.rawText, evidence, unmetRequirementIds: unmet });
+  const selection = selectTailoringInputs({ profile, jobText: targetJob.rawText, evidence, unmetRequirementIds: unmet, extraGaps: fitGate?.gaps ?? [] });
   // #928: one server-resolved context for the whole run. The CV and the
   // letter get the same note, job text and profile version from it, and
   // the preview keeps it as an immutable snapshot for generate-confirm.
@@ -209,6 +226,7 @@ export async function POST(request: Request) {
     selection: { version: selection.version, unmetRequirementIds: unmet, omittedSentences: selection.omittedSentences },
     preferenceRevisionId: savedWriting?.revisionId ?? null,
     writing,
+    fit: fitGate ? { source: fitGate.source, assessmentId: fitGate.assessmentId, rubricVersion: FIT_RUBRIC_VERSION, gaps: fitGate.gaps } : null,
   });
   const letterLanguage = context.coverLetter ? context.coverLetter.outputLanguage : null;
   // Minted up front so both provider calls' cost events can name this

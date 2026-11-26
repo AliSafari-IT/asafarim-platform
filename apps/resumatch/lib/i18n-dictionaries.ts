@@ -13,6 +13,7 @@ import { previewDictionaries } from "./i18n/preview";
 import { profileDictionaries } from "./i18n/profile";
 import { profileImportDictionaries } from "./i18n/profileImport";
 import { requirementsDictionaries } from "./i18n/requirements";
+import { fitDictionaries } from "./i18n/fit";
 import { claimReviewDictionaries } from "./i18n/claimReview";
 import { sendDictionaries } from "./i18n/send";
 import { shellDictionaries } from "./i18n/shell";
@@ -42,6 +43,7 @@ export const resumatchDictionaryAreas: Record<string, Dictionaries> = {
   evidence: evidenceDictionaries,
   feedback: feedbackDictionaries,
   requirements: requirementsDictionaries,
+  fit: fitDictionaries,
   claimReview: claimReviewDictionaries,
   contactPreferences: contactPreferencesDictionaries,
   writingPreferences: writingPreferencesDictionaries,

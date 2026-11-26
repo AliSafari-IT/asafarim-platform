@@ -16,6 +16,7 @@ export const RESUMATCH_OPERATIONS: readonly ResumatchCostOperation[] = [
   "extract",
   "fetch_job",
   "job_meta",
+  "job_fit",
   "tailor",
   "cover_letter",
   "rewrite",

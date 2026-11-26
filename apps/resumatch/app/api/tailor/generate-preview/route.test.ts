@@ -6,11 +6,17 @@ import { parseProfileContent } from "../../../../lib/profile/contract";
  * the candidate explicitly confirms it, and a confirmed run asks for the
  * LOW-FIT prompt rule. Database-free: workspace, profile version, Prisma
  * and the provider call are stubs.
+ *
+ * #971: the gate comes from the job fit service. With no saved AI
+ * assessment it is the key-term scope check, as before; a current AI
+ * assessment wins; saved "no" answers count as unmet.
  */
 
 const runTailorProviderCall = vi.fn();
 const findFirst = vi.fn();
 const previewCreate = vi.fn();
+const fitAnswers = vi.fn(async () => [] as unknown[]);
+const fitAssessmentFindUnique = vi.fn(async () => null as unknown);
 
 const profile = parseProfileContent({
   headline: "Full-stack developer · React · TypeScript",
@@ -32,12 +38,21 @@ review code and improve test coverage. Requirements: React, TypeScript, Node.js,
 vi.mock("../../../../lib/privacy/retention", () => ({ maybeSweepPersonalization: () => null }));
 vi.mock("../../../../lib/workspace", () => ({
   getCurrentWorkspace: async () => ({ id: "ws_1" }),
+  recordAuditEvent: async () => undefined,
 }));
 vi.mock("../../../../lib/profile/versions", () => ({
-  getVersion: async () => ({ content: profile }),
+  getVersion: async () => ({ id: "v1", isConfirmed: true, content: profile }),
 }));
 vi.mock("../../../../lib/db/client", () => ({
-  getJobmatchDb: () => ({ targetJob: { findFirst }, tailorPreview: { create: previewCreate }, candidateEvidence: { findMany: async () => [] }, writingPreferenceRevision: { findFirst: async () => null } }),
+  getJobmatchDb: () => ({
+    targetJob: { findFirst },
+    tailorPreview: { create: previewCreate },
+    candidateEvidence: { findMany: async () => [] },
+    writingPreferenceRevision: { findFirst: async () => null },
+    jobFitAnswer: { findMany: fitAnswers },
+    jobFitCorrection: { findMany: async () => [] },
+    jobFitAssessment: { findUnique: fitAssessmentFindUnique, findFirst: async () => null },
+  }),
 }));
 vi.mock("../../../../lib/tailoring/ai/generate", () => ({
   runTailorProviderCall: (...args: unknown[]) => runTailorProviderCall(...args),
@@ -47,7 +62,8 @@ vi.mock("../../../../lib/tailoring/ai/coverLetter/generate", () => ({
 }));
 
 const generatePreview = (await import("./route")).POST;
-const jobFit = (await import("../job-fit/route")).POST;
+const fitRoute = (await import("../fit/route")).GET;
+const { extractRequirements } = await import("../../../../lib/tailoring/selection/requirements");
 
 const post = (body: unknown) =>
   new Request("http://localhost/api/tailor/generate-preview", { method: "POST", body: JSON.stringify(body) });
@@ -71,7 +87,7 @@ describe("generate-preview low-fit guard", () => {
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.code).toBe("LOW_FIT_UNCONFIRMED");
-    expect(body.fit.level).toBe("low");
+    expect(body.gate).toEqual({ source: "keyword", lowFit: true });
     expect(runTailorProviderCall).not.toHaveBeenCalled();
     expect(previewCreate).not.toHaveBeenCalled();
   });
@@ -103,36 +119,28 @@ describe("generate-preview low-fit guard", () => {
   });
 });
 
-describe("job-fit route", () => {
-  it("returns the fit for a fetched job", async () => {
+describe("fit route (#971)", () => {
+  const get = () => fitRoute(new Request("http://localhost/api/tailor/fit?targetJobId=j1&profileVersionId=v1"));
+
+  it("returns the keyword check and the scope gate for a fetched job, with no AI call", async () => {
     findFirst.mockResolvedValue({ rawText: truckJob, status: "FETCHED" });
-    const res = await jobFit(
-      new Request("http://localhost/api/tailor/job-fit", {
-        method: "POST",
-        body: JSON.stringify({ profileVersionId: "v1", targetJobId: "j1" }),
-      }),
-    );
+    const res = await get();
     expect(res.status).toBe(200);
-    const { fit } = await res.json();
-    expect(fit.level).toBe("low");
-    expect(fit.missingTerms).toContain("truck");
+    const body = await res.json();
+    expect(body.assessment).toBeNull();
+    expect(body.keyword.method).toBe("keyword");
+    expect(body.gate).toMatchObject({ source: "keyword", lowFit: true, reason: "keyword_scope" });
   });
 
   it("rejects a job with no fetched text", async () => {
     findFirst.mockResolvedValue({ rawText: null, status: "FETCH_FAILED" });
-    const res = await jobFit(
-      new Request("http://localhost/api/tailor/job-fit", {
-        method: "POST",
-        body: JSON.stringify({ profileVersionId: "v1", targetJobId: "j1" }),
-      }),
-    );
-    expect(res.status).toBe(400);
+    expect((await get()).status).toBe(404);
   });
 });
 
 describe("requirement selection and claim checks (#930)", () => {
   const job = ["Frontend developer", "Requirements:", "- Experience with React and TypeScript", "- Experience with Kubernetes", "- Fluent in Dutch"].join("\n");
-  const fitRequest = (body: unknown) => new Request("http://localhost/api/tailor/job-fit", { method: "POST", body: JSON.stringify(body) });
+  const ids = () => extractRequirements(job).map((r) => r.id);
 
   beforeEach(() => {
     runTailorProviderCall.mockReset();
@@ -140,25 +148,28 @@ describe("requirement selection and claim checks (#930)", () => {
     findFirst.mockReset().mockResolvedValue({ rawText: job, status: "FETCHED" });
   });
 
-  it("job-fit lists requirements and at most three questions, only for unknown ones", async () => {
-    const res = await jobFit(fitRequest({ profileVersionId: "v1", targetJobId: "j1" }));
-    const body = await res.json();
-    expect(body.requirements.map((r: { status: string }) => r.status)).toEqual(["supported", "unknown", "unknown"]);
-    expect(body.questions.map((q: { text: string }) => q.text)).toEqual(["Experience with Kubernetes", "Fluent in Dutch"]);
-    const k8s = body.requirements[1].id;
-    const answered = await (await jobFit(fitRequest({ profileVersionId: "v1", targetJobId: "j1", unmetRequirementIds: [k8s] }))).json();
-    expect(answered.requirements[1]).toMatchObject({ status: "unmet", unmetBy: "candidate" });
-    expect(answered.questions).toHaveLength(1);
+  it("the fit route lists requirements and at most three questions, only for unknown ones", async () => {
+    const body = await (await fitRoute(new Request("http://localhost/api/tailor/fit?targetJobId=j1&profileVersionId=v1"))).json();
+    expect(body.keyword.rows.map((r: { judgment: string }) => r.judgment)).toEqual(["direct", "unknown", "unknown"]);
+    expect(body.keyword.questions.map((q: { quote: string }) => q.quote)).toEqual(["Fluent in Dutch", "Experience with Kubernetes"]);
+  });
+
+  it("a saved 'no' answer counts as unmet in the run, without the client sending it", async () => {
+    const k8s = ids()[1]!;
+    fitAnswers.mockResolvedValueOnce([{ id: "a1", requirementId: k8s, answer: "no", evidenceRevisionId: null, createdAt: new Date() }]);
+    runTailorProviderCall.mockResolvedValue({ suggestions: null, degraded: true, promptVersion: "tailor_resume@8", modelVersion: "x", providerName: "fixture" });
+    await generatePreview(post({ profileVersionId: "v1", targetJobId: "j1" }));
+    const selection = runTailorProviderCall.mock.calls[0]?.[10] as { gapsText: string | null };
+    expect(selection.gapsText).toBe("- Experience with Kubernetes");
+    expect(previewCreate.mock.calls[0]?.[0].data.context.fit).toMatchObject({ source: "keyword", gaps: ["Experience with Kubernetes"] });
   });
 
   it("refuses malformed answers", async () => {
-    expect((await jobFit(fitRequest({ profileVersionId: "v1", targetJobId: "j1", unmetRequirementIds: "all" }))).status).toBe(400);
     expect((await generatePreview(post({ profileVersionId: "v1", targetJobId: "j1", unmetRequirementIds: [1] }))).status).toBe(400);
   });
 
   it("sends the tagged selection and the gaps to the CV call, stores the answers, and flags unsupported claims", async () => {
-    const fit = await (await jobFit(fitRequest({ profileVersionId: "v1", targetJobId: "j1" }))).json();
-    const k8s = fit.requirements[1].id;
+    const k8s = ids()[1]!;
     runTailorProviderCall.mockResolvedValue({
       suggestions: {
         headline: "Frontend developer · React",

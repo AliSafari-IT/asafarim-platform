@@ -8061,3 +8061,217 @@
 [data-app="resumatch"] .rm-tl__entry .rm-cal {
   margin-top: 0.6rem;
 }
+
+/* #971: job fit assessment on the fetched-job card
+   (components/tailoring/FitAssessmentPanel). */
+.rm-jfa {
+  margin: 0.75rem 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: var(--surface);
+  min-width: 0;
+}
+.rm-jfa__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.rm-jfa__title {
+  margin: 0;
+  font-size: 1rem;
+}
+.rm-jfa__method {
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.rm-jfa__actions {
+  display: flex;
+  gap: 0.4rem;
+}
+.rm-jfa__muted {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 0.35rem 0;
+}
+.rm-jfa__status {
+  font-size: 0.85rem;
+  margin: 0.5rem 0;
+}
+.rm-jfa__stale {
+  margin: 0.5rem 0;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.35rem;
+  background: var(--rx-warm-soft);
+  color: var(--rx-warm-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.rm-jfa__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+.rm-jfa__card {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  min-width: 0;
+}
+.rm-jfa__card-title {
+  margin: 0 0 0.3rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.rm-jfa__verdict {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+.rm-jfa__verdict--unmet_essential {
+  color: var(--rx-warm-text);
+}
+.rm-jfa__percent {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.rm-jfa__band {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.rm-jfa__completeness {
+  margin: 0.4rem 0 0.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.rm-jfa__list,
+.rm-jfa__next,
+.rm-jfa__bullets {
+  margin: 0.35rem 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+}
+.rm-jfa__list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+.rm-jfa__constraint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: baseline;
+}
+.rm-jfa__quote,
+.rm-jfa__citation {
+  overflow-wrap: anywhere;
+}
+.rm-jfa__citation {
+  display: block;
+  font-size: 0.82rem;
+}
+.rm-jfa__note {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 0.15rem;
+}
+[data-app="resumatch"] .rx-pill.rm-jfa__pill--partial {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+.rm-jfa__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.5rem 0.75rem;
+  margin: 0.5rem 0;
+}
+.rm-jfa__insufficient p {
+  margin: 0.2rem 0;
+  font-size: 0.85rem;
+}
+.rm-jfa__details {
+  margin: 0.6rem 0 0;
+}
+.rm-jfa__details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  min-height: 1.75rem;
+}
+.rm-jfa__details > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.rm-jfa__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  margin-top: 0.4rem;
+}
+.rm-jfa__table th,
+.rm-jfa__table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.4rem 0.45rem;
+  border-top: 1px solid var(--line);
+}
+.rm-jfa__table th {
+  color: var(--muted);
+  font-weight: 600;
+}
+.rm-jfa__row--off td {
+  color: var(--muted);
+}
+.rm-jfa__correct {
+  margin-top: 0.3rem;
+}
+.rm-jfa__correct-label {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+}
+@media (max-width: 720px) {
+  .rm-jfa__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rm-jfa__table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .rm-jfa__table,
+  .rm-jfa__table tbody,
+  .rm-jfa__table tr,
+  .rm-jfa__table td {
+    display: block;
+    width: 100%;
+  }
+  .rm-jfa__table tr {
+    border-top: 1px solid var(--line);
+    padding: 0.4rem 0;
+  }
+  .rm-jfa__table td {
+    border-top: 0;
+    padding: 0.2rem 0;
+  }
+  .rm-jfa__table td::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.75rem;
+  }
+}
