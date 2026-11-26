@@ -23,7 +23,7 @@ describe("parseApplicationListQuery", () => {
 
   it("reads every control", () => {
     const parsed = parseApplicationListQuery(
-      params("q=  Acme   Corp &status=APPLIED&due=overdue&today=2026-11-19&sort=followUp&page=3&pageSize=50"),
+      params("q=  Acme   Corp &status=APPLIED&via=indeed&due=overdue&today=2026-11-19&sort=followUp&page=3&pageSize=50"),
       "strict",
     );
     expect(parsed).toEqual({
@@ -32,6 +32,7 @@ describe("parseApplicationListQuery", () => {
       query: {
         q: "Acme Corp",
         status: "APPLIED",
+        via: "indeed",
         due: "overdue",
         today: "2026-11-19",
         sort: "followUp",
@@ -105,9 +106,10 @@ describe("serializeApplicationListQuery", () => {
     const query = {
       q: "Acme & Söhne",
       status: "INTERVIEWING" as const,
+      via: "external" as const,
       due: "upcoming" as const,
       today: "2026-12-31",
-      sort: "followUp" as const,
+      sort: "applied" as const,
       page: 4,
       pageSize: 10,
     };

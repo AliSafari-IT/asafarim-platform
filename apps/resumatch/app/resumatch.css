@@ -7745,3 +7745,224 @@
 .rm-review--only-flagged [data-review-item]:not([data-needs-review]) {
   display: none;
 }
+
+/* ─── External applications and the timeline (application-timeline.md) ─── */
+
+.rm-app-send__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.rm-app-tracking {
+  margin: 0;
+}
+.rm-tl-form {
+  display: grid;
+  gap: 0.9rem;
+  max-width: 48rem;
+}
+.rm-tl-form fieldset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem 0.75rem;
+  margin: 0;
+  min-width: 0;
+}
+.rm-tl-form legend {
+  font-weight: 600;
+  padding: 0 0.25rem;
+}
+.rm-tl-zoned__row,
+.rm-tl-form__pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+}
+.rm-tl-form .jm-field {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.rm-tl-form .ui-input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.rm-tl-hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.rm-tl-optional {
+  font-weight: 400;
+  color: var(--muted);
+}
+.rm-tl-channels__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0.25rem 0 0.5rem;
+}
+.rm-tl-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2rem;
+}
+.rm-tl-files__list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+.rm-tl-files__list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
+}
+.rm-tl-form__actions,
+.rm-tl__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0.5rem 0 0;
+}
+.rm-tl-summary {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2, var(--surface));
+  padding: 0.25rem 1rem 0.75rem;
+  margin-bottom: 1rem;
+  max-width: 48rem;
+}
+.rm-tl {
+  max-width: 48rem;
+}
+.rm-tl__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.rm-tl__add {
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 0.75rem 1rem 1rem;
+  margin-bottom: 1rem;
+}
+.rm-tl__list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 1rem;
+  border-left: 2px solid var(--line);
+  display: grid;
+  gap: 0.9rem;
+}
+.rm-tl__entry {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 0.6rem 0.9rem 0.7rem;
+  overflow-wrap: anywhere;
+}
+.rm-tl__entry::before {
+  content: "";
+  position: absolute;
+  left: calc(-1rem - 6px);
+  top: 1rem;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.rm-tl__entry--email::before {
+  background: var(--muted);
+}
+.rm-tl__entry-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+  font-size: 0.9rem;
+}
+.rm-tl__status {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.rm-tl__meta,
+.rm-tl__recorded {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.rm-tl__summary {
+  margin: 0.45rem 0 0;
+  white-space: pre-wrap;
+}
+.rm-tl__attachments {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.rm-tl__attachment-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.9rem;
+}
+.rm-tl__thumb {
+  display: block;
+  max-width: min(100%, 20rem);
+  max-height: 14rem;
+  margin-top: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.rm-tl__eml {
+  margin-top: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+}
+.rm-tl__eml summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.rm-tl__eml-headers {
+  margin: 0.4rem 0;
+  font-size: 0.85rem;
+}
+.rm-tl__eml-headers div {
+  display: flex;
+  gap: 0.5rem;
+}
+.rm-tl__eml-headers dt {
+  color: var(--muted);
+  min-width: 3.5rem;
+}
+.rm-tl__eml-headers dd {
+  margin: 0;
+}
+.rm-tl__eml-body {
+  margin: 0;
+  max-height: 20rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+.rm-tl__add-files {
+  margin-top: 0.5rem;
+}

@@ -46,10 +46,11 @@ describe("GET /api/applications", () => {
   });
 
   it("passes a parsed query through and ignores a workspaceId parameter", async () => {
-    await get("?q=acme&status=APPLIED&due=today&today=2026-11-19&sort=followUp&page=2&pageSize=100&workspaceId=ws-2");
+    await get("?q=acme&status=APPLIED&via=external&due=today&today=2026-11-19&sort=followUp&page=2&pageSize=100&workspaceId=ws-2");
     expect(listApplicationPage).toHaveBeenCalledWith("ws-1", {
       q: "acme",
       status: "APPLIED",
+      via: "external",
       due: "today",
       today: "2026-11-19",
       sort: "followUp",
@@ -62,6 +63,7 @@ describe("GET /api/applications", () => {
     ["?pageSize=101", ["pageSize"]],
     ["?page=0", ["page"]],
     ["?status=HIRED", ["status"]],
+    ["?via=fax", ["via"]],
     ["?due=overdue", ["today"]],
     ["?sort=random&page=x", ["sort", "page"]],
   ])("400s on %s and names the parameters", async (search, invalid) => {

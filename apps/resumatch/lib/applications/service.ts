@@ -149,8 +149,22 @@ const LIST_INCLUDE = {
     take: 1,
     select: { id: true, status: true, attemptedAt: true, sentAt: true, contactEmail: true, additionalRecipients: true },
   },
-  _count: { select: { sentEmails: true } },
+  // The newest timeline entry, for the card's "Latest activity" line
+  // (application-timeline.md); the full history is on the timeline page.
+  events: {
+    orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+    take: 1,
+    select: { kind: true, occurredAt: true, timeZone: true },
+  },
+  _count: { select: { sentEmails: true, events: true } },
 } satisfies Prisma.ApplicationInclude;
+
+const VIA_CHANNEL = {
+  indeed: "INDEED",
+  linkedin: "LINKEDIN",
+  company: "COMPANY_WEBSITE",
+  other: "OTHER",
+} as const;
 
 /** The `where` for a list query, always inside `workspaceId`. Due filters
  *  compare days: the stored value is a day at UTC midnight, so "today" is
@@ -161,6 +175,14 @@ const LIST_INCLUDE = {
 export function applicationListWhere(workspaceId: string, query: ApplicationListQuery): Prisma.ApplicationWhereInput {
   const and: Prisma.ApplicationWhereInput[] = [{ workspaceId }];
   if (query.status) and.push({ status: query.status });
+  if (query.via) {
+    // Channel and email delivery are separate facts (application-
+    // timeline.md): "email" means an email sent from ResuMatch was
+    // accepted, never a recorded external submission.
+    if (query.via === "email") and.push({ sentEmails: { some: { status: "ACCEPTED" } } });
+    else if (query.via === "external") and.push({ submissionChannel: { not: null } });
+    else and.push({ submissionChannel: VIA_CHANNEL[query.via] });
+  }
   if (query.q) {
     // Prisma passes `contains` to ILIKE without escaping, so "%" or "_" in
     // the search would act as wildcards. Searched as typed instead.
@@ -188,6 +210,9 @@ export function applicationListWhere(workspaceId: string, query: ApplicationList
 /** Always ends in the id, so rows with equal dates or timestamps keep one
  *  order across requests and offset pages never repeat or skip a row. */
 export function applicationListOrderBy(sort: ApplicationSort): Prisma.ApplicationOrderByWithRelationInput[] {
+  if (sort === "applied") {
+    return [{ appliedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }, { id: "desc" }];
+  }
   if (sort === "followUp") {
     return [{ followUpDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }, { id: "desc" }];
   }
