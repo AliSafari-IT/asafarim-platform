@@ -92,8 +92,7 @@ describe("followUpCalendar", () => {
     expect(ics.startsWith("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n")).toBe(true);
     expect(ics.endsWith("END:VCALENDAR\r\n")).toBe(true);
     expect(ics.replace(/\r\n/g, "")).not.toMatch(/[\r\n]/);
-    expect(ics).toContain("METHOD:PUBLISH");
-    expect(ics).not.toMatch(/ATTENDEE|ORGANIZER|VALARM/);
+    expect(ics).not.toMatch(/METHOD|ATTENDEE|ORGANIZER|VALARM/);
   });
 
   it("keeps Unicode and punctuation, escaped", () => {
@@ -151,6 +150,20 @@ describe("file names", () => {
     const header = calendarContentDisposition(name);
     expect(header).toMatch(/^attachment; filename="Follow-up {1,2}Ingenieur QA Senior {1,2}Zurich AG\.ics"; filename\*=UTF-8''/);
     expect(decodeURIComponent(header.split("UTF-8''")[1])).toBe(name);
+  });
+
+  it("never splits an emoji at the length limit", () => {
+    const title = `${"x".repeat(59)}💼 tail`;
+    const name = calendarFilename("Follow-up", { applicationId: "a", jobTitle: title, employer: null });
+    expect(name).toBe(`Follow-up – ${"x".repeat(59)}💼.ics`);
+    expect(() => calendarContentDisposition(name)).not.toThrow();
+  });
+
+  it("percent-encodes ' ( ) * in filename*", () => {
+    const header = calendarContentDisposition("Interview – Dev (Ops) O'Brien*.ics");
+    const extended = header.split("UTF-8''")[1];
+    expect(extended).not.toMatch(/['()*]/);
+    expect(decodeURIComponent(extended)).toBe("Interview – Dev (Ops) O'Brien*.ics");
   });
 
   it("falls back to event.ics when nothing ASCII is left", () => {

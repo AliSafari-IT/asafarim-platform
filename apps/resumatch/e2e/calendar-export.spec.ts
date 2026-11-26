@@ -66,7 +66,7 @@ test("a saved follow-up downloads as an all-day event on exactly that day", asyn
   expect(ics).toContain("DTEND;VALUE=DATE:20261204\r\n");
   expect(ics).toContain("SUMMARY:Follow up: Développeur\\, Full-stack\\; R&D “Ops” at Example Employer\r\n");
   expect(ics).toMatch(/URL:http:\/\/localhost:3012\/applications\/e2e-cal-dated\/timeline\r\n/);
-  expect(ics).not.toMatch(/ATTENDEE|ORGANIZER/);
+  expect(ics).not.toMatch(/METHOD|ATTENDEE|ORGANIZER/);
 
   // Exporting changes nothing.
   const after = await e2eDb().application.findUniqueOrThrow({ where: { id: "e2e-cal-dated" } });
@@ -76,7 +76,7 @@ test("a saved follow-up downloads as an all-day event on exactly that day", asyn
   expect(await e2eDb().sentApplicationEmail.count({ where: { applicationId: "e2e-cal-dated" } })).toBe(0);
 });
 
-test("no date, no export; it appears once a date is saved", async ({ page }) => {
+test("no date, no export; it appears once a date is saved", async ({ page, isMobile }) => {
   await page.goto("/applications");
   const card = applicationCard(page, "QA Engineer");
   await expect(card.getByLabel("Follow-up date")).toBeVisible();
@@ -86,6 +86,14 @@ test("no date, no export; it appears once a date is saved", async ({ page }) => 
   await card.getByLabel("Follow-up date").fill("2026-12-10");
   await card.getByLabel("Follow-up date").blur();
   await expect(card.getByTestId("follow-up-calendar-link")).toBeVisible();
+
+  // An unfinished edit hides the export, so the old date can't be downloaded.
+  if (!isMobile) {
+    await card.getByLabel("Follow-up date").click();
+    await page.keyboard.press("Backspace");
+    await expect(card.getByTestId("follow-up-calendar")).toHaveCount(0);
+    await expect(card.getByTestId("follow-up-calendar-pending")).toBeVisible();
+  }
   const res = await page.request.get("/api/applications/e2e-cal-none/follow-up/calendar");
   expect(res.headers()["content-type"]).toBe("text/calendar; charset=utf-8");
   expect(await res.text()).toContain("DTSTART;VALUE=DATE:20261210\r\n");

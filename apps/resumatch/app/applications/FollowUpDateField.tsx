@@ -153,7 +153,7 @@ export function FollowUpDateField({
   const due = today ? followUpDueState(savedDay, today, status) : null;
   // The calendar export is the saved day only: while a different date is
   // being typed or saved, the download would not match the field.
-  const exportable = savedDay !== null && !dirty && saveState.phase !== "saving";
+  const exportable = savedDay !== null && !dirty && !incomplete && saveState.phase !== "saving";
 
   return (
     <div className="rm-followup">
@@ -190,7 +190,7 @@ export function FollowUpDateField({
       </div>
       {exportable ? (
         <CalendarExportLink href={`/api/applications/${encodeURIComponent(applicationId)}/follow-up/calendar`} testId="follow-up-calendar" />
-      ) : draft !== "" && dirty ? (
+      ) : savedDay !== null || (draft !== "" && dirty) ? (
         <p className="rm-save-status" data-testid="follow-up-calendar-pending">
           {t("resumatch.cal.saveFirst")}
         </p>

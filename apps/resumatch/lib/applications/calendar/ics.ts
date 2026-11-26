@@ -14,8 +14,9 @@ import { formatZoned, isValidTimeZone } from "../zonedTime";
  *
  * What goes in is the minimum: a title with the job and company, the date
  * or time, and a link back to the application. Never notes, messages,
- * sender/recipient, attachments or CV text. `METHOD:PUBLISH` with no
- * ORGANIZER or ATTENDEE, so importing it can't send an invitation.
+ * sender/recipient, attachments or CV text. A plain calendar object: no
+ * iTIP METHOD (PUBLISH would require an ORGANIZER), no ORGANIZER or
+ * ATTENDEE, so importing it can't send an invitation.
  *
  * - A follow-up date is a calendar day (follow-up-dates.md), so it is an
  *   all-day event: `DTSTART;VALUE=DATE` with the exclusive next day as
@@ -134,7 +135,6 @@ function calendar(lines: string[]): string {
     "VERSION:2.0",
     `PRODID:${PRODID}`,
     "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH",
     ...lines,
     "END:VCALENDAR",
   ]
@@ -205,7 +205,10 @@ const UNSAFE = /[\\/:*?"<>|\u0000-\u001f\u007f]+/g;
 /** "Follow-up – Data Engineer – Acme.ics": the same cleaning as the PDF
  *  names; the parts come from stored data, never from the request. */
 export function calendarFilename(kind: string, job: CalendarJob): string {
-  const clean = (part: string | null) => part?.replace(UNSAFE, " ").replace(/\s+/g, " ").trim().slice(0, 60).trim() || null;
+  // Cut by code point, so an emoji at the limit is never split into a lone
+  // surrogate (which encodeURIComponent would throw on).
+  const clean = (part: string | null) =>
+    part ? Array.from(part.replace(UNSAFE, " ").replace(/\s+/g, " ").trim()).slice(0, 60).join("").trim() || null : null;
   const parts = [clean(kind) ?? "Event", clean(job.jobTitle), clean(job.employer)].filter(Boolean);
   return `${parts.join(" – ")}.ics`;
 }
@@ -221,5 +224,7 @@ export function calendarContentDisposition(filename: string): string {
       .replace(/^[\s.-]+/, "")
       .trim() || "event.ics";
   const fallback = ascii.toLowerCase().endsWith(".ics") && ascii.length > 4 ? ascii : "event.ics";
-  return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+  // RFC 8187 attr-chars exclude ' ( ) *, which encodeURIComponent leaves.
+  const extended = encodeURIComponent(filename).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${extended}`;
 }
