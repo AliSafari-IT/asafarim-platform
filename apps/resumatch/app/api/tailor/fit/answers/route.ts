@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getJobmatchDb } from "../../../../../lib/db/client";
-import { fitState, knownRequirementIds, loadFitContext, refreshStoredScore } from "../../../../../lib/tailoring/fit/service";
+import { fitState, knownRequirementIds, loadFitContext, refreshStoredScore, usableAnswerEvidence } from "../../../../../lib/tailoring/fit/service";
 import { getCurrentWorkspace, recordAuditEvent } from "../../../../../lib/workspace";
 import { contextOrError, isId, readBody } from "../http";
 
@@ -31,18 +31,15 @@ export async function POST(request: Request) {
   if ("response" in loaded) return loaded.response;
   const { context } = loaded;
   const { requirementId, answer, evidenceRevisionId } = body;
-  if (!isId(requirementId) || !(await knownRequirementIds(context)).has(requirementId)) {
+  const known = await knownRequirementIds(context);
+  if (!isId(requirementId) || !known.has(requirementId)) {
     return NextResponse.json({ error: "Unknown requirement." }, { status: 400 });
   }
   if (answer !== "yes" && answer !== "no") return NextResponse.json({ error: "answer must be yes or no." }, { status: 400 });
   const db = getJobmatchDb();
   if (answer === "yes") {
     if (!isId(evidenceRevisionId)) return NextResponse.json({ error: "A yes needs confirmed evidence." }, { status: 400 });
-    const revision = await db.candidateEvidenceRevision.findFirst({
-      where: { id: evidenceRevisionId, workspaceId: workspace.id, status: "CONFIRMED" },
-      select: { evidence: { select: { scope: true, targetJobId: true } } },
-    });
-    if (!revision || (revision.evidence.scope === "APPLICATION" && revision.evidence.targetJobId !== context.targetJobId)) {
+    if (!(await usableAnswerEvidence(workspace.id, context.targetJobId, [evidenceRevisionId])).has(evidenceRevisionId)) {
       return NextResponse.json({ error: "That evidence is not confirmed for this job." }, { status: 400 });
     }
   }
@@ -51,6 +48,7 @@ export async function POST(request: Request) {
       workspaceId: workspace.id,
       targetJobId: context.targetJobId,
       requirementId,
+      requirementQuote: (known.get(requirementId) ?? "").slice(0, 300) || null,
       answer,
       evidenceRevisionId: answer === "yes" ? (evidenceRevisionId as string) : null,
     },

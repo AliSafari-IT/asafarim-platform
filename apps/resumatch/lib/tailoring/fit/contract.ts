@@ -219,6 +219,9 @@ export type FitAnswerValue = "yes" | "no";
 export interface FitAnswer {
   id: string;
   requirementId: string;
+  /** The requirement as the candidate saw it when answering, so a "no"
+   *  still reaches tailoring when a later analysis does not list it. */
+  requirementQuote?: string | null;
   answer: FitAnswerValue;
   /** "Yes": the confirmed evidence revision holding the candidate's words. */
   evidenceRevisionId: string | null;

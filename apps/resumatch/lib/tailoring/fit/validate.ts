@@ -1,5 +1,6 @@
 import { requirementId } from "../selection/requirements";
-import { termStems } from "../selection/requirements";
+import { requirementTerms, termStems } from "../selection/requirements";
+import { degreeRequirement, educationMeets } from "../selection/degrees";
 import { contentStems } from "../jobFit";
 import {
   FIT_CONTRACT_VERSION,
@@ -112,6 +113,17 @@ function sharesTerm(requirementQuote: string, citations: FitCitation[]): boolean
   return false;
 }
 
+/** A degree requirement met by a cited education entry at or above its
+ *  level (the #960 rule): "PhD" never shares a word with "master". */
+function degreeMetBy(requirementQuote: string, citations: FitCitation[], sourceById: Map<string, FitSource>): boolean {
+  const degree = degreeRequirement({ text: requirementQuote, terms: requirementTerms(requirementQuote).slice(0, 12) });
+  if (!degree) return false;
+  return citations.some((c) => {
+    const source = sourceById.get(c.sourceId);
+    return Boolean(source && c.sourceId.startsWith("edu:") && educationMeets(degree, source.text, termStems(source.text)));
+  });
+}
+
 export function validateFitOutput(input: ValidateInput): FitAnalysis {
   const { output, jobText, sources } = input;
   const sourceById = new Map(sources.map((s) => [s.id, s]));
@@ -186,7 +198,7 @@ export function validateFitOutput(input: ValidateInput): FitAnalysis {
     };
     if ((judgment === "direct" || judgment === "partial") && citations.length === 0) {
       downgrade(flags.has("wrong_source_kind") ? "wrong_source_kind" : "unsupported_claim");
-    } else if (judgment === "direct" && !equivalence && !sharesTerm(requirement.quote, citations)) {
+    } else if (judgment === "direct" && !equivalence && !sharesTerm(requirement.quote, citations) && !degreeMetBy(requirement.quote, citations, sourceById)) {
       downgrade("unexplained_match");
     } else if (judgment === "unmet" && !citations.some((c) => c.sourceId.startsWith("answer:") || NEGATION.test(c.quote))) {
       downgrade("unmet_without_evidence");

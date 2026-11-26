@@ -187,18 +187,27 @@ export function scoreFit(rows: FitRow[], options: ScoreOptions): FitScore {
   // never "unmet".
   const live = rows.filter((r) => !r.removed && !r.requirement.protectedTrait);
   const constraintRows = live.filter((r) => isConstraint(r.requirement));
-  const items: SuitabilityItem[] = constraintRows.map((r) => ({
-    requirementId: r.requirement.id,
-    status: r.assessment.judgment === "direct" ? "supported" : r.assessment.judgment === "unmet" ? "unmet" : "needs_confirmation",
-  }));
-  // An OR group of constraints is met by any member.
-  const groupMet = new Set(
-    constraintRows.filter((r) => r.requirement.groupId && r.assessment.judgment === "direct").map((r) => r.requirement.groupId!),
-  );
-  const effective = items.filter((item) => {
-    const row = constraintRows.find((r) => r.requirement.id === item.requirementId)!;
-    return !(row.requirement.groupId && groupMet.has(row.requirement.groupId) && item.status !== "supported");
-  });
+  // OR groups are judged across all their live members, constraint or not:
+  // any supported alternative meets the group, and the group is unmet only
+  // when every alternative is.
+  const members = new Map<string, FitRow[]>();
+  for (const r of live) {
+    if (!r.requirement.groupId) continue;
+    members.set(r.requirement.groupId, [...(members.get(r.requirement.groupId) ?? []), r]);
+  }
+  const groupMet = (groupId: string) => (members.get(groupId) ?? []).some((m) => m.assessment.judgment === "direct");
+  const groupAllUnmet = (groupId: string) => (members.get(groupId) ?? []).every((m) => m.assessment.judgment === "unmet");
+  const items: SuitabilityItem[] = [];
+  for (const r of constraintRows) {
+    const groupId = r.requirement.groupId;
+    if (groupId && groupMet(groupId) && r.assessment.judgment !== "direct") continue;
+    const unmet = r.assessment.judgment === "unmet" && (!groupId || groupAllUnmet(groupId));
+    items.push({
+      requirementId: r.requirement.id,
+      status: r.assessment.judgment === "direct" ? "supported" : unmet ? "unmet" : "needs_confirmation",
+    });
+  }
+  const effective = items;
   const essentialUnmet = effective.some((i) => {
     const row = constraintRows.find((r) => r.requirement.id === i.requirementId)!;
     return i.status === "unmet" && (row.requirement.essential || row.requirement.priority === "required");
