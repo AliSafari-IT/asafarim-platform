@@ -88,6 +88,12 @@ export function keywordFitOutput(selection: TailoringSelection, sources: FitSour
       if (quote) citations.push({ sourceId, quote });
       if (citations.length >= 2) break;
     }
+    // A degree met by level (#960) shares no word with the requirement:
+    // cite the education entry itself; validation applies the same rule.
+    if (judgment === "direct" && citations.length === 0) {
+      const edu = c.sourceIds.map((id) => byId.get(id)).find((s) => s && s.id.startsWith("edu:"));
+      if (edu) citations.push({ sourceId: edu.id, quote: edu.text.replace(/\s+/g, " ").trim().slice(0, 240) });
+    }
     if (judgment === "unmet" || judgment === "conflict") {
       for (const source of sources) {
         const quote = quoteFrom(source, wanted, true);

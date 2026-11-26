@@ -1515,6 +1515,8 @@ model JobFitAnswer {
   targetJob   TargetJob @relation(fields: [targetJobId], references: [id], onDelete: Cascade)
 
   requirementId      String
+  /// The requirement's quote when it was answered, for tailoring.
+  requirementQuote   String?
   /// "yes" or "no".
   answer             String
   evidenceRevisionId String?

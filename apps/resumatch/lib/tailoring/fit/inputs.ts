@@ -83,6 +83,28 @@ function jobTextFor(jobText: string, selection: TailoringSelection): { used: str
   return { used: `${head}${tail}`.slice(0, MAX_FIT_JOB_CHARS), truncated: true };
 }
 
+const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g;
+
+/** Masks the candidate's name (whole and its parts of three or more
+ *  letters), email, phone, any email address and their profile links. */
+export function contactRedactor(profile: CandidateProfileContent): (text: string) => string {
+  const names = new Set<string>();
+  if (profile.fullName) {
+    names.add(profile.fullName);
+    for (const part of profile.fullName.split(/\s+/)) if (part.length >= 3) names.add(part);
+  }
+  const literals = [profile.phone, ...profile.links.map((l) => l.url)].filter((v): v is string => Boolean(v && v.trim()));
+  const nameRe = names.size
+    ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${[...names].sort((a, b) => b.length - a.length).map(escapeRe).join("|")})(?![\\p{L}\\p{N}])`, "giu")
+    : null;
+  return (text: string) => {
+    let out = text.replace(EMAIL, "[email]");
+    for (const literal of literals) out = out.split(literal).join("[contact]");
+    return nameRe ? out.replace(nameRe, "[the candidate]") : out;
+  };
+}
+
 export function buildFitInputs(input: {
   profile: CandidateProfileContent;
   rawJobText: string;
@@ -96,14 +118,18 @@ export function buildFitInputs(input: {
     profileBudget: MAX_FIT_PROFILE_CHARS,
   });
   const { used, truncated } = jobTextFor(jobText, selection);
+  // Evidence and summaries are free text: the candidate's own name and
+  // contact details are masked there too, in what the model reads and in
+  // what citations are checked against.
+  const redact = contactRedactor(input.profile);
   const sources: FitSource[] = [
-    ...selection.sources.map((s) => ({ id: s.id, kind: s.kind, text: s.text, label: s.label })),
+    ...selection.sources.map((s) => ({ id: s.id, kind: s.kind, text: redact(s.text), label: s.label })),
     ...preferenceSources(input.profile),
   ];
   const prefLines = preferenceSources(input.profile).map((s) => `[${s.id}] ${clean(s.text)}`);
   const sourcesText = [
-    selection.profileText,
-    selection.evidenceText ? `Confirmed evidence:\n${selection.evidenceText}` : null,
+    redact(selection.profileText),
+    selection.evidenceText ? `Confirmed evidence:\n${redact(selection.evidenceText)}` : null,
     prefLines.length > 0 ? `Work preferences:\n${prefLines.join("\n")}` : null,
   ]
     .filter(Boolean)

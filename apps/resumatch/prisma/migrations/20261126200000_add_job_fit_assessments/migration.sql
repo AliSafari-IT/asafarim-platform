@@ -36,6 +36,7 @@ CREATE TABLE "job_fit_answers" (
     "workspaceId" TEXT NOT NULL,
     "targetJobId" TEXT NOT NULL,
     "requirementId" TEXT NOT NULL,
+    "requirementQuote" TEXT,
     "answer" TEXT NOT NULL,
     "evidenceRevisionId" TEXT,
     "revokedAt" TIMESTAMP(3),
