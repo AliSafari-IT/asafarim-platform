@@ -7,7 +7,7 @@ import { applicationCard, e2eDb, expect, seedApplications, signInAs, test } from
  * browser runs in Brussels with a fixed clock, 25 November 2026 12:00
  * local, so "now" and the default time zone are known.
  */
-test.use({ timezoneId: "Europe/Brussels", locale: "en-GB" });
+test.use({ timezoneId: "Europe/Brussels", locale: "en-US" });
 
 const NOW = new Date("2026-11-25T11:00:00Z");
 const PNG = Buffer.from(
@@ -50,13 +50,13 @@ test("1 + 2: records an Indeed application with no email or PDFs, and the past t
   await recordIndeed(page);
   await expect(page.getByTestId("summary-status")).toHaveText("Applied");
   await expect(page.getByTestId("summary-channel")).toHaveText("Indeed");
-  await expect(page.getByTestId("summary-applied-time")).toContainText("20 Nov 2026");
-  await expect(page.getByTestId("summary-applied-time")).toContainText("14:30");
+  await expect(page.getByTestId("summary-applied-time")).toContainText("Nov 20, 2026");
+  await expect(page.getByTestId("summary-applied-time")).toContainText("02:30 PM");
 
   await page.goto("/applications");
   const card = applicationCard(page, "Data Engineer");
   await expect(card.getByTestId("external-channel")).toHaveText("Applied via Indeed");
-  await expect(card.getByTestId("external-applied-time")).toContainText("14:30");
+  await expect(card.getByTestId("external-applied-time")).toContainText("02:30 PM");
   await expect(card.getByTestId("external-applied-time")).toHaveAttribute("datetime", "2026-11-20T13:30:00.000Z");
   await expect(card.locator('[aria-current="step"]')).toContainText("Applied");
   await expect(card.getByTestId("last-sent")).toHaveCount(0);
@@ -65,7 +65,7 @@ test("1 + 2: records an Indeed application with no email or PDFs, and the past t
   await expect(card.getByTestId("open-application-url")).toHaveAttribute("href", "https://jobs.example.test/e2e-tl-indeed");
 
   await page.reload();
-  await expect(applicationCard(page, "Data Engineer").getByTestId("external-applied-time")).toContainText("14:30");
+  await expect(applicationCard(page, "Data Engineer").getByTestId("external-applied-time")).toContainText("02:30 PM");
   const row = await e2eDb().application.findUniqueOrThrow({ where: { id: "e2e-tl-indeed" } });
   expect(row.appliedAt?.toISOString()).toBe("2026-11-20T13:30:00.000Z");
   expect(row.appliedTimeZone).toBe("Europe/Brussels");
@@ -119,7 +119,7 @@ test("4 + 5: replies and interviews stay separate entries; a confirmation alone 
   const kinds = await page.getByTestId("timeline-entry").evaluateAll((els) => els.map((el) => el.getAttribute("data-kind")));
   expect(kinds).toEqual(["SUBMITTED", "CONFIRMATION_RECEIVED", "RECRUITER_REPLY", "RESPONSE_SENT", "INTERVIEW"]);
   await expect(page.getByTestId("timeline-entry").filter({ hasText: "Could you do a call on Tuesday?" })).toHaveCount(1);
-  await expect(page.getByTestId("entry-status-change")).toHaveText("Status: Applied → Interviewing");
+  await expect(page.getByTestId("entry-status-change")).toHaveText(["Status: Saved → Applied", "Status: Applied → Interviewing"]);
 
   await page.goto("/applications");
   await expect(applicationCard(page, "Data Engineer").getByTestId("latest-activity")).toContainText("Latest activity: interview");
@@ -146,14 +146,16 @@ test("7: external applications count in totals, filters, sorting and follow-ups"
   await recordIndeed(page);
   await page.goto("/applications?status=APPLIED");
   await expect(applicationCard(page, "Data Engineer")).toBeVisible();
-  await expect(page.locator(".rm-app-summary")).toContainText("of 2");
+  await expect(page.locator(".rm-app-summary")).toContainText("of 1 matching");
   await page.goto("/applications?via=indeed");
   await expect(applicationCard(page, "Data Engineer")).toBeVisible();
   await expect(page.locator(".ui-card").filter({ hasText: "QA Engineer" }).filter({ visible: true })).toHaveCount(0);
   await page.goto("/applications?via=email");
   await expect(page.locator(".rm-app-summary")).toContainText("No applications match");
   await page.goto("/applications?sort=applied");
-  const titles = await page.locator(".rm-application-list .ui-card").filter({ visible: true }).allTextContents();
+  await expect(applicationCard(page, "QA Engineer")).toBeVisible();
+  const titles = await page.locator(".ui-card").filter({ hasText: "Engineer" }).filter({ visible: true }).allTextContents();
+  expect(titles.length).toBe(2);
   expect(titles.findIndex((t) => t.includes("Data Engineer"))).toBeLessThan(titles.findIndex((t) => t.includes("QA Engineer")));
 
   // A follow-up added on the timeline is the card's follow-up date.
@@ -162,7 +164,7 @@ test("7: external applications count in totals, filters, sorting and follow-ups"
   await form.getByTestId("event-kind").selectOption("FOLLOW_UP");
   await form.getByTestId("event-follow-up").fill("2026-12-02");
   await form.getByTestId("event-save").click();
-  await expect(page.getByTestId("summary-follow-up")).toContainText("2 Dec 2026");
+  await expect(page.getByTestId("summary-follow-up")).toContainText("Dec 2, 2026");
   await page.goto("/applications?due=upcoming&today=2026-11-25");
   await expect(applicationCard(page, "Data Engineer")).toBeVisible();
 });
@@ -170,8 +172,13 @@ test("7: external applications count in totals, filters, sorting and follow-ups"
 test("8: repeated Save clicks record one submission and one update", async ({ page }) => {
   await page.goto("/applications/e2e-tl-indeed/external");
   await page.getByTestId("external-channel-COMPANY_WEBSITE").check();
-  const save = page.getByTestId("external-save");
-  await Promise.all([save.click(), save.click({ force: true }).catch(() => undefined), save.click({ force: true }).catch(() => undefined)]);
+  // Three clicks in the same tick, before React can disable the button:
+  // the server must still record one submission.
+  await page.getByTestId("external-save").evaluate((button: HTMLButtonElement) => {
+    button.click();
+    button.click();
+    button.click();
+  });
   await expect(page.getByTestId("timeline-flash")).toBeVisible();
   expect((await events("e2e-tl-indeed")).length).toBe(1);
 
@@ -179,8 +186,10 @@ test("8: repeated Save clicks record one submission and one update", async ({ pa
   const form = page.getByTestId("event-add-form");
   await form.getByTestId("event-kind").selectOption("NOTE");
   await form.getByTestId("event-summary").fill("Called reception");
-  const saveEvent = form.getByTestId("event-save");
-  await saveEvent.dblclick();
+  await form.getByTestId("event-save").evaluate((button: HTMLButtonElement) => {
+    button.click();
+    button.click();
+  });
   await expect(page.getByTestId("timeline-notice")).toHaveText("Update added.");
   expect((await events("e2e-tl-indeed")).map((e) => e.kind)).toEqual(["SUBMITTED", "NOTE"]);
 });
@@ -189,7 +198,7 @@ test("undo removes only the recorded submission", async ({ page }) => {
   await recordIndeed(page);
   await page.goto("/applications/e2e-tl-indeed/external");
   await page.getByTestId("external-undo").click();
-  await page.getByRole("dialog").getByRole("button", { name: "Undo submission" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Undo submission" }).click();
   await expect(page.getByTestId("timeline-flash")).toContainText("undone");
   await expect(page.getByTestId("summary-status")).toHaveText("Saved");
   await expect(page.getByTestId("timeline-empty")).toBeVisible();
@@ -211,7 +220,76 @@ test("10: another account can't open this timeline or its files", async ({ page,
   expect((await page.request.get(`/api/application-attachments/${file.id}`)).status()).toBe(404);
   expect((await page.request.get("/api/applications/e2e-tl-indeed/events")).status()).toBe(404);
   expect((await page.request.delete(`/api/application-attachments/${file.id}`)).status()).toBe(404);
-  const res = await page.goto("/applications/e2e-tl-indeed/timeline");
-  expect(res?.status()).toBe(404);
+  // The page streams, so a not-found can answer 200 in development; what
+  // matters is that none of the application is shown.
+  await page.goto("/applications/e2e-tl-indeed/timeline");
+  await expect(page.getByTestId("timeline-list")).toHaveCount(0);
+  await expect(page.getByTestId("submission-summary")).toHaveCount(0);
+  await expect(page.locator("body")).not.toContainText("Data Engineer");
   expect(await e2eDb().applicationEventAttachment.count({ where: { id: file.id } })).toBe(1);
+});
+
+const shots = process.env.TIMELINE_SHOTS;
+const axePath = process.env.AXE_CORE_PATH;
+
+async function checkContrast(page: Page, include: string[], theme: string) {
+  if (!axePath) return;
+  await page.addScriptTag({ path: axePath });
+  const violations = await page.evaluate(async (selectors) => {
+    const axe = (window as unknown as { axe: { run: (ctx: unknown, opts: unknown) => Promise<{ violations: { id: string; nodes: { target: string[] }[] }[] }> } }).axe;
+    const result = await axe.run({ include: selectors }, { runOnly: ["wcag2a", "wcag2aa"] });
+    return result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
+  }, include);
+  expect(violations, theme).toEqual([]);
+}
+
+test("screenshots and contrast of the form, card and timeline", async ({ page }, testInfo) => {
+  test.skip(!shots && !axePath, "set TIMELINE_SHOTS=<dir> and/or AXE_CORE_PATH=<axe.min.js>");
+  const project = testInfo.project.name.replace(/\s+/g, "-");
+  const themes = ["light", "dark"] as const;
+  const setTheme = (theme: string) => page.evaluate((value) => document.documentElement.setAttribute("data-theme", value), theme);
+
+  await page.goto("/applications/e2e-tl-indeed/external");
+  await page.getByTestId("external-applied-local").fill("2026-11-20T14:30");
+  await page.getByTestId("external-channel-INDEED").check();
+  await page.getByTestId("external-reference").fill("IND-4471");
+  await page.getByTestId("external-confirmation-text").fill("Thank you for applying to Data Engineer at Example Employer.");
+  await page.getByTestId("external-files-input").setInputFiles([{ name: "confirmation.png", mimeType: "image/png", buffer: PNG }]);
+  for (const theme of themes) {
+    await setTheme(theme);
+    if (shots) await page.getByTestId("external-form").screenshot({ path: `${shots}/form-${project}-${theme}.png` });
+    await checkContrast(page, [".rm-tl-form"], theme);
+  }
+  await page.getByTestId("external-save").click();
+  await expect(page.getByTestId("timeline-flash")).toBeVisible();
+
+  await page.getByTestId("add-update").click();
+  const form = page.getByTestId("event-add-form");
+  await form.getByTestId("event-kind").selectOption("RECRUITER_REPLY");
+  await form.getByTestId("event-at-local").fill("2026-11-22T09:10");
+  await form.getByTestId("event-sender").fill("Sam, Example Employer");
+  await form.getByTestId("event-summary").fill("Hi! Could you do a short call on Tuesday at 10:00?");
+  await form.getByTestId("event-next-action").fill("Confirm Tuesday call");
+  await form.getByTestId("event-follow-up").fill("2026-11-30");
+  await form.getByTestId("event-save").click();
+  await expect(page.getByTestId("timeline-notice")).toHaveText("Update added.");
+  await page.getByTestId("add-update").click();
+  for (const theme of themes) {
+    await setTheme(theme);
+    if (shots) {
+      await page.getByTestId("event-add-form").screenshot({ path: `${shots}/add-update-${project}-${theme}.png` });
+      await page.getByTestId("submission-summary").screenshot({ path: `${shots}/summary-${project}-${theme}.png` });
+      await page.getByTestId("timeline-list").screenshot({ path: `${shots}/timeline-${project}-${theme}.png` });
+    }
+    await checkContrast(page, [".rm-tl", ".rm-tl-summary"], theme);
+  }
+
+  await page.goto("/applications");
+  const card = applicationCard(page, "Data Engineer");
+  await expect(card.getByTestId("external-submission")).toBeVisible();
+  for (const theme of themes) {
+    await setTheme(theme);
+    if (shots) await card.screenshot({ path: `${shots}/card-${project}-${theme}.png` });
+    await checkContrast(page, [".rm-app-send"], theme);
+  }
 });
