@@ -57,11 +57,14 @@ export async function loadFitContext(
   workspaceId: string,
   targetJobId: string,
   profileVersionId: string,
+  /** #973: a saved CV's own version, which a later confirmation may have
+   *  replaced as the current one, is read for display without this check. */
+  options: { requireCurrentConfirmed?: boolean } = {},
 ): Promise<{ ok: true; context: FitContext } | { ok: false; error: FitContextError }> {
   const db = getJobmatchDb();
   const version = await getVersion(workspaceId, profileVersionId);
   if (!version) return { ok: false, error: "profile_not_found" };
-  if (!version.isConfirmed) return { ok: false, error: "profile_not_confirmed" };
+  if (options.requireCurrentConfirmed !== false && !version.isConfirmed) return { ok: false, error: "profile_not_confirmed" };
   const job = await db.targetJob.findFirst({
     where: { id: targetJobId, workspaceId },
     select: { rawText: true, status: true },
@@ -188,7 +191,7 @@ const ROW_SELECT = {
   status: true,
 } as const;
 
-function readAnalysis(value: unknown): FitAnalysis | null {
+export function readAnalysis(value: unknown): FitAnalysis | null {
   if (!value || typeof value !== "object") return null;
   const a = value as FitAnalysis;
   if (typeof a.version !== "string" || !a.version.startsWith("fit_assessment@") || !Array.isArray(a.requirements) || !Array.isArray(a.assessments)) return null;
